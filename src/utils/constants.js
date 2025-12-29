@@ -92,15 +92,21 @@ export const defaultPromosFormationInitiale = {
   ]
 };
 
-// Promos par site - Formation Continue
+// Promos par site - Formation Continue (CAFDES, CAFERUIS, VAE, Prestation, GAP)
 export const defaultPromosFormationContinue = {
   [SITES.AVION]: [
     { id: 'avion-cafdes1', nom: 'CAFDES1', effectifInitial: 15, abandons: defaultAbandons() },
-    { id: 'avion-cafdes2', nom: 'CAFDES2', effectifInitial: 12, abandons: defaultAbandons() }
+    { id: 'avion-cafdes2', nom: 'CAFDES2', effectifInitial: 12, abandons: defaultAbandons() },
+    { id: 'avion-vae', nom: 'VAE', effectifInitial: 20, abandons: defaultAbandons() },
+    { id: 'avion-prestation', nom: 'Prestation Formation', effectifInitial: 25, abandons: defaultAbandons() },
+    { id: 'avion-gap', nom: 'GAP', effectifInitial: 15, abandons: defaultAbandons() }
   ],
   [SITES.SAINT_LAURENT]: [
     { id: 'slb-caferuis1', nom: 'CAFERUIS1', effectifInitial: 20, abandons: defaultAbandons() },
-    { id: 'slb-caferuis2', nom: 'CAFERUIS2', effectifInitial: 18, abandons: defaultAbandons() }
+    { id: 'slb-caferuis2', nom: 'CAFERUIS2', effectifInitial: 18, abandons: defaultAbandons() },
+    { id: 'slb-vae', nom: 'VAE', effectifInitial: 20, abandons: defaultAbandons() },
+    { id: 'slb-prestation', nom: 'Prestation Formation', effectifInitial: 25, abandons: defaultAbandons() },
+    { id: 'slb-gap', nom: 'GAP', effectifInitial: 15, abandons: defaultAbandons() }
   ]
 };
 
@@ -167,121 +173,41 @@ export const defaultServices = [
     investissements: {
       bienImmo: { montant: 0, duree: 25, taux: 0 },
       travaux: { montant: 10000, duree: 10, taux: 2.0 },
-      vehicule: { montant: 15000, duree: 5, taux: 3.0 },
-      informatique: { montant: 15000, duree: 3, taux: 0 },
-      mobilier: { montant: 8000, duree: 10, taux: 0 },
+      vehicule: { montant: 35000, duree: 5, taux: 3.0 },
+      informatique: { montant: 35000, duree: 3, taux: 0 },
+      mobilier: { montant: 15000, duree: 10, taux: 0 },
       fraisBancaires: { montant: 0, duree: 1, taux: 0 },
       fraisNotaire: { montant: 0, duree: 1, taux: 0 }
     },
     exploitation: [
-      { id: 1, nom: 'Fournitures', montant: 1000 },
-      { id: 2, nom: 'Documentation', montant: 800 },
-      { id: 3, nom: 'Carburant', montant: 500 },
-      { id: 4, nom: 'Assurances', montant: 400 },
-      { id: 5, nom: 'Eau/Élec/Gaz', montant: 600 },
-      { id: 6, nom: 'Entretien', montant: 300 },
-      { id: 7, nom: 'Téléphonie', montant: 200 }
+      { id: 1, nom: 'Fournitures', montant: 2000 },
+      { id: 2, nom: 'Documentation', montant: 1500 },
+      { id: 3, nom: 'Carburant', montant: 1500 },
+      { id: 4, nom: 'Assurances', montant: 600 },
+      { id: 5, nom: 'Eau/Élec/Gaz', montant: 800 },
+      { id: 6, nom: 'Entretien', montant: 400 },
+      { id: 7, nom: 'Téléphonie', montant: 500 }
     ],
     recettes: [
-      { id: 1, nom: 'Financement OPCO', montant: 25000 },
-      { id: 2, nom: 'Frais de scolarité', montant: 15000 },
-      { id: 3, nom: 'Subvention État', montant: 8000 }
+      { id: 1, nom: 'Financement OPCO', montant: 40000 },
+      { id: 2, nom: 'Frais de scolarité', montant: 20000 },
+      { id: 3, nom: 'Subvention État', montant: 10000 },
+      { id: 4, nom: 'Prestations VAE', montant: 12000 },
+      { id: 5, nom: 'Prestations Formation', montant: 15000 },
+      { id: 6, nom: 'Prestations GAP', montant: 10000 }
     ],
     personnel: [
       { id: 1, titre: 'Responsable Formation Continue', etp: 1, salaire: 4000, segur: true },
       { id: 2, titre: 'Formateur CAFDES', etp: 1.5, salaire: 3500, segur: true },
       { id: 3, titre: 'Formateur CAFERUIS', etp: 1.5, salaire: 3400, segur: true },
-      { id: 4, titre: 'Secrétaire', etp: 1, salaire: 2400, segur: true }
+      { id: 4, titre: 'Accompagnateur VAE', etp: 2, salaire: 2800, segur: true },
+      { id: 5, titre: 'Formateur Prestation', etp: 2, salaire: 3000, segur: true },
+      { id: 6, titre: 'Animateur GAP', etp: 1.5, salaire: 3200, segur: true },
+      { id: 7, titre: 'Secrétaire pédagogique', etp: 2, salaire: 2400, segur: true }
     ]
   },
   {
     id: 3,
-    nom: 'VAE',
-    type: 'accompagnement',
-    unites: 40,
-    tauxActivite: 80,
-    investissements: {
-      bienImmo: { montant: 0, duree: 25, taux: 0 },
-      travaux: { montant: 0, duree: 10, taux: 0 },
-      vehicule: { montant: 0, duree: 5, taux: 0 },
-      informatique: { montant: 5000, duree: 3, taux: 0 },
-      mobilier: { montant: 2000, duree: 10, taux: 0 },
-      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
-      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
-    },
-    exploitation: [
-      { id: 1, nom: 'Fournitures', montant: 300 },
-      { id: 2, nom: 'Documentation', montant: 200 },
-      { id: 3, nom: 'Téléphonie', montant: 100 }
-    ],
-    recettes: [
-      { id: 1, nom: 'Financement OPCO', montant: 8000 },
-      { id: 2, nom: 'Prestations de service', montant: 3000 }
-    ],
-    personnel: [
-      { id: 1, titre: 'Responsable VAE', etp: 0.5, salaire: 3500, segur: true },
-      { id: 2, titre: 'Accompagnateur VAE', etp: 2, salaire: 2800, segur: true }
-    ]
-  },
-  {
-    id: 4,
-    nom: 'Prestation Formation',
-    type: 'prestation',
-    unites: 50,
-    tauxActivite: 75,
-    investissements: {
-      bienImmo: { montant: 0, duree: 25, taux: 0 },
-      travaux: { montant: 0, duree: 10, taux: 0 },
-      vehicule: { montant: 10000, duree: 5, taux: 3.0 },
-      informatique: { montant: 8000, duree: 3, taux: 0 },
-      mobilier: { montant: 3000, duree: 10, taux: 0 },
-      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
-      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
-    },
-    exploitation: [
-      { id: 1, nom: 'Fournitures', montant: 500 },
-      { id: 2, nom: 'Carburant', montant: 400 },
-      { id: 3, nom: 'Documentation', montant: 300 },
-      { id: 4, nom: 'Téléphonie', montant: 150 }
-    ],
-    recettes: [
-      { id: 1, nom: 'Prestations de service', montant: 12000 },
-      { id: 2, nom: 'Financement OPCO', montant: 5000 }
-    ],
-    personnel: [
-      { id: 1, titre: 'Responsable Prestations', etp: 0.5, salaire: 3500, segur: true },
-      { id: 2, titre: 'Formateur Prestation', etp: 2, salaire: 3000, segur: true }
-    ]
-  },
-  {
-    id: 5,
-    nom: 'GAP (Groupe d\'Analyse des Pratiques)',
-    type: 'prestation',
-    unites: 30,
-    tauxActivite: 70,
-    investissements: {
-      bienImmo: { montant: 0, duree: 25, taux: 0 },
-      travaux: { montant: 0, duree: 10, taux: 0 },
-      vehicule: { montant: 8000, duree: 5, taux: 3.0 },
-      informatique: { montant: 3000, duree: 3, taux: 0 },
-      mobilier: { montant: 1500, duree: 10, taux: 0 },
-      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
-      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
-    },
-    exploitation: [
-      { id: 1, nom: 'Fournitures', montant: 200 },
-      { id: 2, nom: 'Carburant', montant: 300 },
-      { id: 3, nom: 'Téléphonie', montant: 100 }
-    ],
-    recettes: [
-      { id: 1, nom: 'Prestations de service', montant: 8000 }
-    ],
-    personnel: [
-      { id: 1, titre: 'Animateur GAP', etp: 1.5, salaire: 3200, segur: true }
-    ]
-  },
-  {
-    id: 6,
     nom: 'Supervision',
     type: 'prestation',
     unites: 25,
