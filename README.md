@@ -81,7 +81,7 @@ npm run build
 
 Application déployée sur Vercel : https://budget-association.vercel.app
 
-**Mot de passe** : `afertes2024`
+**Mot de passe** : `demo2025`
 
 ## Structure du projet
 

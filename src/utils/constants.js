@@ -4,7 +4,7 @@ export const PRIME_SEGUR = 238;
 export const JOURS_ANNEE = 365;
 
 // Mot de passe par défaut (à changer en production)
-export const DEFAULT_PASSWORD = 'afertes2024';
+export const DEFAULT_PASSWORD = 'demo2025';
 
 // Plan Comptable Général - Numéros de compte
 export const COMPTES_IMMO = {
