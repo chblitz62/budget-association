@@ -1,55 +1,62 @@
 <p align="center">
-  <img src="logo.png" alt="AFERTES" width="300">
+  <img src="public/logo.png" alt="AFERTES" width="300">
 </p>
 
-# Budget Association - Gestion Budgétaire
+# Budget Association AFERTES
 
-Application web de gestion de budget prévisionnel pour les associations du secteur social et médico-social.
+Application web de gestion budgétaire pour associations du secteur social et médico-social, avec projection sur 3 ans et export Excel professionnel conforme au Plan Comptable Général (PCG).
 
 ## Fonctionnalités
 
-### Sécurité
-- **Protection par mot de passe** à l'ouverture
-- Session persistante (localStorage)
-- Déconnexion sécurisée
-
 ### Gestion budgétaire
-- **Budget Direction & Siège** : Personnel administratif, loyer, charges
-- **Budget par Service** : Personnel, charges d'exploitation, investissements
-- **Projection sur 3 ans** avec augmentation annuelle paramétrable
-- **Graphique annuel** : Répartition mensuelle du budget
+- **Direction & Siège** : Personnel administratif, loyer, charges
+- **Services** : Formation Initiale, Formation Continue, ou services personnalisés
+- **Investissements** : Immobilisations avec calcul d'amortissement et intérêts
+- **Exploitation** : Charges courantes par service
+- **Recettes** : Produits par service avec vérification du solde (excédent/déficit)
+
+### Suivi des effectifs (formations)
+- Étudiants par site : **Avion** et **Saint-Laurent-Blangy**
+- **Formation Initiale** : AES, ES1, ES2, ES3, ME1, ME2
+- **Formation Continue** : CAFDES, CAFERUIS, VAE, Prestation Formation, GAP, Supervision
+- Suivi des abandons par mois
+- Calcul automatique du taux de rétention
 
 ### Calculs automatiques
-- **Salaires** : Brut + charges patronales (42%) + prime Ségur
+- **Masse salariale** : Brut + charges patronales (42%) + prime Ségur (238€)
 - **Amortissements** : Calcul linéaire sur la durée
-- **Mensualités de prêt** : Formule d'amortissement standard avec tableau détaillé
+- **Mensualités de prêt** : Formule d'amortissement avec tableau détaillé
 - **Coût par unité** : Budget total / unités d'activité annuelles
 - **Répartition du siège** : Proportionnelle aux unités par service
-- **Total ETP** : Affichage par section
 
 ### Indicateurs financiers
-- **Provisions pour charges** :
-  - Congés payés (% masse salariale)
-  - Grosses réparations (% immobilisations)
-  - Créances douteuses (% chiffre d'affaires)
-- **BFR (Besoin en Fonds de Roulement)** : Créances - Dettes fournisseurs
+- **Provisions** : Congés payés, grosses réparations, créances douteuses
+- **BFR** : Besoin en Fonds de Roulement (créances - dettes fournisseurs)
+- **Projection 3 ans** : Avec taux d'augmentation paramétrable
+
+### Export Excel professionnel (8 onglets)
+| Onglet | Contenu |
+|--------|---------|
+| Compte de Résultat | Format PCG (classes 6 et 7) |
+| Balance Générale | Comptes équilibrés débit/crédit |
+| Détail Charges | Par service avec numéros de compte |
+| Détail Produits | Recettes par service |
+| Effectifs | Étudiants par site/promo avec abandons |
+| Budget 3 Ans | Projection pluriannuelle |
+| Amortissements | Tableau des immobilisations |
+| Synthèse | Récapitulatif avec provisions et BFR |
 
 ### Interface
-- **Mode sombre** persistant
-- **Sauvegarde automatique** dans le navigateur (localStorage)
-- **Validation des champs** numériques
-
-### Export
-- Sauvegarde/chargement au format JSON
-- Export CSV détaillé
-- Export Excel avec onglets multiples
+- Mode sombre persistant
+- Sauvegarde automatique (localStorage)
+- Sauvegarde/chargement JSON
 - Impression optimisée
 
 ## Installation
 
 ```bash
 # Cloner le dépôt
-git clone <url-du-repo>
+git clone https://github.com/chblitz62/budget-association.git
 cd budget-association
 
 # Installer les dépendances
@@ -58,21 +65,23 @@ npm install
 # Lancer en développement
 npm run dev
 
-# Lancer les tests
-npm run test:run
-
 # Build de production
 npm run build
 ```
 
 ## Technologies
 
-- React 18
-- Vite
-- Tailwind CSS
-- Lucide React (icônes)
-- SheetJS (export Excel)
-- Vitest (tests)
+- **React 18** - Interface utilisateur
+- **Vite** - Build tool
+- **Tailwind CSS** - Styles
+- **Lucide React** - Icônes
+- **SheetJS (xlsx)** - Export Excel
+
+## Démo
+
+Application déployée sur Vercel : https://budget-association.vercel.app
+
+**Mot de passe** : `afertes2024`
 
 ## Structure du projet
 
@@ -83,46 +92,33 @@ src/
 ├── index.css                  # Styles Tailwind
 └── utils/
     ├── constants.js           # Constantes et valeurs par défaut
-    └── calculations.js        # Fonctions de calcul
+    ├── calculations.js        # Fonctions de calcul
+    └── excelExport.js         # Export Excel multi-onglets
 ```
 
-## Structure des données
+## Paramètres
 
-### Paramètres globaux
-| Paramètre | Description | Valeur par défaut |
-|-----------|-------------|-------------------|
-| Augmentation annuelle | Inflation appliquée aux salaires et charges | 2.5% |
-| Taux provision congés payés | Sur la masse salariale | 10% |
-| Taux provision grosses réparations | Sur les immobilisations | 2% |
-| Taux provision créances douteuses | Sur le chiffre d'affaires | 1% |
-| Délai paiement clients | Pour calcul BFR | 30 jours |
-| Délai paiement fournisseurs | Pour calcul BFR | 30 jours |
+| Paramètre | Description | Défaut |
+|-----------|-------------|--------|
+| Augmentation annuelle | Inflation salaires/charges | 2.5% |
+| Provision congés payés | % masse salariale | 10% |
+| Provision grosses réparations | % immobilisations | 2% |
+| Provision créances douteuses | % chiffre d'affaires | 1% |
+| Délai paiement clients | Calcul BFR | 30 jours |
+| Délai paiement fournisseurs | Calcul BFR | 30 jours |
 
-### Constantes
+## Constantes comptables
+
 | Constante | Valeur |
 |-----------|--------|
 | Charges patronales | 42% |
 | Prime Ségur | 238 €/mois |
 | Jours par an | 365 |
 
-### Services
-Chaque service contient :
-- **Unités** : Nombre de places/bénéficiaires
-- **Taux d'activité** : Pourcentage d'occupation
-- **Personnel** : Liste des postes avec ETP, salaire, prime Ségur
-- **Exploitation** : Charges mensuelles par catégorie
-- **Investissements** : Biens, travaux, véhicules, etc.
-
-## Authentification
-
-Mot de passe par défaut : `afertes2024`
-
-Pour changer le mot de passe, modifier la constante `DEFAULT_PASSWORD` dans `src/utils/constants.js`.
-
 ## Licence
 
-Ce projet est sous licence MIT.
+Ce projet est sous licence **GPL-3.0**. Voir le fichier [LICENSE](LICENSE).
 
 ## Auteur
 
-AFERTES - Formation et accompagnement dans le secteur social et médico-social
+Développé pour **AFERTES** - Formation et accompagnement dans le secteur social et médico-social.
