@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus, Banknote, TrendingDown, CheckCircle, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus, Banknote, TrendingDown, CheckCircle, AlertTriangle, FileSpreadsheet, Key, Eye, EyeOff, HelpCircle } from 'lucide-react';
 import { exportToExcel } from './utils/excelExport';
 
 // Import des constantes et valeurs par défaut
@@ -39,14 +39,23 @@ import {
   loadFromStorage
 } from './utils/calculations';
 
+// Fonction pour obtenir le mot de passe actuel (custom ou défaut)
+const getPassword = () => {
+  const customPassword = localStorage.getItem('budget_custom_password');
+  return customPassword || DEFAULT_PASSWORD;
+};
+
 // Composant de connexion
 const LoginScreen = ({ onLogin, darkMode }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showHint, setShowHint] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (password === DEFAULT_PASSWORD) {
+    const currentPassword = getPassword();
+    if (password === currentPassword) {
       localStorage.setItem('budget_authenticated', 'true');
       onLogin();
     } else {
@@ -54,6 +63,8 @@ const LoginScreen = ({ onLogin, darkMode }) => {
       setPassword('');
     }
   };
+
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}>
@@ -69,18 +80,27 @@ const LoginScreen = ({ onLogin, darkMode }) => {
               <Lock size={16} className="inline mr-2" />
               Mot de passe
             </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={`w-full px-4 py-3 rounded-xl border-2 outline-none transition-all ${
-                darkMode
-                  ? 'bg-gray-700 border-gray-600 text-white focus:border-teal-500'
-                  : 'bg-slate-50 border-slate-200 focus:border-teal-500'
-              }`}
-              placeholder="Entrez le mot de passe"
-              autoFocus
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={`w-full px-4 py-3 pr-12 rounded-xl border-2 outline-none transition-all ${
+                  darkMode
+                    ? 'bg-gray-700 border-gray-600 text-white focus:border-teal-500'
+                    : 'bg-slate-50 border-slate-200 focus:border-teal-500'
+                }`}
+                placeholder="Entrez le mot de passe"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className={`absolute right-3 top-1/2 -translate-y-1/2 ${darkMode ? 'text-gray-400' : 'text-slate-400'}`}
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </div>
           {error && (
             <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-xl text-sm font-bold">
@@ -94,6 +114,26 @@ const LoginScreen = ({ onLogin, darkMode }) => {
             Se connecter
           </button>
         </form>
+
+        {/* Bouton mot de passe oublié */}
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => setShowHint(!showHint)}
+            className={`text-sm flex items-center justify-center gap-1 mx-auto ${darkMode ? 'text-gray-400 hover:text-gray-300' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <HelpCircle size={14} />
+            Mot de passe oublié ?
+          </button>
+          {showHint && (
+            <div className={`mt-2 p-3 rounded-xl text-sm ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-slate-100 text-slate-600'}`}>
+              {isLocalhost ? (
+                <>Mot de passe par défaut : <strong className="text-teal-600">{DEFAULT_PASSWORD}</strong></>
+              ) : (
+                <>Contactez l'administrateur ou utilisez le mot de passe : <strong className="text-teal-600">{DEFAULT_PASSWORD}</strong></>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -124,6 +164,38 @@ const BudgetTool = () => {
   useEffect(() => { localStorage.setItem('assoc_direction', JSON.stringify(direction)); }, [direction]);
   useEffect(() => { localStorage.setItem('assoc_services', JSON.stringify(services)); }, [services]);
   useEffect(() => { localStorage.setItem('assoc_darkMode', JSON.stringify(darkMode)); }, [darkMode]);
+
+  // Gestion du mot de passe (uniquement en local)
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+  const handleChangePassword = () => {
+    if (newPassword.length < 4) {
+      setPasswordMessage('Le mot de passe doit contenir au moins 4 caractères');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage('Les mots de passe ne correspondent pas');
+      return;
+    }
+    localStorage.setItem('budget_custom_password', newPassword);
+    setPasswordMessage('Mot de passe modifié avec succès !');
+    setNewPassword('');
+    setConfirmPassword('');
+    setTimeout(() => {
+      setShowPasswordModal(false);
+      setPasswordMessage('');
+    }, 1500);
+  };
+
+  const handleResetPassword = () => {
+    localStorage.removeItem('budget_custom_password');
+    setPasswordMessage('Mot de passe réinitialisé au défaut : ' + DEFAULT_PASSWORD);
+    setTimeout(() => setPasswordMessage(''), 3000);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('budget_authenticated');
@@ -202,10 +274,71 @@ const BudgetTool = () => {
               <input type="file" ref={fileInputRef} onChange={chargerBudget} accept=".json" className="hidden" />
               <button onClick={() => exportToExcel(direction, services, globalParams)} className="bg-green-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><FileSpreadsheet size={18} /> Excel</button>
               <button onClick={() => window.print()} className="bg-slate-500 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Printer size={18} /></button>
+              {isLocalhost && (
+                <button onClick={() => setShowPasswordModal(true)} className="bg-purple-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Key size={18} /></button>
+              )}
               <button onClick={handleLogout} className="bg-red-500 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><LogOut size={18} /></button>
             </div>
           </div>
         </div>
+
+        {/* Modal changement de mot de passe */}
+        {showPasswordModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 no-print">
+            <div className={`max-w-md w-full mx-4 p-6 rounded-3xl shadow-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+              <h3 className={`text-xl font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <Key size={24} className="text-purple-500" /> Changer le mot de passe
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-sm font-bold mb-1 ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>Nouveau mot de passe</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className={`w-full px-4 py-2 rounded-xl border-2 outline-none ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-slate-50 border-slate-200'}`}
+                    placeholder="Minimum 4 caractères"
+                  />
+                </div>
+                <div>
+                  <label className={`block text-sm font-bold mb-1 ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>Confirmer le mot de passe</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={`w-full px-4 py-2 rounded-xl border-2 outline-none ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-slate-50 border-slate-200'}`}
+                    placeholder="Confirmer"
+                  />
+                </div>
+                {passwordMessage && (
+                  <div className={`p-3 rounded-xl text-sm font-bold ${passwordMessage.includes('succès') ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                    {passwordMessage}
+                  </div>
+                )}
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleChangePassword}
+                    className="flex-1 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-xl"
+                  >
+                    Valider
+                  </button>
+                  <button
+                    onClick={handleResetPassword}
+                    className={`px-4 py-2 rounded-xl font-bold ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-slate-200 text-slate-600'}`}
+                  >
+                    Réinitialiser
+                  </button>
+                  <button
+                    onClick={() => { setShowPasswordModal(false); setPasswordMessage(''); setNewPassword(''); setConfirmPassword(''); }}
+                    className="px-4 py-2 bg-slate-500 text-white font-bold rounded-xl"
+                  >
+                    Fermer
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* GRAPHIQUE ANNUEL */}
         <div className={`rounded-3xl shadow-lg border-2 p-6 mb-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
