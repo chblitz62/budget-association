@@ -1,4 +1,4 @@
-import { CHARGES_PATRONALES, PRIME_SEGUR, JOURS_ANNEE } from './constants';
+import { CHARGES_PATRONALES, PRIME_SEGUR, JOURS_ANNEE, calculerStatsFormation } from './constants';
 
 // Fonctions de validation des champs numériques
 export const validerNombre = (valeur, min = 0, max = Infinity) => {
@@ -161,8 +161,16 @@ export const calculerBudgetService = (service) => {
     }
   });
 
-  // Utilise unites et tauxActivite au lieu de enfantsParLieu et tauxRemplissage
-  const unitesAnnuelles = service.unites * (service.tauxActivite / 100) * JOURS_ANNEE;
+  // Pour les services de formation, calculer les unités à partir des promos
+  let unites = service.unites || 0;
+  let statsFormation = null;
+
+  if (service.promos) {
+    statsFormation = calculerStatsFormation(service);
+    unites = statsFormation.effectifActuel;
+  }
+
+  const unitesAnnuelles = unites * (service.tauxActivite / 100) * JOURS_ANNEE;
   const totalAvantAmort = salaires + exploitation + interets;
   const total = totalAvantAmort + amortissements;
   const coutUnite = unitesAnnuelles > 0 ? total / unitesAnnuelles : 0;
@@ -177,9 +185,11 @@ export const calculerBudgetService = (service) => {
     interetsParAnnee,
     detailsInvest,
     unitesAnnuelles,
+    unites,
     total,
     coutUnite,
-    totalInvestissements
+    totalInvestissements,
+    statsFormation
   };
 };
 

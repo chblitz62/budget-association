@@ -56,69 +56,239 @@ export const defaultDirection = {
   autresCharges: 800
 };
 
-// Services de l'association (remplace les Lieux de Vie)
+// Sites de formation
+export const SITES = {
+  AVION: 'Avion',
+  SAINT_LAURENT: 'Saint-Laurent-Blangy'
+};
+
+// Mois de l'année
+export const MOIS = [
+  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+];
+
+// Structure des abandons par mois (initialisée à 0)
+const defaultAbandons = () => ({
+  janvier: 0, fevrier: 0, mars: 0, avril: 0, mai: 0, juin: 0,
+  juillet: 0, aout: 0, septembre: 0, octobre: 0, novembre: 0, decembre: 0
+});
+
+// Promos par site - Formation Initiale
+export const defaultPromosFormationInitiale = {
+  [SITES.AVION]: [
+    { id: 'avion-aes', nom: 'AES', effectifInitial: 25, abandons: defaultAbandons() },
+    { id: 'avion-es1', nom: 'ES1', effectifInitial: 30, abandons: defaultAbandons() },
+    { id: 'avion-es2', nom: 'ES2', effectifInitial: 28, abandons: defaultAbandons() },
+    { id: 'avion-me1', nom: 'ME1', effectifInitial: 20, abandons: defaultAbandons() },
+    { id: 'avion-me2', nom: 'ME2', effectifInitial: 18, abandons: defaultAbandons() }
+  ],
+  [SITES.SAINT_LAURENT]: [
+    { id: 'slb-es1', nom: 'ES1', effectifInitial: 25, abandons: defaultAbandons() },
+    { id: 'slb-es2', nom: 'ES2', effectifInitial: 24, abandons: defaultAbandons() },
+    { id: 'slb-es3', nom: 'ES3', effectifInitial: 22, abandons: defaultAbandons() },
+    { id: 'slb-me1', nom: 'ME1', effectifInitial: 18, abandons: defaultAbandons() },
+    { id: 'slb-me2', nom: 'ME2', effectifInitial: 16, abandons: defaultAbandons() }
+  ]
+};
+
+// Promos par site - Formation Continue
+export const defaultPromosFormationContinue = {
+  [SITES.AVION]: [
+    { id: 'avion-cafdes1', nom: 'CAFDES1', effectifInitial: 15, abandons: defaultAbandons() },
+    { id: 'avion-cafdes2', nom: 'CAFDES2', effectifInitial: 12, abandons: defaultAbandons() }
+  ],
+  [SITES.SAINT_LAURENT]: [
+    { id: 'slb-caferuis1', nom: 'CAFERUIS1', effectifInitial: 20, abandons: defaultAbandons() },
+    { id: 'slb-caferuis2', nom: 'CAFERUIS2', effectifInitial: 18, abandons: defaultAbandons() }
+  ]
+};
+
+// Services de l'association
 export const defaultServices = [
   {
     id: 1,
-    nom: 'Service Formation',
-    unites: 100,  // Nombre de places/bénéficiaires
-    tauxActivite: 85,  // Taux d'activité %
+    nom: 'Formation Initiale',
+    type: 'formation',
+    promos: defaultPromosFormationInitiale,
+    tauxActivite: 90,
     investissements: {
       bienImmo: { montant: 0, duree: 25, taux: 0 },
       travaux: { montant: 15000, duree: 10, taux: 2.0 },
       vehicule: { montant: 25000, duree: 5, taux: 3.0 },
-      informatique: { montant: 20000, duree: 3, taux: 0 },
-      mobilier: { montant: 10000, duree: 10, taux: 0 },
+      informatique: { montant: 30000, duree: 3, taux: 0 },
+      mobilier: { montant: 15000, duree: 10, taux: 0 },
       fraisBancaires: { montant: 0, duree: 1, taux: 0 },
       fraisNotaire: { montant: 0, duree: 1, taux: 0 }
     },
     exploitation: [
-      { id: 1, nom: 'Fournitures', montant: 1500 },
-      { id: 2, nom: 'Documentation', montant: 800 },
-      { id: 3, nom: 'Carburant', montant: 600 },
-      { id: 4, nom: 'Assurances', montant: 400 },
-      { id: 5, nom: 'Formation', montant: 2000 },
-      { id: 6, nom: 'Eau/Élec/Gaz', montant: 500 },
-      { id: 7, nom: 'Entretien', montant: 300 },
-      { id: 8, nom: 'Téléphonie', montant: 200 }
+      { id: 1, nom: 'Fournitures', montant: 2000 },
+      { id: 2, nom: 'Documentation', montant: 1500 },
+      { id: 3, nom: 'Carburant', montant: 800 },
+      { id: 4, nom: 'Assurances', montant: 600 },
+      { id: 5, nom: 'Eau/Élec/Gaz', montant: 1200 },
+      { id: 6, nom: 'Entretien', montant: 500 },
+      { id: 7, nom: 'Téléphonie', montant: 300 }
     ],
     personnel: [
-      { id: 1, titre: 'Responsable Formation', etp: 1, salaire: 3800, segur: true },
-      { id: 2, titre: 'Formateur', etp: 4, salaire: 3200, segur: true },
-      { id: 3, titre: 'Assistant Formation', etp: 2, salaire: 2400, segur: true },
-      { id: 4, titre: 'Secrétaire pédagogique', etp: 1, salaire: 2300, segur: true }
+      { id: 1, titre: 'Responsable Formation Initiale', etp: 1, salaire: 4000, segur: true },
+      { id: 2, titre: 'Formateur ES', etp: 3, salaire: 3200, segur: true },
+      { id: 3, titre: 'Formateur ME', etp: 2, salaire: 3200, segur: true },
+      { id: 4, titre: 'Formateur AES', etp: 1, salaire: 3000, segur: true },
+      { id: 5, titre: 'Secrétaire pédagogique', etp: 2, salaire: 2400, segur: true }
     ]
   },
   {
     id: 2,
-    nom: 'Service Accompagnement',
-    unites: 50,
-    tauxActivite: 90,
+    nom: 'Formation Continue',
+    type: 'formation',
+    promos: defaultPromosFormationContinue,
+    tauxActivite: 85,
     investissements: {
-      bienImmo: { montant: 200000, duree: 25, taux: 2.5 },
+      bienImmo: { montant: 0, duree: 25, taux: 0 },
       travaux: { montant: 10000, duree: 10, taux: 2.0 },
-      vehicule: { montant: 35000, duree: 5, taux: 3.0 },
-      informatique: { montant: 8000, duree: 3, taux: 0 },
-      mobilier: { montant: 5000, duree: 10, taux: 0 },
-      fraisBancaires: { montant: 5000, duree: 15, taux: 0 },
-      fraisNotaire: { montant: 15000, duree: 1, taux: 0 }
+      vehicule: { montant: 15000, duree: 5, taux: 3.0 },
+      informatique: { montant: 15000, duree: 3, taux: 0 },
+      mobilier: { montant: 8000, duree: 10, taux: 0 },
+      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
+      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
     },
     exploitation: [
-      { id: 1, nom: 'Fournitures', montant: 800 },
-      { id: 2, nom: 'Carburant', montant: 1200 },
-      { id: 3, nom: 'Assurances', montant: 500 },
-      { id: 4, nom: 'Frais bancaires', montant: 150 },
-      { id: 5, nom: 'Formation', montant: 1000 },
-      { id: 6, nom: 'Eau/Élec/Gaz', montant: 600 },
-      { id: 7, nom: 'Entretien', montant: 400 },
-      { id: 8, nom: 'Téléphonie', montant: 250 }
+      { id: 1, nom: 'Fournitures', montant: 1000 },
+      { id: 2, nom: 'Documentation', montant: 800 },
+      { id: 3, nom: 'Carburant', montant: 500 },
+      { id: 4, nom: 'Assurances', montant: 400 },
+      { id: 5, nom: 'Eau/Élec/Gaz', montant: 600 },
+      { id: 6, nom: 'Entretien', montant: 300 },
+      { id: 7, nom: 'Téléphonie', montant: 200 }
     ],
     personnel: [
-      { id: 1, titre: 'Chef de Service', etp: 1, salaire: 3500, segur: true },
-      { id: 2, titre: 'Éducateur Spécialisé', etp: 3, salaire: 2900, segur: true },
-      { id: 3, titre: 'Travailleur Social', etp: 2, salaire: 2800, segur: true },
-      { id: 4, titre: 'Psychologue', etp: 0.5, salaire: 3200, segur: true },
-      { id: 5, titre: 'Secrétaire', etp: 1, salaire: 2300, segur: true }
+      { id: 1, titre: 'Responsable Formation Continue', etp: 1, salaire: 4000, segur: true },
+      { id: 2, titre: 'Formateur CAFDES', etp: 1.5, salaire: 3500, segur: true },
+      { id: 3, titre: 'Formateur CAFERUIS', etp: 1.5, salaire: 3400, segur: true },
+      { id: 4, titre: 'Secrétaire', etp: 1, salaire: 2400, segur: true }
+    ]
+  },
+  {
+    id: 3,
+    nom: 'VAE',
+    type: 'accompagnement',
+    unites: 40,
+    tauxActivite: 80,
+    investissements: {
+      bienImmo: { montant: 0, duree: 25, taux: 0 },
+      travaux: { montant: 0, duree: 10, taux: 0 },
+      vehicule: { montant: 0, duree: 5, taux: 0 },
+      informatique: { montant: 5000, duree: 3, taux: 0 },
+      mobilier: { montant: 2000, duree: 10, taux: 0 },
+      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
+      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
+    },
+    exploitation: [
+      { id: 1, nom: 'Fournitures', montant: 300 },
+      { id: 2, nom: 'Documentation', montant: 200 },
+      { id: 3, nom: 'Téléphonie', montant: 100 }
+    ],
+    personnel: [
+      { id: 1, titre: 'Responsable VAE', etp: 0.5, salaire: 3500, segur: true },
+      { id: 2, titre: 'Accompagnateur VAE', etp: 2, salaire: 2800, segur: true }
+    ]
+  },
+  {
+    id: 4,
+    nom: 'Prestation Formation',
+    type: 'prestation',
+    unites: 50,
+    tauxActivite: 75,
+    investissements: {
+      bienImmo: { montant: 0, duree: 25, taux: 0 },
+      travaux: { montant: 0, duree: 10, taux: 0 },
+      vehicule: { montant: 10000, duree: 5, taux: 3.0 },
+      informatique: { montant: 8000, duree: 3, taux: 0 },
+      mobilier: { montant: 3000, duree: 10, taux: 0 },
+      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
+      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
+    },
+    exploitation: [
+      { id: 1, nom: 'Fournitures', montant: 500 },
+      { id: 2, nom: 'Carburant', montant: 400 },
+      { id: 3, nom: 'Documentation', montant: 300 },
+      { id: 4, nom: 'Téléphonie', montant: 150 }
+    ],
+    personnel: [
+      { id: 1, titre: 'Responsable Prestations', etp: 0.5, salaire: 3500, segur: true },
+      { id: 2, titre: 'Formateur Prestation', etp: 2, salaire: 3000, segur: true }
+    ]
+  },
+  {
+    id: 5,
+    nom: 'GAP (Groupe d\'Analyse des Pratiques)',
+    type: 'prestation',
+    unites: 30,
+    tauxActivite: 70,
+    investissements: {
+      bienImmo: { montant: 0, duree: 25, taux: 0 },
+      travaux: { montant: 0, duree: 10, taux: 0 },
+      vehicule: { montant: 8000, duree: 5, taux: 3.0 },
+      informatique: { montant: 3000, duree: 3, taux: 0 },
+      mobilier: { montant: 1500, duree: 10, taux: 0 },
+      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
+      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
+    },
+    exploitation: [
+      { id: 1, nom: 'Fournitures', montant: 200 },
+      { id: 2, nom: 'Carburant', montant: 300 },
+      { id: 3, nom: 'Téléphonie', montant: 100 }
+    ],
+    personnel: [
+      { id: 1, titre: 'Animateur GAP', etp: 1.5, salaire: 3200, segur: true }
+    ]
+  },
+  {
+    id: 6,
+    nom: 'Supervision',
+    type: 'prestation',
+    unites: 25,
+    tauxActivite: 65,
+    investissements: {
+      bienImmo: { montant: 0, duree: 25, taux: 0 },
+      travaux: { montant: 0, duree: 10, taux: 0 },
+      vehicule: { montant: 5000, duree: 5, taux: 3.0 },
+      informatique: { montant: 2000, duree: 3, taux: 0 },
+      mobilier: { montant: 1000, duree: 10, taux: 0 },
+      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
+      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
+    },
+    exploitation: [
+      { id: 1, nom: 'Fournitures', montant: 150 },
+      { id: 2, nom: 'Carburant', montant: 250 },
+      { id: 3, nom: 'Téléphonie', montant: 100 }
+    ],
+    personnel: [
+      { id: 1, titre: 'Superviseur', etp: 1, salaire: 3500, segur: true }
     ]
   }
 ];
+
+// Fonction pour calculer le total d'étudiants d'une promo
+export const calculerEffectifActuel = (promo) => {
+  const totalAbandons = Object.values(promo.abandons).reduce((sum, val) => sum + val, 0);
+  return promo.effectifInitial - totalAbandons;
+};
+
+// Fonction pour calculer les stats d'un service de formation
+export const calculerStatsFormation = (service) => {
+  if (!service.promos) return { totalEtudiants: service.unites || 0, totalAbandons: 0 };
+
+  let totalEtudiants = 0;
+  let totalAbandons = 0;
+
+  Object.values(service.promos).forEach(promosParSite => {
+    promosParSite.forEach(promo => {
+      totalEtudiants += promo.effectifInitial;
+      totalAbandons += Object.values(promo.abandons).reduce((sum, val) => sum + val, 0);
+    });
+  });
+
+  return { totalEtudiants, totalAbandons, effectifActuel: totalEtudiants - totalAbandons };
+};

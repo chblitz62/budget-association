@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut } from 'lucide-react';
+import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus } from 'lucide-react';
 
 // Import des constantes et valeurs par défaut
 import {
@@ -9,6 +9,10 @@ import {
   COMPTES_IMMO,
   COMPTES_EXPLOITATION,
   DEFAULT_PASSWORD,
+  SITES,
+  MOIS,
+  calculerEffectifActuel,
+  calculerStatsFormation,
   defaultGlobalParams,
   defaultDirection,
   defaultServices
@@ -363,27 +367,166 @@ const BudgetTool = () => {
         <div className="space-y-8">
           {services.map(service => {
             const bs = getBudgetService(service);
+            const hasPromos = service.promos && Object.keys(service.promos).length > 0;
+            const stats = hasPromos ? calculerStatsFormation(service) : null;
+
             return (
               <div key={service.id} className={`rounded-3xl shadow-lg border-2 p-8 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-100'}`}>
                 <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
                   <div className="flex items-center gap-4">
+                    {hasPromos ? <GraduationCap className="text-purple-500" size={28} /> : <Settings className="text-teal-500" size={28} />}
                     <input className={`text-2xl font-black outline-none border-b-2 border-transparent focus:border-teal-500 bg-transparent ${darkMode ? 'text-white' : 'text-slate-800'}`} value={service.nom} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, nom: e.target.value} : s))} />
                     <span className="bg-teal-100 text-teal-700 px-4 py-2 rounded-xl text-sm font-bold">{Math.round(bs.total).toLocaleString()} €</span>
                     <span className="bg-blue-100 text-blue-700 px-3 py-2 rounded-xl text-xs font-bold">{service.personnel.reduce((s, p) => s + p.etp, 0).toFixed(1)} ETP</span>
+                    {stats && (
+                      <span className="bg-purple-100 text-purple-700 px-3 py-2 rounded-xl text-xs font-bold">
+                        {stats.effectifActuel} étudiants ({stats.totalAbandons} abandons)
+                      </span>
+                    )}
                   </div>
                   <button onClick={() => setServices(services.filter(s => s.id !== service.id))} className="text-red-400 p-2 hover:bg-red-50 rounded-xl no-print"><Trash2 size={22} /></button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                  <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-blue-900/30 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
-                    <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Unités / Bénéficiaires</label>
-                    <input type="number" className={`font-black text-2xl px-4 py-2 rounded-xl w-full outline-none ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-blue-700'}`} value={service.unites} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, unites: validerUnites(e.target.value)} : s))} />
+                {/* Section Promos par site - uniquement pour les services de formation */}
+                {hasPromos && (
+                  <div className={`mb-6 p-6 rounded-2xl border-2 ${darkMode ? 'bg-purple-900/20 border-purple-800' : 'bg-purple-50 border-purple-200'}`}>
+                    <h3 className={`text-lg font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-purple-400' : 'text-purple-700'}`}>
+                      <GraduationCap size={22} /> Effectifs par site et promo
+                    </h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {Object.entries(service.promos).map(([site, promos]) => (
+                        <div key={site} className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
+                          <h4 className={`font-black mb-3 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                            <MapPin size={18} className="text-purple-500" /> {site}
+                          </h4>
+                          <div className="space-y-3">
+                            {promos.map(promo => {
+                              const effectifActuel = calculerEffectifActuel(promo);
+                              const totalAbandons = Object.values(promo.abandons).reduce((sum, v) => sum + v, 0);
+                              return (
+                                <div key={promo.id} className={`p-3 rounded-lg border ${darkMode ? 'bg-gray-600 border-gray-500' : 'bg-slate-50 border-slate-200'}`}>
+                                  <div className="flex justify-between items-center mb-2">
+                                    <span className={`font-bold ${darkMode ? 'text-white' : 'text-slate-700'}`}>{promo.nom}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-green-900 text-green-300' : 'bg-green-100 text-green-700'}`}>
+                                        Initial: {promo.effectifInitial}
+                                      </span>
+                                      <span className={`text-xs px-2 py-1 rounded font-bold ${effectifActuel < promo.effectifInitial ? (darkMode ? 'bg-orange-900 text-orange-300' : 'bg-orange-100 text-orange-700') : (darkMode ? 'bg-teal-900 text-teal-300' : 'bg-teal-100 text-teal-700')}`}>
+                                        Actuel: {effectifActuel}
+                                      </span>
+                                      {totalAbandons > 0 && (
+                                        <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-700'}`}>
+                                          <UserMinus size={12} className="inline mr-1" />{totalAbandons}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {/* Effectif initial éditable */}
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <label className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Effectif initial:</label>
+                                    <input
+                                      type="number"
+                                      className={`w-16 text-xs rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`}
+                                      value={promo.effectifInitial}
+                                      onChange={(e) => {
+                                        const newEffectif = Math.max(0, parseInt(e.target.value) || 0);
+                                        setServices(services.map(s => {
+                                          if (s.id !== service.id) return s;
+                                          return {
+                                            ...s,
+                                            promos: {
+                                              ...s.promos,
+                                              [site]: s.promos[site].map(p =>
+                                                p.id === promo.id ? {...p, effectifInitial: newEffectif} : p
+                                              )
+                                            }
+                                          };
+                                        }));
+                                      }}
+                                    />
+                                  </div>
+                                  {/* Abandons par mois */}
+                                  <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                                    <div className="flex items-center gap-1 mb-1">
+                                      <UserMinus size={12} /> Abandons par mois:
+                                    </div>
+                                    <div className="grid grid-cols-6 gap-1">
+                                      {Object.entries(promo.abandons).map(([mois, val]) => (
+                                        <div key={mois} className="text-center">
+                                          <div className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+                                            {mois.substring(0, 3)}
+                                          </div>
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            className={`w-full text-center text-xs rounded px-1 py-0.5 ${val > 0 ? (darkMode ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-700') : (darkMode ? 'bg-gray-500 text-white' : 'bg-white border')}`}
+                                            value={val}
+                                            onChange={(e) => {
+                                              const newVal = Math.max(0, parseInt(e.target.value) || 0);
+                                              setServices(services.map(s => {
+                                                if (s.id !== service.id) return s;
+                                                return {
+                                                  ...s,
+                                                  promos: {
+                                                    ...s.promos,
+                                                    [site]: s.promos[site].map(p =>
+                                                      p.id === promo.id ? {...p, abandons: {...p.abandons, [mois]: newVal}} : p
+                                                    )
+                                                  }
+                                                };
+                                              }));
+                                            }}
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {/* Total par site */}
+                          <div className={`mt-3 pt-3 border-t ${darkMode ? 'border-gray-600' : 'border-slate-200'} flex justify-between text-sm font-bold`}>
+                            <span className={darkMode ? 'text-purple-400' : 'text-purple-600'}>Total {site}:</span>
+                            <span className={darkMode ? 'text-white' : 'text-slate-800'}>
+                              {promos.reduce((sum, p) => sum + calculerEffectifActuel(p), 0)} étudiants
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-teal-900/30 border-teal-800' : 'bg-teal-50 border-teal-200'}`}>
-                    <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-teal-400' : 'text-slate-600'}`}>Taux d'activité (%)</label>
-                    <input type="number" className={`font-black text-2xl px-4 py-2 rounded-xl w-full outline-none ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-slate-700'}`} value={service.tauxActivite} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, tauxActivite: validerTaux(e.target.value)} : s))} />
+                )}
+
+                {/* Unités/Taux - uniquement pour les services sans promos */}
+                {!hasPromos && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-blue-900/30 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+                      <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Unités / Bénéficiaires</label>
+                      <input type="number" className={`font-black text-2xl px-4 py-2 rounded-xl w-full outline-none ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-blue-700'}`} value={service.unites} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, unites: validerUnites(e.target.value)} : s))} />
+                    </div>
+                    <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-teal-900/30 border-teal-800' : 'bg-teal-50 border-teal-200'}`}>
+                      <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-teal-400' : 'text-slate-600'}`}>Taux d'activité (%)</label>
+                      <input type="number" className={`font-black text-2xl px-4 py-2 rounded-xl w-full outline-none ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-slate-700'}`} value={service.tauxActivite} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, tauxActivite: validerTaux(e.target.value)} : s))} />
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Taux d'activité - pour les services de formation */}
+                {hasPromos && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-teal-900/30 border-teal-800' : 'bg-teal-50 border-teal-200'}`}>
+                      <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-teal-400' : 'text-slate-600'}`}>Taux d'activité (%)</label>
+                      <input type="number" className={`font-black text-2xl px-4 py-2 rounded-xl w-full outline-none ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-slate-700'}`} value={service.tauxActivite} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, tauxActivite: validerTaux(e.target.value)} : s))} />
+                    </div>
+                    <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-purple-900/30 border-purple-800' : 'bg-purple-50 border-purple-200'}`}>
+                      <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>Effectif total actuel</label>
+                      <div className={`font-black text-2xl px-4 py-2 ${darkMode ? 'text-purple-300' : 'text-purple-700'}`}>
+                        {stats.effectifActuel} étudiants
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Investissements */}
