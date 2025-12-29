@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus, Banknote, TrendingDown, CheckCircle, AlertTriangle, FileSpreadsheet, Key, Eye, EyeOff, HelpCircle } from 'lucide-react';
+import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus, Banknote, TrendingDown, CheckCircle, AlertTriangle, FileSpreadsheet, Key, Eye, EyeOff, HelpCircle, X, AlertCircle, Clock, BarChart3 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { exportToExcel } from './utils/excelExport';
+import { exportToPDF } from './utils/pdfExport';
 
 // Import des constantes et valeurs par défaut
 import {
@@ -15,6 +17,8 @@ import {
   MOIS,
   calculerEffectifActuel,
   calculerStatsFormation,
+  calculerTotalRealisations,
+  defaultRealisations,
   defaultGlobalParams,
   defaultDirection,
   defaultServices
@@ -34,6 +38,7 @@ import {
   calculerBudgetService,
   calculerProvisions,
   calculerBFR,
+  calculerFondRoulement,
   calculerSynthese3Ans,
   calculerBudgetAnnuelMensuel,
   loadFromStorage
@@ -129,12 +134,66 @@ const LoginScreen = ({ onLogin, darkMode }) => {
               {isLocalhost ? (
                 <>Mot de passe par défaut : <strong className="text-teal-600">{DEFAULT_PASSWORD}</strong></>
               ) : (
-                <>Contactez l'administrateur ou utilisez le mot de passe : <strong className="text-teal-600">{DEFAULT_PASSWORD}</strong></>
+                <>Contactez l'administrateur pour obtenir le mot de passe.</>
               )}
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+};
+
+// Composant de confirmation de suppression
+const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, darkMode }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 no-print">
+      <div className={`max-w-md w-full mx-4 p-6 rounded-3xl shadow-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-3 rounded-full bg-red-100">
+            <AlertCircle className="text-red-600" size={24} />
+          </div>
+          <h3 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{title}</h3>
+        </div>
+        <p className={`mb-6 ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{message}</p>
+        <div className="flex gap-3 justify-end">
+          <button
+            onClick={onClose}
+            className={`px-4 py-2 rounded-xl font-bold ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+          >
+            Annuler
+          </button>
+          <button
+            onClick={() => { onConfirm(); onClose(); }}
+            className="px-4 py-2 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600"
+          >
+            Supprimer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Composant indicateur de sauvegarde
+const SaveIndicator = ({ darkMode }) => {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const handleStorage = () => {
+      setVisible(true);
+      setTimeout(() => setVisible(false), 2000);
+    };
+    window.addEventListener('storage-save', handleStorage);
+    return () => window.removeEventListener('storage-save', handleStorage);
+  }, []);
+
+  if (!visible) return null;
+  return (
+    <div className={`fixed bottom-4 right-4 px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 z-40 ${darkMode ? 'bg-teal-900 text-teal-300' : 'bg-teal-500 text-white'}`}>
+      <CheckCircle size={18} />
+      <span className="font-bold text-sm">Sauvegardé</span>
     </div>
   );
 };
@@ -146,6 +205,9 @@ const BudgetTool = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('budget_authenticated') === 'true';
   });
+
+  // État pour la confirmation de suppression
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
   const [globalParams, setGlobalParams] = useState(() => loadFromStorage('assoc_globalParams', defaultGlobalParams));
   const [direction, setDirection] = useState(() => loadFromStorage('assoc_direction', defaultDirection));
@@ -159,10 +221,11 @@ const BudgetTool = () => {
     return loadFromStorage('assoc_darkMode', false);
   });
 
-  // Sauvegarde automatique
-  useEffect(() => { localStorage.setItem('assoc_globalParams', JSON.stringify(globalParams)); }, [globalParams]);
-  useEffect(() => { localStorage.setItem('assoc_direction', JSON.stringify(direction)); }, [direction]);
-  useEffect(() => { localStorage.setItem('assoc_services', JSON.stringify(services)); }, [services]);
+  // Sauvegarde automatique avec notification
+  const triggerSaveIndicator = () => window.dispatchEvent(new Event('storage-save'));
+  useEffect(() => { localStorage.setItem('assoc_globalParams', JSON.stringify(globalParams)); triggerSaveIndicator(); }, [globalParams]);
+  useEffect(() => { localStorage.setItem('assoc_direction', JSON.stringify(direction)); triggerSaveIndicator(); }, [direction]);
+  useEffect(() => { localStorage.setItem('assoc_services', JSON.stringify(services)); triggerSaveIndicator(); }, [services]);
   useEffect(() => { localStorage.setItem('assoc_darkMode', JSON.stringify(darkMode)); }, [darkMode]);
 
   // Gestion du mot de passe (uniquement en local)
@@ -206,6 +269,7 @@ const BudgetTool = () => {
   const getBudgetService = (service) => calculerBudgetService(service);
   const getProvisions = () => calculerProvisions(direction, services, globalParams);
   const getBFR = () => calculerBFR(direction, services, globalParams);
+  const getFondRoulement = () => calculerFondRoulement(direction, services, globalParams);
   const summary3Ans = calculerSynthese3Ans(direction, services, globalParams);
   const budgetAnnuel = calculerBudgetAnnuelMensuel(direction, services, globalParams);
 
@@ -241,9 +305,40 @@ const BudgetTool = () => {
 
   const nomsMois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
 
+  // Calcul des alertes
+  const totalRecettes = services.reduce((sum, s) => sum + getBudgetService(s).recettes, 0);
+  const totalCharges = services.reduce((sum, s) => sum + getBudgetService(s).total, 0) + getBudgetDirection().total;
+  const soldeGlobal = totalRecettes - totalCharges;
+  const hasDeficit = soldeGlobal < 0;
+
   return (
     <div className={`min-h-screen p-4 md:p-8 transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}>
+      {/* Composants globaux */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        darkMode={darkMode}
+      />
+      <SaveIndicator darkMode={darkMode} />
+
       <div className="max-w-7xl mx-auto">
+
+        {/* ALERTE DÉFICIT */}
+        {hasDeficit && (
+          <div className={`mb-6 p-4 rounded-2xl border-2 flex items-center gap-4 ${darkMode ? 'bg-red-900/30 border-red-800' : 'bg-red-50 border-red-300'}`}>
+            <AlertTriangle className="text-red-500" size={32} />
+            <div>
+              <h3 className={`font-black ${darkMode ? 'text-red-400' : 'text-red-700'}`}>Attention : Budget en déficit</h3>
+              <p className={`text-sm ${darkMode ? 'text-red-300' : 'text-red-600'}`}>
+                Le solde global est de <strong>{Math.round(soldeGlobal).toLocaleString()} €</strong>.
+                Recettes : {Math.round(totalRecettes).toLocaleString()} € | Charges : {Math.round(totalCharges).toLocaleString()} €
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* HEADER */}
         <div className={`rounded-3xl shadow-lg border p-6 mb-6 no-print ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
@@ -273,6 +368,7 @@ const BudgetTool = () => {
               <button onClick={() => fileInputRef.current.click()} className="bg-slate-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Upload size={18} /> Charger</button>
               <input type="file" ref={fileInputRef} onChange={chargerBudget} accept=".json" className="hidden" />
               <button onClick={() => exportToExcel(direction, services, globalParams)} className="bg-green-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><FileSpreadsheet size={18} /> Excel</button>
+              <button onClick={() => exportToPDF(direction, services, globalParams)} className="bg-red-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Download size={18} /> PDF</button>
               <button onClick={() => window.print()} className="bg-slate-500 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Printer size={18} /></button>
               {isLocalhost && (
                 <button onClick={() => setShowPasswordModal(true)} className="bg-purple-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Key size={18} /></button>
@@ -380,8 +476,8 @@ const BudgetTool = () => {
           </div>
         </div>
 
-        {/* SYNTHESE 3 ANS */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* SYNTHESE 3 ANS - CARTES */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           {summary3Ans.map(s => (
             <div key={s.annee} className={`p-6 rounded-3xl shadow-lg border-2 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gradient-to-br from-white to-cyan-50 border-teal-200'}`}>
               <div className="flex justify-between items-start mb-4">
@@ -407,38 +503,311 @@ const BudgetTool = () => {
           ))}
         </div>
 
-        {/* PROVISIONS & BFR */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {/* GRAPHIQUES */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Graphique évolution 3 ans */}
+          <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+            <h2 className={`text-xl font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+              <BarChart3 size={24} className="text-teal-500" /> Évolution Budget sur 3 ans
+            </h2>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={summary3Ans.map(s => ({
+                name: `Année ${s.annee}`,
+                Budget: Math.round(s.total),
+                Direction: Math.round(s.budgetDirection),
+                Amortissements: Math.round(s.amortissements)
+              }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#374151' : '#e2e8f0'} />
+                <XAxis dataKey="name" stroke={darkMode ? '#9ca3af' : '#64748b'} />
+                <YAxis stroke={darkMode ? '#9ca3af' : '#64748b'} tickFormatter={(v) => `${Math.round(v/1000)}k`} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: darkMode ? '#1f2937' : '#fff', border: 'none', borderRadius: '12px' }}
+                  formatter={(value) => `${value.toLocaleString()} €`}
+                />
+                <Legend />
+                <Bar dataKey="Budget" fill="#14b8a6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Direction" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Amortissements" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Répartition par service */}
+          <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+            <h2 className={`text-xl font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+              <Users size={24} className="text-purple-500" /> Répartition par service (Année 1)
+            </h2>
+            <ResponsiveContainer width="100%" height={250}>
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'Direction', value: Math.round(summary3Ans[0].budgetDirection) },
+                    ...summary3Ans[0].detailsServices.map(s => ({ name: s.nom, value: Math.round(s.budget) }))
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  dataKey="value"
+                  label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                >
+                  {['#14b8a6', '#8b5cf6', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899'].map((color, index) => (
+                    <Cell key={`cell-${index}`} fill={color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => `${value.toLocaleString()} €`} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* PROVISIONS & BFR & FOND DE ROULEMENT */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* PROVISIONS */}
           <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-orange-900' : 'bg-gradient-to-br from-orange-50 to-red-50 border-orange-200'}`}>
             {(() => { const p = getProvisions(); return (<>
-              <h2 className={`text-xl font-black mb-4 ${darkMode ? 'text-orange-400' : 'text-orange-900'}`}>Provisions</h2>
-              <div className="space-y-2">
-                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'} flex justify-between`}>
-                  <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>Congés payés</span>
-                  <span className="font-black text-orange-600">{Math.round(p.congesPayes).toLocaleString()} €</span>
-                </div>
-                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'} flex justify-between`}>
-                  <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>Grosses réparations</span>
-                  <span className="font-black text-orange-600">{Math.round(p.grossesReparations).toLocaleString()} €</span>
-                </div>
-                <div className="p-4 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white flex justify-between">
-                  <span className="font-bold">TOTAL</span>
-                  <span className="text-xl font-black">{Math.round(p.total).toLocaleString()} €</span>
-                </div>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className={`text-xl font-black ${darkMode ? 'text-orange-400' : 'text-orange-900'}`}>Provisions pour risque</h2>
+                <button
+                  onClick={() => setGlobalParams({
+                    ...globalParams,
+                    provisions: [...(globalParams.provisions || []), {
+                      id: `prov_${Date.now()}`,
+                      nom: 'Nouvelle provision',
+                      baseCalcul: 'salaires',
+                      taux: 0
+                    }]
+                  })}
+                  className="bg-orange-500 text-white p-2 rounded-lg no-print"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {(p.details || []).map((prov, idx) => (
+                  <div key={prov.id} className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'} group relative`}>
+                    <button
+                      onClick={() => setGlobalParams({
+                        ...globalParams,
+                        provisions: globalParams.provisions.filter(pr => pr.id !== prov.id)
+                      })}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 no-print"
+                    >
+                      <Trash2 size={10} />
+                    </button>
+                    <div className="flex items-center gap-2 mb-2">
+                      <input
+                        className={`flex-1 font-bold text-sm bg-transparent outline-none ${darkMode ? 'text-white' : 'text-slate-700'}`}
+                        value={globalParams.provisions[idx]?.nom || prov.nom}
+                        onChange={(e) => setGlobalParams({
+                          ...globalParams,
+                          provisions: globalParams.provisions.map(pr =>
+                            pr.id === prov.id ? {...pr, nom: e.target.value} : pr
+                          )
+                        })}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <select
+                        className={`rounded px-2 py-1 ${darkMode ? 'bg-gray-600 text-white' : 'bg-orange-50'}`}
+                        value={globalParams.provisions[idx]?.baseCalcul || prov.baseCalcul}
+                        onChange={(e) => setGlobalParams({
+                          ...globalParams,
+                          provisions: globalParams.provisions.map(pr =>
+                            pr.id === prov.id ? {...pr, baseCalcul: e.target.value} : pr
+                          )
+                        })}
+                      >
+                        <option value="salaires">% Salaires</option>
+                        <option value="investissements">% Investissements</option>
+                        <option value="chiffre_affaires">% Chiffre d'affaires</option>
+                      </select>
+                      <input
+                        type="number"
+                        step="0.1"
+                        className={`w-16 text-right rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-orange-50'}`}
+                        value={globalParams.provisions[idx]?.taux || 0}
+                        onChange={(e) => setGlobalParams({
+                          ...globalParams,
+                          provisions: globalParams.provisions.map(pr =>
+                            pr.id === prov.id ? {...pr, taux: validerTaux(e.target.value)} : pr
+                          )
+                        })}
+                      />
+                      <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>%</span>
+                    </div>
+                    <div className={`text-right mt-1 font-black text-orange-600`}>
+                      {Math.round(prov.montant).toLocaleString()} €
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white flex justify-between">
+                <span className="font-bold">TOTAL</span>
+                <span className="text-xl font-black">{Math.round(p.total).toLocaleString()} €</span>
               </div>
             </>); })()}
           </div>
+
+          {/* FOND DE ROULEMENT */}
+          <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200'}`}>
+            {(() => { const fr = getFondRoulement(); return (<>
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2">
+                  <h2 className={`text-xl font-black ${darkMode ? 'text-purple-400' : 'text-purple-900'}`}>Fonds de Roulement</h2>
+                  <div className="relative group">
+                    <HelpCircle size={16} className={`cursor-help ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
+                    <div className={`absolute left-0 top-6 w-72 p-3 rounded-xl shadow-lg z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-slate-700'}`}>
+                      <p className="font-bold mb-2">Méthode de calcul :</p>
+                      <p className="text-xs mb-1"><strong>FR = Capitaux permanents - Immobilisations nettes</strong></p>
+                      <p className="text-xs text-gray-500">Le FR représente la part des capitaux permanents qui finance l'exploitation. Un FR positif signifie une marge de sécurité financière.</p>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setGlobalParams({
+                    ...globalParams,
+                    fondRoulement: [...(globalParams.fondRoulement || []), {
+                      id: `fr_${Date.now()}`,
+                      nom: 'Nouveau poste',
+                      montant: 0
+                    }]
+                  })}
+                  className="bg-purple-500 text-white p-2 rounded-lg no-print"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+              <div className={`text-xs mb-3 p-3 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-400' : 'bg-purple-100 text-purple-700'}`}>
+                <div className="font-bold mb-1">Formule :</div>
+                <div className="font-mono">FR = Σ Capitaux permanents - Immobilisations nettes</div>
+              </div>
+              <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                {(fr.details || []).map((item, idx) => (
+                  <div key={item.id} className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'} group relative`}>
+                    <button
+                      onClick={() => setGlobalParams({
+                        ...globalParams,
+                        fondRoulement: globalParams.fondRoulement.filter(f => f.id !== item.id)
+                      })}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 no-print"
+                    >
+                      <Trash2 size={10} />
+                    </button>
+                    <div className="flex items-center justify-between gap-2">
+                      <input
+                        className={`flex-1 font-bold text-sm bg-transparent outline-none ${darkMode ? 'text-white' : 'text-slate-700'}`}
+                        value={globalParams.fondRoulement[idx]?.nom || item.nom}
+                        onChange={(e) => setGlobalParams({
+                          ...globalParams,
+                          fondRoulement: globalParams.fondRoulement.map(f =>
+                            f.id === item.id ? {...f, nom: e.target.value} : f
+                          )
+                        })}
+                      />
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          className={`w-24 text-right rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-purple-50'}`}
+                          value={globalParams.fondRoulement[idx]?.montant || 0}
+                          onChange={(e) => setGlobalParams({
+                            ...globalParams,
+                            fondRoulement: globalParams.fondRoulement.map(f =>
+                              f.id === item.id ? {...f, montant: validerMontant(e.target.value)} : f
+                            )
+                          })}
+                        />
+                        <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className={`mt-3 pt-3 border-t ${darkMode ? 'border-gray-600' : 'border-purple-200'} space-y-2 text-sm`}>
+                <div className="flex justify-between">
+                  <span className={darkMode ? 'text-gray-400' : 'text-slate-600'}>Capitaux permanents</span>
+                  <span className={`font-bold ${darkMode ? 'text-purple-300' : 'text-purple-700'}`}>+{Math.round(fr.totalCapitauxPermanents).toLocaleString()} €</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={darkMode ? 'text-gray-400' : 'text-slate-600'}>Immobilisations nettes</span>
+                  <span className={`font-bold ${darkMode ? 'text-red-300' : 'text-red-600'}`}>-{Math.round(fr.immobilisationsNettes).toLocaleString()} €</span>
+                </div>
+              </div>
+              <div className={`mt-3 p-4 rounded-xl ${fr.fondRoulement >= 0 ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gradient-to-r from-red-500 to-orange-500'} text-white flex justify-between`}>
+                <span className="font-bold">FR</span>
+                <span className="text-xl font-black">{Math.round(fr.fondRoulement).toLocaleString()} €</span>
+              </div>
+            </>); })()}
+          </div>
+
+          {/* BFR */}
           <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-blue-900' : 'bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200'}`}>
             {(() => { const b = getBFR(); return (<>
-              <h2 className={`text-xl font-black mb-4 ${darkMode ? 'text-blue-400' : 'text-blue-900'}`}>BFR</h2>
-              <div className="space-y-2">
-                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'} flex justify-between`}>
-                  <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>Créances clients</span>
-                  <span className="font-black text-blue-600">+{Math.round(b.creancesClients).toLocaleString()} €</span>
+              <div className="flex items-center gap-2 mb-4">
+                <h2 className={`text-xl font-black ${darkMode ? 'text-blue-400' : 'text-blue-900'}`}>Besoin en Fonds de Roulement</h2>
+                <div className="relative group">
+                  <HelpCircle size={16} className={`cursor-help ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                  <div className={`absolute right-0 top-6 w-80 p-3 rounded-xl shadow-lg z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-slate-700'}`}>
+                    <p className="font-bold mb-2">Méthode de calcul :</p>
+                    <p className="text-xs mb-1"><strong>BFR = Stocks + Créances clients - Dettes fournisseurs</strong></p>
+                    <p className="text-xs mb-1">Créances = (CA / 365) × Délai paiement clients</p>
+                    <p className="text-xs mb-1">Dettes = (Achats / 365) × Délai paiement fournisseurs</p>
+                    <p className="text-xs text-gray-500 mt-2">Le BFR représente le besoin de financement lié au cycle d'exploitation. Un BFR négatif est favorable.</p>
+                  </div>
                 </div>
-                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'} flex justify-between`}>
-                  <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>Dettes fournisseurs</span>
-                  <span className="font-black text-teal-600">-{Math.round(b.dettesFournisseurs).toLocaleString()} €</span>
+              </div>
+              <div className={`text-xs mb-3 p-3 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-400' : 'bg-blue-100 text-blue-700'}`}>
+                <div className="font-bold mb-1">Formule :</div>
+                <div className="font-mono">BFR = Stocks + (CA/365 × {globalParams.delaiPaiementClients}j) - (Achats/365 × {globalParams.delaiPaiementFournisseurs}j)</div>
+              </div>
+              <div className="space-y-2">
+                {/* Stocks éditables */}
+                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>Stocks</span>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        className={`w-24 text-right rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-blue-50'}`}
+                        value={globalParams.stocksValeur || 0}
+                        onChange={(e) => setGlobalParams({...globalParams, stocksValeur: validerMontant(e.target.value)})}
+                      />
+                      <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€</span>
+                    </div>
+                  </div>
+                </div>
+                {/* Délai paiement clients */}
+                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>Créances clients</span>
+                    <span className="font-black text-blue-600">+{Math.round(b.creancesClients).toLocaleString()} €</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Délai:</span>
+                    <input
+                      type="number"
+                      className={`w-16 text-center rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-blue-50'}`}
+                      value={globalParams.delaiPaiementClients}
+                      onChange={(e) => setGlobalParams({...globalParams, delaiPaiementClients: validerEntier(e.target.value, 0, 365)})}
+                    />
+                    <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>jours</span>
+                  </div>
+                </div>
+                {/* Délai paiement fournisseurs */}
+                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>Dettes fournisseurs</span>
+                    <span className="font-black text-teal-600">-{Math.round(b.dettesFournisseurs).toLocaleString()} €</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Délai:</span>
+                    <input
+                      type="number"
+                      className={`w-16 text-center rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-blue-50'}`}
+                      value={globalParams.delaiPaiementFournisseurs}
+                      onChange={(e) => setGlobalParams({...globalParams, delaiPaiementFournisseurs: validerEntier(e.target.value, 0, 365)})}
+                    />
+                    <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>jours</span>
+                  </div>
                 </div>
                 <div className={`p-4 rounded-xl ${b.bfr > 0 ? 'bg-gradient-to-r from-red-500 to-orange-500' : 'bg-gradient-to-r from-teal-500 to-cyan-500'} text-white flex justify-between`}>
                   <div><span className="font-bold block">BFR</span><span className="text-xs">{Math.round(b.bfrEnJours)} jours</span></div>
@@ -504,14 +873,17 @@ const BudgetTool = () => {
           {services.map(service => {
             const bs = getBudgetService(service);
             const hasPromos = service.promos && Object.keys(service.promos).length > 0;
+            const isPrestation = service.type === 'prestation';
             const stats = hasPromos ? calculerStatsFormation(service) : null;
+            const totalRealisations = isPrestation ? calculerTotalRealisations(service.realisations) : 0;
 
             return (
               <div key={service.id} className={`rounded-3xl shadow-lg border-2 p-8 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-100'}`}>
                 <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
                   <div className="flex items-center gap-4 flex-wrap">
-                    {hasPromos ? <GraduationCap className="text-purple-500" size={28} /> : <Settings className="text-teal-500" size={28} />}
+                    {isPrestation ? <Calendar className="text-orange-500" size={28} /> : hasPromos ? <GraduationCap className="text-purple-500" size={28} /> : <Settings className="text-teal-500" size={28} />}
                     <input className={`text-2xl font-black outline-none border-b-2 border-transparent focus:border-teal-500 bg-transparent ${darkMode ? 'text-white' : 'text-slate-800'}`} value={service.nom} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, nom: e.target.value} : s))} />
+                    {isPrestation && <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Prestation</span>}
                     <span className="bg-red-100 text-red-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-1">
                       <TrendingDown size={16} /> {Math.round(bs.total).toLocaleString()} €
                     </span>
@@ -528,8 +900,18 @@ const BudgetTool = () => {
                         {stats.effectifActuel} étudiants ({stats.totalAbandons} abandons)
                       </span>
                     )}
+                    {isPrestation && (
+                      <span className="bg-orange-100 text-orange-700 px-3 py-2 rounded-xl text-xs font-bold">
+                        {totalRealisations} réalisations
+                      </span>
+                    )}
                   </div>
-                  <button onClick={() => setServices(services.filter(s => s.id !== service.id))} className="text-red-400 p-2 hover:bg-red-50 rounded-xl no-print"><Trash2 size={22} /></button>
+                  <button onClick={() => setConfirmDialog({
+                    isOpen: true,
+                    title: 'Supprimer ce service ?',
+                    message: `Êtes-vous sûr de vouloir supprimer "${service.nom}" ? Cette action est irréversible.`,
+                    onConfirm: () => setServices(services.filter(s => s.id !== service.id))
+                  })} className="text-red-400 p-2 hover:bg-red-50 rounded-xl no-print"><Trash2 size={22} /></button>
                 </div>
 
                 {/* Section Promos par site - uniquement pour les services de formation */}
@@ -643,8 +1025,63 @@ const BudgetTool = () => {
                   </div>
                 )}
 
-                {/* Unités/Taux - uniquement pour les services sans promos */}
-                {!hasPromos && (
+                {/* Section Réalisations par mois - uniquement pour les prestations */}
+                {isPrestation && (
+                  <div className={`mb-6 p-6 rounded-2xl border-2 ${darkMode ? 'bg-orange-900/20 border-orange-800' : 'bg-orange-50 border-orange-200'}`}>
+                    <h3 className={`text-lg font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-orange-400' : 'text-orange-700'}`}>
+                      <Calendar size={22} /> Réalisations par mois
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-4">
+                      {MOIS.map((mois, idx) => {
+                        const moisKey = mois.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace('û', 'u');
+                        return (
+                          <div key={mois} className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
+                            <label className={`text-xs font-bold block mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{mois}</label>
+                            <input
+                              type="number"
+                              min="0"
+                              className={`w-full text-center font-black text-lg rounded px-2 py-1 ${darkMode ? 'bg-gray-600 text-white' : 'bg-orange-50 text-orange-700'}`}
+                              value={service.realisations?.[moisKey] || 0}
+                              onChange={(e) => setServices(services.map(s => s.id === service.id ? {
+                                ...s,
+                                realisations: {
+                                  ...(s.realisations || defaultRealisations()),
+                                  [moisKey]: Math.max(0, parseInt(e.target.value) || 0)
+                                }
+                              } : s))}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
+                        <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-orange-400' : 'text-orange-600'}`}>Prix unitaire (€)</label>
+                        <input
+                          type="number"
+                          className={`font-black text-xl px-4 py-2 rounded-xl w-full outline-none ${darkMode ? 'bg-gray-600 text-white' : 'bg-orange-50 text-orange-700'}`}
+                          value={service.prixUnitaire || 0}
+                          onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, prixUnitaire: validerMontant(e.target.value)} : s))}
+                        />
+                      </div>
+                      <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
+                        <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-orange-400' : 'text-orange-600'}`}>Total réalisations</label>
+                        <div className={`font-black text-xl px-4 py-2 ${darkMode ? 'text-orange-300' : 'text-orange-700'}`}>
+                          {totalRealisations}
+                        </div>
+                      </div>
+                      <div className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
+                        <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-green-400' : 'text-green-600'}`}>CA estimé</label>
+                        <div className={`font-black text-xl px-4 py-2 ${darkMode ? 'text-green-300' : 'text-green-700'}`}>
+                          {(totalRealisations * (service.prixUnitaire || 0)).toLocaleString()} €
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Unités/Taux - uniquement pour les services sans promos et non-prestation */}
+                {!hasPromos && !isPrestation && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-blue-900/30 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
                       <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Unités / Bénéficiaires</label>

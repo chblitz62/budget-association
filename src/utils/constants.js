@@ -35,11 +35,24 @@ export const COMPTES_EXPLOITATION = {
 // Valeurs par défaut
 export const defaultGlobalParams = {
   augmentationAnnuelle: 2.5,
-  tauxProvisionCongesPayes: 10,
-  tauxProvisionGrossesReparations: 2,
-  tauxProvisionCreancesDouteuses: 1,
   delaiPaiementClients: 30,
-  delaiPaiementFournisseurs: 30
+  delaiPaiementFournisseurs: 30,
+  // Provisions personnalisables
+  provisions: [
+    { id: 'conges', nom: 'Congés payés', baseCalcul: 'salaires', taux: 10 },
+    { id: 'reparations', nom: 'Grosses réparations', baseCalcul: 'investissements', taux: 2 },
+    { id: 'creances', nom: 'Créances douteuses', baseCalcul: 'chiffre_affaires', taux: 1 },
+    { id: 'retraite', nom: 'Provision retraite', baseCalcul: 'salaires', taux: 0 },
+    { id: 'prudhommes', nom: 'Prud\'hommes', baseCalcul: 'salaires', taux: 0 }
+  ],
+  // Fonds de roulement personnalisable
+  fondRoulement: [
+    { id: 'reserves', nom: 'Réserves', montant: 0 },
+    { id: 'reportNouveau', nom: 'Report à nouveau', montant: 0 },
+    { id: 'subventionsInvest', nom: 'Subventions d\'investissement', montant: 0 }
+  ],
+  // BFR - éléments personnalisables supplémentaires
+  stocksValeur: 0
 };
 
 export const defaultDirection = {
@@ -73,6 +86,18 @@ const defaultAbandons = () => ({
   janvier: 0, fevrier: 0, mars: 0, avril: 0, mai: 0, juin: 0,
   juillet: 0, aout: 0, septembre: 0, octobre: 0, novembre: 0, decembre: 0
 });
+
+// Structure des réalisations par mois pour les prestations (VAE, Supervision, etc.)
+export const defaultRealisations = () => ({
+  janvier: 0, fevrier: 0, mars: 0, avril: 0, mai: 0, juin: 0,
+  juillet: 0, aout: 0, septembre: 0, octobre: 0, novembre: 0, decembre: 0
+});
+
+// Calcul du total des réalisations
+export const calculerTotalRealisations = (realisations) => {
+  if (!realisations) return 0;
+  return Object.values(realisations).reduce((sum, val) => sum + val, 0);
+};
 
 // Promos par site - Formation Initiale
 export const defaultPromosFormationInitiale = {
@@ -193,21 +218,125 @@ export const defaultServices = [
     recettes: [
       { id: 1, nom: 'Financement OPCO', montant: 40000 },
       { id: 2, nom: 'Frais de scolarité', montant: 20000 },
-      { id: 3, nom: 'Subvention État', montant: 10000 },
-      { id: 4, nom: 'Prestations VAE', montant: 12000 },
-      { id: 5, nom: 'Prestations Formation', montant: 15000 },
-      { id: 6, nom: 'Prestations GAP', montant: 10000 },
-      { id: 7, nom: 'Prestations Supervision', montant: 8000 }
+      { id: 3, nom: 'Subvention État', montant: 10000 }
     ],
     personnel: [
       { id: 1, titre: 'Responsable Formation Continue', etp: 1, salaire: 4000, segur: true },
       { id: 2, titre: 'Formateur CAFDES', etp: 1.5, salaire: 3500, segur: true },
       { id: 3, titre: 'Formateur CAFERUIS', etp: 1.5, salaire: 3400, segur: true },
-      { id: 4, titre: 'Accompagnateur VAE', etp: 2, salaire: 2800, segur: true },
-      { id: 5, titre: 'Formateur Prestation', etp: 2, salaire: 3000, segur: true },
-      { id: 6, titre: 'Animateur GAP', etp: 1.5, salaire: 3200, segur: true },
-      { id: 7, titre: 'Superviseur', etp: 1, salaire: 3500, segur: true },
-      { id: 8, titre: 'Secrétaire pédagogique', etp: 2, salaire: 2400, segur: true }
+      { id: 4, titre: 'Secrétaire pédagogique', etp: 2, salaire: 2400, segur: true }
+    ]
+  },
+  {
+    id: 3,
+    nom: 'VAE',
+    type: 'prestation',
+    realisations: defaultRealisations(),
+    prixUnitaire: 1500,
+    tauxActivite: 100,
+    investissements: {
+      bienImmo: { montant: 0, duree: 25, taux: 0 },
+      travaux: { montant: 0, duree: 10, taux: 0 },
+      vehicule: { montant: 0, duree: 5, taux: 0 },
+      informatique: { montant: 5000, duree: 3, taux: 0 },
+      mobilier: { montant: 2000, duree: 10, taux: 0 },
+      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
+      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
+    },
+    exploitation: [
+      { id: 1, nom: 'Fournitures', montant: 200 },
+      { id: 2, nom: 'Documentation', montant: 100 },
+      { id: 3, nom: 'Déplacements', montant: 300 }
+    ],
+    recettes: [
+      { id: 1, nom: 'Prestations VAE', montant: 0 }
+    ],
+    personnel: [
+      { id: 1, titre: 'Accompagnateur VAE', etp: 1, salaire: 2800, segur: true }
+    ]
+  },
+  {
+    id: 4,
+    nom: 'Prestations Formation',
+    type: 'prestation',
+    realisations: defaultRealisations(),
+    prixUnitaire: 800,
+    tauxActivite: 100,
+    investissements: {
+      bienImmo: { montant: 0, duree: 25, taux: 0 },
+      travaux: { montant: 0, duree: 10, taux: 0 },
+      vehicule: { montant: 0, duree: 5, taux: 0 },
+      informatique: { montant: 3000, duree: 3, taux: 0 },
+      mobilier: { montant: 1500, duree: 10, taux: 0 },
+      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
+      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
+    },
+    exploitation: [
+      { id: 1, nom: 'Fournitures', montant: 150 },
+      { id: 2, nom: 'Documentation', montant: 100 },
+      { id: 3, nom: 'Déplacements', montant: 400 }
+    ],
+    recettes: [
+      { id: 1, nom: 'Prestations Formation', montant: 0 }
+    ],
+    personnel: [
+      { id: 1, titre: 'Formateur Prestation', etp: 1, salaire: 3000, segur: true }
+    ]
+  },
+  {
+    id: 5,
+    nom: 'Supervision',
+    type: 'prestation',
+    realisations: defaultRealisations(),
+    prixUnitaire: 500,
+    tauxActivite: 100,
+    investissements: {
+      bienImmo: { montant: 0, duree: 25, taux: 0 },
+      travaux: { montant: 0, duree: 10, taux: 0 },
+      vehicule: { montant: 0, duree: 5, taux: 0 },
+      informatique: { montant: 2000, duree: 3, taux: 0 },
+      mobilier: { montant: 1000, duree: 10, taux: 0 },
+      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
+      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
+    },
+    exploitation: [
+      { id: 1, nom: 'Fournitures', montant: 100 },
+      { id: 2, nom: 'Documentation', montant: 50 },
+      { id: 3, nom: 'Déplacements', montant: 350 }
+    ],
+    recettes: [
+      { id: 1, nom: 'Prestations Supervision', montant: 0 }
+    ],
+    personnel: [
+      { id: 1, titre: 'Superviseur', etp: 0.5, salaire: 3500, segur: true }
+    ]
+  },
+  {
+    id: 6,
+    nom: 'GAP (Groupe d\'Analyse des Pratiques)',
+    type: 'prestation',
+    realisations: defaultRealisations(),
+    prixUnitaire: 400,
+    tauxActivite: 100,
+    investissements: {
+      bienImmo: { montant: 0, duree: 25, taux: 0 },
+      travaux: { montant: 0, duree: 10, taux: 0 },
+      vehicule: { montant: 0, duree: 5, taux: 0 },
+      informatique: { montant: 2000, duree: 3, taux: 0 },
+      mobilier: { montant: 1000, duree: 10, taux: 0 },
+      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
+      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
+    },
+    exploitation: [
+      { id: 1, nom: 'Fournitures', montant: 100 },
+      { id: 2, nom: 'Documentation', montant: 100 },
+      { id: 3, nom: 'Déplacements', montant: 400 }
+    ],
+    recettes: [
+      { id: 1, nom: 'Prestations GAP', montant: 0 }
+    ],
+    personnel: [
+      { id: 1, titre: 'Animateur GAP', etp: 0.5, salaire: 3200, segur: true }
     ]
   }
 ];

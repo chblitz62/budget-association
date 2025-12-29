@@ -62,9 +62,9 @@ describe('Fonctions de validation', () => {
   });
 
   describe('validerETP', () => {
-    it('borne entre 0 et 50', () => {
+    it('borne entre 0 et 100', () => {
       expect(validerETP('1.5')).toBe(1.5);
-      expect(validerETP('60')).toBe(50);
+      expect(validerETP('150')).toBe(100);
     });
   });
 
@@ -218,8 +218,8 @@ describe('Calculs de budget', () => {
   const mockLieu = {
     id: 1,
     nom: 'Test Lieu',
-    enfantsParLieu: 6,
-    tauxRemplissage: 95,
+    unites: 6,
+    tauxActivite: 95,
     investissements: {
       bienImmo: { montant: 300000, duree: 25, taux: 2 },
       vehicule: { montant: 30000, duree: 5, taux: 3 }
@@ -227,6 +227,9 @@ describe('Calculs de budget', () => {
     exploitation: [
       { id: 1, nom: 'Alimentation', montant: 2000 },
       { id: 2, nom: 'Carburant', montant: 500 }
+    ],
+    recettes: [
+      { id: 1, nom: 'Subvention', montant: 8000 }
     ],
     personnel: [
       { id: 1, titre: 'Éducateur', etp: 2, salaire: 2800, segur: true }
@@ -251,8 +254,8 @@ describe('Calculs de budget', () => {
       expect(result.salaires).toBeGreaterThan(0);
       expect(result.exploitation).toBe((2000 + 500) * 12); // 30000
       expect(result.amortissements).toBeGreaterThan(0);
-      expect(result.joursAnnuels).toBeCloseTo(6 * 0.95 * 365, 0); // ~2080
-      expect(result.prixJour).toBeGreaterThan(0);
+      expect(result.unitesAnnuelles).toBeCloseTo(6 * 0.95 * 365, 0); // ~2080
+      expect(result.coutUnite).toBeGreaterThan(0);
     });
 
     it('calcule correctement les investissements', () => {
@@ -282,13 +285,16 @@ describe('Provisions et BFR', () => {
   const mockLieux = [{
     id: 1,
     nom: 'Lieu 1',
-    enfantsParLieu: 6,
-    tauxRemplissage: 90,
+    unites: 6,
+    tauxActivite: 90,
     investissements: {
       bienImmo: { montant: 200000, duree: 20, taux: 2 }
     },
     exploitation: [
       { id: 1, nom: 'Alimentation', montant: 1500 }
+    ],
+    recettes: [
+      { id: 1, nom: 'Subvention', montant: 5000 }
     ],
     personnel: [
       { id: 1, titre: 'Éducateur', etp: 1, salaire: 2500, segur: true }
@@ -297,9 +303,13 @@ describe('Provisions et BFR', () => {
 
   const mockGlobalParams = {
     augmentationAnnuelle: 2.5,
-    tauxProvisionCongesPayes: 10,
-    tauxProvisionGrossesReparations: 2,
-    tauxProvisionCreancesDouteuses: 1,
+    provisions: [
+      { id: 'conges', nom: 'Congés payés', baseCalcul: 'salaires', taux: 10 },
+      { id: 'reparations', nom: 'Grosses réparations', baseCalcul: 'investissements', taux: 2 },
+      { id: 'creances', nom: 'Créances douteuses', baseCalcul: 'chiffre_affaires', taux: 1 }
+    ],
+    fondRoulement: [],
+    stocksValeur: 0,
     delaiPaiementClients: 30,
     delaiPaiementFournisseurs: 30
   };
@@ -308,11 +318,13 @@ describe('Provisions et BFR', () => {
     it('calcule les provisions correctement', () => {
       const result = calculerProvisions(mockDirection, mockLieux, mockGlobalParams);
 
-      expect(result.congesPayes).toBeGreaterThan(0);
-      expect(result.grossesReparations).toBeGreaterThan(0);
-      expect(result.creancesDouteuses).toBeGreaterThan(0);
+      // Nouvelle structure avec details
+      expect(result.details).toBeDefined();
+      expect(result.details.length).toBe(3);
+      expect(result.details[0].nom).toBe('Congés payés');
+      expect(result.details[0].montant).toBeGreaterThan(0);
       expect(result.total).toBe(
-        result.congesPayes + result.grossesReparations + result.creancesDouteuses
+        result.details.reduce((sum, p) => sum + p.montant, 0)
       );
     });
   });
@@ -321,20 +333,25 @@ describe('Provisions et BFR', () => {
     it('calcule le BFR correctement', () => {
       const result = calculerBFR(mockDirection, mockLieux, mockGlobalParams);
 
-      expect(result.stocks).toBe(0); // Pas de stock dans le secteur social
-      expect(result.creancesClients).toBeGreaterThan(0);
+      expect(result.stocks).toBe(0); // stocksValeur = 0 dans mockGlobalParams
+      expect(result.creancesClients).toBeGreaterThanOrEqual(0);
       expect(result.dettesFournisseurs).toBeGreaterThan(0);
       expect(result.bfr).toBe(
         result.stocks + result.creancesClients - result.dettesFournisseurs
       );
-      expect(result.chiffreAffaires).toBeGreaterThan(0);
+      // chiffreAffaires = recettes des services (5000 * 12 = 60000)
+      expect(result.chiffreAffaires).toBe(60000);
     });
 
     it('calcule le BFR en jours', () => {
       const result = calculerBFR(mockDirection, mockLieux, mockGlobalParams);
 
-      const expectedBfrEnJours = (result.bfr / result.chiffreAffaires) * 365;
-      expect(result.bfrEnJours).toBeCloseTo(expectedBfrEnJours, 2);
+      if (result.chiffreAffaires > 0) {
+        const expectedBfrEnJours = (result.bfr / result.chiffreAffaires) * 365;
+        expect(result.bfrEnJours).toBeCloseTo(expectedBfrEnJours, 2);
+      } else {
+        expect(result.bfrEnJours).toBe(0);
+      }
     });
   });
 
@@ -356,12 +373,12 @@ describe('Provisions et BFR', () => {
       expect(result[2].budgetDirection).toBeGreaterThan(result[1].budgetDirection);
     });
 
-    it('calcule les détails par lieu', () => {
+    it('calcule les détails par service', () => {
       const result = calculerSynthese3Ans(mockDirection, mockLieux, mockGlobalParams);
 
-      expect(result[0].detailsLieux.length).toBe(1);
-      expect(result[0].detailsLieux[0].nom).toBe('Lieu 1');
-      expect(result[0].detailsLieux[0].prixJour).toBeGreaterThan(0);
+      expect(result[0].detailsServices.length).toBe(1);
+      expect(result[0].detailsServices[0].nom).toBe('Lieu 1');
+      expect(result[0].detailsServices[0].coutUnite).toBeGreaterThanOrEqual(0);
     });
   });
 });

@@ -582,11 +582,15 @@ const createSynthese = (direction, services, globalParams) => {
   data.push([]);
   data.push([]);
 
-  // Provisions
+  // Provisions (dynamiques)
   data.push(['PROVISIONS RECOMMANDÉES']);
-  data.push(['Provision congés payés', formatEuro(provisions.congesPayes)]);
-  data.push(['Provision grosses réparations', formatEuro(provisions.grossesReparations)]);
-  data.push(['Provision créances douteuses', formatEuro(provisions.creancesDouteuses)]);
+  if (provisions.details && provisions.details.length > 0) {
+    provisions.details.forEach(prov => {
+      if (prov.montant > 0) {
+        data.push([prov.nom, formatEuro(prov.montant), `${prov.taux}% sur ${prov.baseCalcul}`]);
+      }
+    });
+  }
   data.push(['TOTAL PROVISIONS', formatEuro(provisions.total)]);
 
   data.push([]);

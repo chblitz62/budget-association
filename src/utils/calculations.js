@@ -203,7 +203,7 @@ export const calculerBudgetService = (service) => {
 // Alias pour compatibilité
 export const calculerBudgetLieu = calculerBudgetService;
 
-// Calcul des provisions
+// Calcul des provisions (dynamique avec catégories personnalisables)
 export const calculerProvisions = (direction, services, globalParams) => {
   const budgetDir = calculerBudgetDirection(direction);
   let totalSalaires = budgetDir.salaires;
@@ -217,15 +217,37 @@ export const calculerProvisions = (direction, services, globalParams) => {
     chiffreAffaires += bService.total;
   });
 
-  const provisionCongesPayes = totalSalaires * (globalParams.tauxProvisionCongesPayes / 100);
-  const provisionGrossesReparations = totalInvestissements * (globalParams.tauxProvisionGrossesReparations / 100);
-  const provisionCreancesDouteuses = chiffreAffaires * (globalParams.tauxProvisionCreancesDouteuses / 100);
+  // Bases de calcul disponibles
+  const bases = {
+    salaires: totalSalaires,
+    investissements: totalInvestissements,
+    chiffre_affaires: chiffreAffaires
+  };
+
+  // Calcul des provisions personnalisables
+  const provisions = globalParams.provisions || [];
+  const detailProvisions = provisions.map(prov => {
+    const base = bases[prov.baseCalcul] || 0;
+    const montant = base * (prov.taux / 100);
+    return {
+      id: prov.id,
+      nom: prov.nom,
+      baseCalcul: prov.baseCalcul,
+      taux: prov.taux,
+      baseValeur: base,
+      montant: montant
+    };
+  });
+
+  const total = detailProvisions.reduce((sum, p) => sum + p.montant, 0);
 
   return {
-    congesPayes: provisionCongesPayes,
-    grossesReparations: provisionGrossesReparations,
-    creancesDouteuses: provisionCreancesDouteuses,
-    total: provisionCongesPayes + provisionGrossesReparations + provisionCreancesDouteuses
+    details: detailProvisions,
+    total,
+    // Valeurs de base pour référence
+    totalSalaires,
+    totalInvestissements,
+    chiffreAffaires
   };
 };
 
@@ -239,11 +261,11 @@ export const calculerBFR = (direction, services, globalParams) => {
 
   services.forEach(s => {
     const bService = calculerBudgetService(s);
-    chiffreAffaires += bService.total;
+    chiffreAffaires += bService.recettes; // Utiliser les recettes (CA), pas les charges totales
     achatsExploitation += bService.exploitation;
   });
 
-  const stocks = 0;
+  const stocks = globalParams.stocksValeur || 0;
   const creancesClients = (chiffreAffaires / 365) * globalParams.delaiPaiementClients;
   const dettesFournisseurs = (achatsExploitation / 365) * globalParams.delaiPaiementFournisseurs;
   const bfr = stocks + creancesClients - dettesFournisseurs;
@@ -255,7 +277,43 @@ export const calculerBFR = (direction, services, globalParams) => {
     dettesFournisseurs,
     bfr,
     bfrEnJours,
-    chiffreAffaires
+    chiffreAffaires,
+    achatsExploitation
+  };
+};
+
+// Calcul du Fond de Roulement
+export const calculerFondRoulement = (direction, services, globalParams) => {
+  // Calcul des immobilisations nettes (valeur d'acquisition - amortissements cumulés)
+  let totalImmobilisations = 0;
+  let totalAmortissementsCumules = 0;
+
+  services.forEach(s => {
+    Object.values(s.investissements).forEach(inv => {
+      totalImmobilisations += inv.montant;
+      // Approximation : amortissement première année
+      if (inv.duree > 0) {
+        totalAmortissementsCumules += inv.montant / inv.duree;
+      }
+    });
+  });
+
+  const immobilisationsNettes = totalImmobilisations - totalAmortissementsCumules;
+
+  // Capitaux permanents (personnalisables)
+  const fondRoulementItems = globalParams.fondRoulement || [];
+  const totalCapitauxPermanents = fondRoulementItems.reduce((sum, item) => sum + (item.montant || 0), 0);
+
+  // Fonds de roulement = Capitaux permanents - Immobilisations nettes
+  const fondRoulement = totalCapitauxPermanents - immobilisationsNettes;
+
+  return {
+    details: fondRoulementItems,
+    totalCapitauxPermanents,
+    immobilisationsNettes,
+    totalImmobilisations,
+    totalAmortissementsCumules,
+    fondRoulement
   };
 };
 
