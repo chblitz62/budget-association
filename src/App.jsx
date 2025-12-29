@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus, Banknote, TrendingDown, CheckCircle, AlertTriangle, FileSpreadsheet, Key, Eye, EyeOff, HelpCircle, X, AlertCircle, Clock, BarChart3 } from 'lucide-react';
+import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus, Banknote, TrendingDown, CheckCircle, AlertTriangle, FileSpreadsheet, Key, Eye, EyeOff, HelpCircle, X, AlertCircle, Clock, BarChart3, Search, Menu, ChevronLeft, ChevronRight, Home, Shield, Wallet, Building, Layers } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { exportToExcel } from './utils/excelExport';
 import { exportToPDF } from './utils/pdfExport';
@@ -198,6 +198,138 @@ const SaveIndicator = ({ darkMode }) => {
   );
 };
 
+// Composant menu latéral de navigation
+const SidebarNav = ({ services, darkMode, isOpen, onToggle, searchQuery, onSearchChange }) => {
+  const navItems = [
+    { id: 'header', label: 'Accueil', icon: Home },
+    { id: 'budget-annuel', label: 'Budget Annuel', icon: Calendar },
+    { id: 'synthese-3ans', label: 'Synthèse 3 ans', icon: TrendingUp },
+    { id: 'graphiques', label: 'Graphiques', icon: BarChart3 },
+    { id: 'provisions-bfr-fr', label: 'Provisions / BFR / FR', icon: Shield },
+    { id: 'direction', label: 'Direction & Siège', icon: Building2 },
+  ];
+
+  const scrollToSection = (id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Filter services based on search query
+  const filteredServices = services.filter(s =>
+    s.nom.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <div className={`sidebar-container fixed left-0 top-0 h-screen z-50 transition-all duration-300 no-print ${isOpen ? 'w-64' : 'w-16'}`}>
+      <div className={`h-full ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-slate-200'} border-r shadow-lg flex flex-col`}>
+        {/* Toggle button */}
+        <button
+          onClick={onToggle}
+          className={`absolute -right-3 top-20 w-6 h-6 rounded-full shadow-lg flex items-center justify-center ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-slate-600'} border ${darkMode ? 'border-gray-600' : 'border-slate-200'}`}
+        >
+          {isOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+        </button>
+
+        {/* Logo/Title */}
+        <div className={`p-4 border-b ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
+          {isOpen ? (
+            <div className="flex items-center gap-2">
+              <Menu className="text-teal-500" size={24} />
+              <span className={`font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Navigation</span>
+            </div>
+          ) : (
+            <Menu className="text-teal-500 mx-auto" size={24} />
+          )}
+        </div>
+
+        {/* Search bar */}
+        {isOpen && (
+          <div className="p-3">
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-slate-100'}`}>
+              <Search size={16} className={darkMode ? 'text-gray-400' : 'text-slate-400'} />
+              <input
+                type="text"
+                placeholder="Rechercher..."
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className={`flex-1 bg-transparent outline-none text-sm ${darkMode ? 'text-white placeholder:text-gray-500' : 'text-slate-700 placeholder:text-slate-400'}`}
+              />
+              {searchQuery && (
+                <button onClick={() => onSearchChange('')} className={darkMode ? 'text-gray-400' : 'text-slate-400'}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Navigation items */}
+        <nav className="flex-1 overflow-y-auto sidebar-nav p-2">
+          {/* Main sections */}
+          {isOpen && <div className={`text-xs font-bold uppercase px-3 py-2 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Sections</div>}
+          {navItems.map(item => (
+            <button
+              key={item.id}
+              onClick={() => scrollToSection(item.id)}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl mb-1 transition-colors ${darkMode ? 'hover:bg-gray-800 text-gray-300 hover:text-white' : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'}`}
+              title={!isOpen ? item.label : undefined}
+            >
+              <item.icon size={18} className="text-teal-500 flex-shrink-0" />
+              {isOpen && <span className="text-sm font-medium truncate">{item.label}</span>}
+            </button>
+          ))}
+
+          {/* Services section */}
+          {isOpen && (
+            <>
+              <div className={`text-xs font-bold uppercase px-3 py-2 mt-4 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+                Services ({filteredServices.length})
+              </div>
+              {filteredServices.map(service => (
+                <button
+                  key={service.id}
+                  onClick={() => scrollToSection(`service-${service.id}`)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl mb-1 transition-colors ${darkMode ? 'hover:bg-gray-800 text-gray-300 hover:text-white' : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'}`}
+                >
+                  {service.type === 'prestation' ? (
+                    <Calendar size={16} className="text-orange-500 flex-shrink-0" />
+                  ) : service.promos ? (
+                    <GraduationCap size={16} className="text-purple-500 flex-shrink-0" />
+                  ) : (
+                    <Layers size={16} className="text-teal-500 flex-shrink-0" />
+                  )}
+                  <span className="text-sm font-medium truncate">{service.nom}</span>
+                </button>
+              ))}
+            </>
+          )}
+
+          {!isOpen && (
+            <button
+              onClick={() => scrollToSection('services-section')}
+              className={`w-full flex items-center justify-center p-3 rounded-xl mb-1 transition-colors ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-slate-100'}`}
+              title="Services"
+            >
+              <Layers size={18} className="text-purple-500" />
+            </button>
+          )}
+        </nav>
+
+        {/* Footer with quick stats */}
+        {isOpen && (
+          <div className={`p-3 border-t ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
+            <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+              {services.length} service{services.length > 1 ? 's' : ''}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const BudgetTool = () => {
   const fileInputRef = useRef(null);
 
@@ -208,6 +340,18 @@ const BudgetTool = () => {
 
   // État pour la confirmation de suppression
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
+  // État pour le menu latéral
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('budget_sidebar_open');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Sauvegarder l'état du sidebar
+  useEffect(() => {
+    localStorage.setItem('budget_sidebar_open', JSON.stringify(sidebarOpen));
+  }, [sidebarOpen]);
 
   const [globalParams, setGlobalParams] = useState(() => loadFromStorage('assoc_globalParams', defaultGlobalParams));
   const [direction, setDirection] = useState(() => loadFromStorage('assoc_direction', defaultDirection));
@@ -312,7 +456,17 @@ const BudgetTool = () => {
   const hasDeficit = soldeGlobal < 0;
 
   return (
-    <div className={`min-h-screen p-4 md:p-8 transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}>
+    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}>
+      {/* Menu latéral de navigation */}
+      <SidebarNav
+        services={services}
+        darkMode={darkMode}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+      />
+
       {/* Composants globaux */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
@@ -324,24 +478,26 @@ const BudgetTool = () => {
       />
       <SaveIndicator darkMode={darkMode} />
 
-      <div className="max-w-7xl mx-auto">
+      {/* Contenu principal avec marge pour le sidebar */}
+      <div className={`main-content p-4 md:p-8 transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-16'}`}>
+        <div className="max-w-7xl mx-auto">
 
-        {/* ALERTE DÉFICIT */}
-        {hasDeficit && (
-          <div className={`mb-6 p-4 rounded-2xl border-2 flex items-center gap-4 ${darkMode ? 'bg-red-900/30 border-red-800' : 'bg-red-50 border-red-300'}`}>
-            <AlertTriangle className="text-red-500" size={32} />
-            <div>
-              <h3 className={`font-black ${darkMode ? 'text-red-400' : 'text-red-700'}`}>Attention : Budget en déficit</h3>
-              <p className={`text-sm ${darkMode ? 'text-red-300' : 'text-red-600'}`}>
-                Le solde global est de <strong>{Math.round(soldeGlobal).toLocaleString()} €</strong>.
-                Recettes : {Math.round(totalRecettes).toLocaleString()} € | Charges : {Math.round(totalCharges).toLocaleString()} €
-              </p>
+          {/* ALERTE DÉFICIT */}
+          {hasDeficit && (
+            <div className={`mb-6 p-4 rounded-2xl border-2 flex items-center gap-4 ${darkMode ? 'bg-red-900/30 border-red-800' : 'bg-red-50 border-red-300'}`}>
+              <AlertTriangle className="text-red-500" size={32} />
+              <div>
+                <h3 className={`font-black ${darkMode ? 'text-red-400' : 'text-red-700'}`}>Attention : Budget en déficit</h3>
+                <p className={`text-sm ${darkMode ? 'text-red-300' : 'text-red-600'}`}>
+                  Le solde global est de <strong>{Math.round(soldeGlobal).toLocaleString()} €</strong>.
+                  Recettes : {Math.round(totalRecettes).toLocaleString()} € | Charges : {Math.round(totalCharges).toLocaleString()} €
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* HEADER */}
-        <div className={`rounded-3xl shadow-lg border p-6 mb-6 no-print ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
+          {/* HEADER */}
+          <div id="header" className={`rounded-3xl shadow-lg border p-6 mb-6 no-print ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <img src="/logo.png" alt="AFERTES" className={`h-12 ${darkMode ? 'brightness-200' : ''}`} />
@@ -437,7 +593,8 @@ const BudgetTool = () => {
         )}
 
         {/* GRAPHIQUE ANNUEL */}
-        <div className={`rounded-3xl shadow-lg border-2 p-6 mb-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+        {/* BUDGET ANNUEL */}
+        <div id="budget-annuel" className={`rounded-3xl shadow-lg border-2 p-6 mb-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
           <h2 className={`text-xl font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
             <Calendar size={24} className="text-teal-500" /> Budget Annuel - Répartition mensuelle
           </h2>
@@ -477,7 +634,7 @@ const BudgetTool = () => {
         </div>
 
         {/* SYNTHESE 3 ANS - CARTES */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div id="synthese-3ans" className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           {summary3Ans.map(s => (
             <div key={s.annee} className={`p-6 rounded-3xl shadow-lg border-2 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gradient-to-br from-white to-cyan-50 border-teal-200'}`}>
               <div className="flex justify-between items-start mb-4">
@@ -504,7 +661,7 @@ const BudgetTool = () => {
         </div>
 
         {/* GRAPHIQUES */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div id="graphiques" className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Graphique évolution 3 ans */}
           <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
             <h2 className={`text-xl font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
@@ -560,8 +717,8 @@ const BudgetTool = () => {
           </div>
         </div>
 
-        {/* PROVISIONS & BFR & FOND DE ROULEMENT */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* PROVISIONS & BFR & FONDS DE ROULEMENT */}
+        <div id="provisions-bfr-fr" className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* PROVISIONS */}
           <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-orange-900' : 'bg-gradient-to-br from-orange-50 to-red-50 border-orange-200'}`}>
             {(() => { const p = getProvisions(); return (<>
@@ -819,7 +976,7 @@ const BudgetTool = () => {
         </div>
 
         {/* DIRECTION */}
-        <div className={`rounded-3xl shadow-lg border-2 p-8 mb-8 ${darkMode ? 'bg-gray-800 border-teal-900' : 'bg-gradient-to-br from-teal-50 to-cyan-50 border-teal-300'}`}>
+        <div id="direction" className={`rounded-3xl shadow-lg border-2 p-8 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-teal-900' : 'bg-gradient-to-br from-teal-50 to-cyan-50 border-teal-300'}`}>
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
               <Building2 className="text-teal-600" size={32} />
@@ -869,7 +1026,7 @@ const BudgetTool = () => {
         </div>
 
         {/* SERVICES */}
-        <div className="space-y-8">
+        <div id="services-section" className="space-y-8">
           {services.map(service => {
             const bs = getBudgetService(service);
             const hasPromos = service.promos && Object.keys(service.promos).length > 0;
@@ -878,7 +1035,7 @@ const BudgetTool = () => {
             const totalRealisations = isPrestation ? calculerTotalRealisations(service.realisations) : 0;
 
             return (
-              <div key={service.id} className={`rounded-3xl shadow-lg border-2 p-8 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-100'}`}>
+              <div key={service.id} id={`service-${service.id}`} className={`rounded-3xl shadow-lg border-2 p-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-100'}`}>
                 <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
                   <div className="flex items-center gap-4 flex-wrap">
                     {isPrestation ? <Calendar className="text-orange-500" size={28} /> : hasPromos ? <GraduationCap className="text-purple-500" size={28} /> : <Settings className="text-teal-500" size={28} />}
@@ -1230,6 +1387,7 @@ const BudgetTool = () => {
         }} className="w-full mt-8 py-5 border-2 border-dashed border-teal-300 rounded-3xl text-teal-500 font-black text-lg hover:bg-teal-50 transition-all flex items-center justify-center gap-3 no-print">
           <Plus size={24} /> AJOUTER UN SERVICE
         </button>
+        </div>
       </div>
     </div>
   );
