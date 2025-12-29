@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus } from 'lucide-react';
+import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus, Banknote, TrendingDown, CheckCircle, AlertTriangle } from 'lucide-react';
 
 // Import des constantes et valeurs par défaut
 import {
@@ -8,6 +8,7 @@ import {
   JOURS_ANNEE,
   COMPTES_IMMO,
   COMPTES_EXPLOITATION,
+  COMPTES_RECETTES,
   DEFAULT_PASSWORD,
   SITES,
   MOIS,
@@ -373,10 +374,19 @@ const BudgetTool = () => {
             return (
               <div key={service.id} className={`rounded-3xl shadow-lg border-2 p-8 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-100'}`}>
                 <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 flex-wrap">
                     {hasPromos ? <GraduationCap className="text-purple-500" size={28} /> : <Settings className="text-teal-500" size={28} />}
                     <input className={`text-2xl font-black outline-none border-b-2 border-transparent focus:border-teal-500 bg-transparent ${darkMode ? 'text-white' : 'text-slate-800'}`} value={service.nom} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, nom: e.target.value} : s))} />
-                    <span className="bg-teal-100 text-teal-700 px-4 py-2 rounded-xl text-sm font-bold">{Math.round(bs.total).toLocaleString()} €</span>
+                    <span className="bg-red-100 text-red-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-1">
+                      <TrendingDown size={16} /> {Math.round(bs.total).toLocaleString()} €
+                    </span>
+                    <span className="bg-green-100 text-green-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-1">
+                      <Banknote size={16} /> {Math.round(bs.recettes).toLocaleString()} €
+                    </span>
+                    <span className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-1 ${bs.solde >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
+                      {bs.solde >= 0 ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+                      Solde: {bs.solde >= 0 ? '+' : ''}{Math.round(bs.solde).toLocaleString()} €
+                    </span>
                     <span className="bg-blue-100 text-blue-700 px-3 py-2 rounded-xl text-xs font-bold">{service.personnel.reduce((s, p) => s + p.etp, 0).toFixed(1)} ETP</span>
                     {stats && (
                       <span className="bg-purple-100 text-purple-700 px-3 py-2 rounded-xl text-xs font-bold">
@@ -528,7 +538,7 @@ const BudgetTool = () => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
                   {/* Investissements */}
                   <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-slate-50 border-slate-200'}`}>
                     <h3 className={`text-sm font-black uppercase mb-4 flex items-center gap-2 ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}><Landmark size={18} /> Investissements</h3>
@@ -595,6 +605,40 @@ const BudgetTool = () => {
                       <span className={darkMode ? 'text-white' : 'text-slate-800'}>{Math.round(bs.salaires).toLocaleString()} €</span>
                     </div>
                   </div>
+
+                  {/* Recettes */}
+                  <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-gray-700 border-green-800' : 'bg-green-50 border-green-200'}`}>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className={`text-sm font-black uppercase flex items-center gap-2 ${darkMode ? 'text-green-400' : 'text-green-700'}`}><Banknote size={18} /> Recettes</h3>
+                      <button onClick={() => setServices(services.map(s => s.id === service.id ? {...s, recettes: [...(s.recettes || []), { id: Date.now(), nom: 'Nouvelle recette', montant: 0 }]} : s))} className="bg-green-600 text-white p-1.5 rounded-lg no-print"><Plus size={16} /></button>
+                    </div>
+                    <div className="space-y-2 max-h-[350px] overflow-y-auto">
+                      {(service.recettes || []).map(item => (
+                        <div key={item.id} className={`flex items-center gap-2 p-2 rounded-xl group relative ${darkMode ? 'bg-gray-600' : 'bg-white'}`}>
+                          <button onClick={() => setServices(services.map(s => s.id === service.id ? {...s, recettes: s.recettes.filter(r => r.id !== item.id)} : s))} className="absolute -top-1 -left-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 no-print"><Trash2 size={10} /></button>
+                          <input className={`flex-1 text-xs font-bold bg-transparent outline-none ${darkMode ? 'text-white' : ''}`} value={item.nom} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, recettes: s.recettes.map(rec => rec.id === item.id ? {...rec, nom: e.target.value} : rec)} : s))} />
+                          <input type="number" className={`w-20 text-right text-xs font-black rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-green-50'}`} value={item.montant} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, recettes: s.recettes.map(rec => rec.id === item.id ? {...rec, montant: validerMontant(e.target.value)} : rec)} : s))} />
+                          <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-400'}`}>€/m</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className={`mt-4 pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-green-200'} flex justify-between font-bold`}>
+                      <span className={darkMode ? 'text-green-400' : 'text-green-700'}>Total/an:</span>
+                      <span className={darkMode ? 'text-white' : 'text-green-800'}>{Math.round(bs.recettes).toLocaleString()} €</span>
+                    </div>
+                    {/* Indicateur de solde */}
+                    <div className={`mt-3 p-3 rounded-xl ${bs.solde >= 0 ? (darkMode ? 'bg-emerald-900/50' : 'bg-emerald-100') : (darkMode ? 'bg-orange-900/50' : 'bg-orange-100')}`}>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs font-bold flex items-center gap-1 ${bs.solde >= 0 ? (darkMode ? 'text-emerald-400' : 'text-emerald-700') : (darkMode ? 'text-orange-400' : 'text-orange-700')}`}>
+                          {bs.solde >= 0 ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}
+                          {bs.solde >= 0 ? 'Excédent' : 'Déficit'}
+                        </span>
+                        <span className={`font-black ${bs.solde >= 0 ? (darkMode ? 'text-emerald-300' : 'text-emerald-700') : (darkMode ? 'text-orange-300' : 'text-orange-700')}`}>
+                          {bs.solde >= 0 ? '+' : ''}{Math.round(bs.solde).toLocaleString()} €
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -605,7 +649,10 @@ const BudgetTool = () => {
         <button onClick={() => {
           const nouveau = {...services[0], id: Date.now(), nom: `Service ${services.length + 1}`,
             personnel: services[0].personnel.map(p => ({...p, id: Date.now() + Math.random()})),
-            exploitation: services[0].exploitation.map(e => ({...e, id: Date.now() + Math.random()}))
+            exploitation: services[0].exploitation.map(e => ({...e, id: Date.now() + Math.random()})),
+            recettes: (services[0].recettes || []).map(r => ({...r, id: Date.now() + Math.random()})),
+            promos: undefined,
+            unites: 10
           };
           setServices([...services, nouveau]);
         }} className="w-full mt-8 py-5 border-2 border-dashed border-teal-300 rounded-3xl text-teal-500 font-black text-lg hover:bg-teal-50 transition-all flex items-center justify-center gap-3 no-print">

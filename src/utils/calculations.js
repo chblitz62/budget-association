@@ -141,6 +141,9 @@ export const calculerBudgetService = (service) => {
   const salaires = detailsSalaires.reduce((sum, s) => sum + s.total, 0);
   const exploitation = service.exploitation.reduce((sum, item) => sum + item.montant * 12, 0);
 
+  // Calcul des recettes annuelles
+  const recettes = service.recettes ? service.recettes.reduce((sum, item) => sum + item.montant * 12, 0) : 0;
+
   let amortissements = 0;
   let interets = 0;
   let totalInvestissements = 0;
@@ -172,21 +175,25 @@ export const calculerBudgetService = (service) => {
 
   const unitesAnnuelles = unites * (service.tauxActivite / 100) * JOURS_ANNEE;
   const totalAvantAmort = salaires + exploitation + interets;
-  const total = totalAvantAmort + amortissements;
-  const coutUnite = unitesAnnuelles > 0 ? total / unitesAnnuelles : 0;
+  const totalCharges = totalAvantAmort + amortissements;
+  const solde = recettes - totalCharges;
+  const coutUnite = unitesAnnuelles > 0 ? totalCharges / unitesAnnuelles : 0;
 
   return {
     salaires,
     detailsSalaires,
     exploitation,
     exploitationDetails: service.exploitation,
+    recettes,
+    recettesDetails: service.recettes || [],
     amortissements,
     interets,
     interetsParAnnee,
     detailsInvest,
     unitesAnnuelles,
     unites,
-    total,
+    total: totalCharges,
+    solde,
     coutUnite,
     totalInvestissements,
     statsFormation

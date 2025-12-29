@@ -104,6 +104,20 @@ export const defaultPromosFormationContinue = {
   ]
 };
 
+// Plan Comptable - Comptes de produits (recettes)
+export const COMPTES_RECETTES = {
+  'Subvention Région': '74',
+  'Subvention État': '74',
+  'Subvention Département': '74',
+  'Financement OPCO': '706',
+  'Droits d\'inscription': '706',
+  'Frais de scolarité': '706',
+  'Prestations de service': '706',
+  'Taxe d\'apprentissage': '74',
+  'Fonds de formation': '74',
+  'Autres produits': '75'
+};
+
 // Services de l'association
 export const defaultServices = [
   {
@@ -129,6 +143,12 @@ export const defaultServices = [
       { id: 5, nom: 'Eau/Élec/Gaz', montant: 1200 },
       { id: 6, nom: 'Entretien', montant: 500 },
       { id: 7, nom: 'Téléphonie', montant: 300 }
+    ],
+    recettes: [
+      { id: 1, nom: 'Subvention Région', montant: 35000 },
+      { id: 2, nom: 'Droits d\'inscription', montant: 8000 },
+      { id: 3, nom: 'Taxe d\'apprentissage', montant: 5000 },
+      { id: 4, nom: 'Financement OPCO', montant: 12000 }
     ],
     personnel: [
       { id: 1, titre: 'Responsable Formation Initiale', etp: 1, salaire: 4000, segur: true },
@@ -162,6 +182,11 @@ export const defaultServices = [
       { id: 6, nom: 'Entretien', montant: 300 },
       { id: 7, nom: 'Téléphonie', montant: 200 }
     ],
+    recettes: [
+      { id: 1, nom: 'Financement OPCO', montant: 25000 },
+      { id: 2, nom: 'Frais de scolarité', montant: 15000 },
+      { id: 3, nom: 'Subvention État', montant: 8000 }
+    ],
     personnel: [
       { id: 1, titre: 'Responsable Formation Continue', etp: 1, salaire: 4000, segur: true },
       { id: 2, titre: 'Formateur CAFDES', etp: 1.5, salaire: 3500, segur: true },
@@ -189,6 +214,10 @@ export const defaultServices = [
       { id: 2, nom: 'Documentation', montant: 200 },
       { id: 3, nom: 'Téléphonie', montant: 100 }
     ],
+    recettes: [
+      { id: 1, nom: 'Financement OPCO', montant: 8000 },
+      { id: 2, nom: 'Prestations de service', montant: 3000 }
+    ],
     personnel: [
       { id: 1, titre: 'Responsable VAE', etp: 0.5, salaire: 3500, segur: true },
       { id: 2, titre: 'Accompagnateur VAE', etp: 2, salaire: 2800, segur: true }
@@ -215,6 +244,10 @@ export const defaultServices = [
       { id: 3, nom: 'Documentation', montant: 300 },
       { id: 4, nom: 'Téléphonie', montant: 150 }
     ],
+    recettes: [
+      { id: 1, nom: 'Prestations de service', montant: 12000 },
+      { id: 2, nom: 'Financement OPCO', montant: 5000 }
+    ],
     personnel: [
       { id: 1, titre: 'Responsable Prestations', etp: 0.5, salaire: 3500, segur: true },
       { id: 2, titre: 'Formateur Prestation', etp: 2, salaire: 3000, segur: true }
@@ -240,6 +273,9 @@ export const defaultServices = [
       { id: 2, nom: 'Carburant', montant: 300 },
       { id: 3, nom: 'Téléphonie', montant: 100 }
     ],
+    recettes: [
+      { id: 1, nom: 'Prestations de service', montant: 8000 }
+    ],
     personnel: [
       { id: 1, titre: 'Animateur GAP', etp: 1.5, salaire: 3200, segur: true }
     ]
@@ -263,6 +299,9 @@ export const defaultServices = [
       { id: 1, nom: 'Fournitures', montant: 150 },
       { id: 2, nom: 'Carburant', montant: 250 },
       { id: 3, nom: 'Téléphonie', montant: 100 }
+    ],
+    recettes: [
+      { id: 1, nom: 'Prestations de service', montant: 6000 }
     ],
     personnel: [
       { id: 1, titre: 'Superviseur', etp: 1, salaire: 3500, segur: true }
