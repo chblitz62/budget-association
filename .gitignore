@@ -1,0 +1,29 @@
+# Dépendances
+node_modules/
+
+# Fichiers de build
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Variables d'environnement
+.env
+.env.local
+.env.*.local
+
+# Éditeur
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Code
+.claude/
+.vercel
