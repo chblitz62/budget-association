@@ -1,5 +1,9 @@
 // Constantes de l'application
+// Version des données par défaut (changer pour forcer le rechargement)
+export const DATA_VERSION = '2026-AFERTES-v1';
+
 export const CHARGES_PATRONALES = 0.42;
+export const TAUX_CHARGE_TOTAL = 1 + CHARGES_PATRONALES; // 1.42
 export const PRIME_SEGUR = 238;
 export const JOURS_ANNEE = 365;
 
@@ -55,18 +59,33 @@ export const defaultGlobalParams = {
   stocksValeur: 0
 };
 
+// Données AFERTES 2026 - Structure/Direction
 export const defaultDirection = {
   personnel: [
-    { id: 1, titre: 'Directeur Général', etp: 1, salaire: 5000, segur: true },
-    { id: 2, titre: 'Directeur Adjoint', etp: 1, salaire: 4200, segur: true },
-    { id: 3, titre: 'Responsable RH', etp: 1, salaire: 3500, segur: true },
-    { id: 4, titre: 'Secrétariat Direction', etp: 2, salaire: 2400, segur: true },
-    { id: 5, titre: 'Comptable', etp: 1.5, salaire: 2800, segur: true },
-    { id: 6, titre: 'Agent accueil', etp: 1, salaire: 2200, segur: true }
+    { id: 1, titre: 'Directeur', etp: 1, salaire: 3891, segur: 0, role: 'direction', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+    { id: 2, titre: 'Agent d\'Accueil', etp: 1, salaire: 2291, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+    { id: 4, titre: 'Comptable', etp: 1, salaire: 2446, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+    { id: 5, titre: 'Gestionnaire Paie', etp: 1, salaire: 2132, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+    { id: 7, titre: 'Apprenti(e) Documentation', etp: 1, salaire: 1171, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+    { id: 9, titre: 'Agent de ménage', etp: 1, salaire: 1800, segur: 0, role: 'technique', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' }
   ],
-  loyer: 3000,
-  charges: 1200,
-  autresCharges: 800
+  chargesSiege: [
+    { id: 1, nom: 'Location immobilière', montant: 18363 },
+    { id: 2, nom: 'Location mobilière & entretien', montant: 3961 },
+    { id: 3, nom: 'Sous-traitance générale', montant: 333 },
+  ]
+};
+
+// Données AFERTES 2026 - Pôle Support (ressources transversales)
+export const defaultPoleSupport = {
+  personnel: [
+    { id: 1, titre: 'Agent Polyvalent/Resp. Technique', etp: 1, salaire: 3099, segur: 0, role: 'technique', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+    { id: 2, titre: 'Resp. Documentation', etp: 1, salaire: 4118, segur: 0, role: 'documentation', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+    { id: 3, titre: 'Aide Documentaliste', etp: 1, salaire: 2046, segur: 0, role: 'documentation', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+  ],
+  exploitation: [],
+  recettes: [],
+  repartition: {}
 };
 
 // Sites de formation
@@ -151,192 +170,180 @@ export const COMPTES_RECETTES = {
   'Autres produits': '75'
 };
 
-// Services de l'association
+// Services AFERTES 2026 - 4 sections analytiques
+// Nota : les montants exploitation et recettes sont MENSUELS (×12 dans les calculs)
 export const defaultServices = [
   {
     id: 1,
-    nom: 'Formation Initiale',
+    nom: 'FI Éducateur Spécialisé',
+    accueilPublic: true,
+    sessionsSimulees: [],
     type: 'formation',
-    promos: defaultPromosFormationInitiale,
+    promos: {
+      [SITES.SAINT_LAURENT]: [
+        { id: 'slb-es', nom: 'Promo ES', effectifInitial: 80, abandons: defaultAbandons(), dateDebut: '', dateFin: '' }
+      ]
+    },
     tauxActivite: 90,
     investissements: {
       bienImmo: { montant: 0, duree: 25, taux: 0 },
-      travaux: { montant: 15000, duree: 10, taux: 2.0 },
-      vehicule: { montant: 25000, duree: 5, taux: 3.0 },
-      informatique: { montant: 30000, duree: 3, taux: 0 },
-      mobilier: { montant: 15000, duree: 10, taux: 0 },
+      travaux: { montant: 0, duree: 10, taux: 0 },
+      vehicule: { montant: 0, duree: 5, taux: 0 },
+      informatique: { montant: 0, duree: 3, taux: 0 },
+      mobilier: { montant: 0, duree: 10, taux: 0 },
       fraisBancaires: { montant: 0, duree: 1, taux: 0 },
       fraisNotaire: { montant: 0, duree: 1, taux: 0 }
     },
     exploitation: [
-      { id: 1, nom: 'Fournitures', montant: 2000 },
-      { id: 2, nom: 'Documentation', montant: 1500 },
-      { id: 3, nom: 'Carburant', montant: 800 },
-      { id: 4, nom: 'Assurances', montant: 600 },
-      { id: 5, nom: 'Eau/Élec/Gaz', montant: 1200 },
-      { id: 6, nom: 'Entretien', montant: 500 },
-      { id: 7, nom: 'Téléphonie', montant: 300 }
+      { id: 1, nom: 'Carburant', montant: 44 },
+      { id: 2, nom: 'Produits d\'entretien', montant: 83 },
+      { id: 3, nom: 'Petites fournitures', montant: 667 },
+      { id: 4, nom: 'Photocopies et frais éducatifs', montant: 300 },
+      { id: 5, nom: 'Prestataires formation', montant: 3204 }
     ],
     recettes: [
-      { id: 1, nom: 'Subvention Région', montant: 35000 },
-      { id: 2, nom: 'Droits d\'inscription', montant: 8000 },
-      { id: 3, nom: 'Taxe d\'apprentissage', montant: 5000 },
-      { id: 4, nom: 'Financement OPCO', montant: 12000 }
+      { id: 1, nom: 'Droits d\'inscription', montant: 4578 },
+      { id: 2, nom: 'Frais de sélection', montant: 700 },
+      { id: 3, nom: 'Subvention Région', montant: 42419 },
+      { id: 4, nom: 'Aide apprentissage', montant: 125 }
     ],
     personnel: [
-      { id: 1, titre: 'Responsable Formation Initiale', etp: 1, salaire: 4000, segur: true },
-      { id: 2, titre: 'Formateur ES', etp: 3, salaire: 3200, segur: true },
-      { id: 3, titre: 'Formateur ME', etp: 2, salaire: 3200, segur: true },
-      { id: 4, titre: 'Formateur AES', etp: 1, salaire: 3000, segur: true },
-      { id: 5, titre: 'Secrétaire pédagogique', etp: 2, salaire: 2400, segur: true }
+      { id: 1, titre: 'Formateur', etp: 1, salaire: 3622, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 2, titre: 'Formatrice', etp: 1, salaire: 2805, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 3, titre: 'Formatrice', etp: 1, salaire: 2914, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 4, titre: 'Formateur', etp: 1, salaire: 3067, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 5, titre: 'Secrétaire Administrative', etp: 1, salaire: 2111, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' }
     ]
   },
   {
     id: 2,
-    nom: 'Formation Continue',
+    nom: 'FI Moniteur Éducateur',
+    accueilPublic: true,
+    sessionsSimulees: [],
     type: 'formation',
-    promos: defaultPromosFormationContinue,
-    tauxActivite: 85,
+    promos: {
+      [SITES.SAINT_LAURENT]: [
+        { id: 'slb-me', nom: 'Promo ME', effectifInitial: 40, abandons: defaultAbandons(), dateDebut: '', dateFin: '' }
+      ]
+    },
+    tauxActivite: 90,
     investissements: {
       bienImmo: { montant: 0, duree: 25, taux: 0 },
-      travaux: { montant: 10000, duree: 10, taux: 2.0 },
-      vehicule: { montant: 40000, duree: 5, taux: 3.0 },
-      informatique: { montant: 37000, duree: 3, taux: 0 },
-      mobilier: { montant: 16000, duree: 10, taux: 0 },
+      travaux: { montant: 0, duree: 10, taux: 0 },
+      vehicule: { montant: 0, duree: 5, taux: 0 },
+      informatique: { montant: 0, duree: 3, taux: 0 },
+      mobilier: { montant: 0, duree: 10, taux: 0 },
       fraisBancaires: { montant: 0, duree: 1, taux: 0 },
       fraisNotaire: { montant: 0, duree: 1, taux: 0 }
     },
     exploitation: [
-      { id: 1, nom: 'Fournitures', montant: 2150 },
-      { id: 2, nom: 'Documentation', montant: 1500 },
-      { id: 3, nom: 'Carburant', montant: 1750 },
-      { id: 4, nom: 'Assurances', montant: 600 },
-      { id: 5, nom: 'Eau/Élec/Gaz', montant: 800 },
-      { id: 6, nom: 'Entretien', montant: 400 },
-      { id: 7, nom: 'Téléphonie', montant: 600 }
+      { id: 1, nom: 'Carburant', montant: 44 },
+      { id: 2, nom: 'Produits d\'entretien', montant: 83 },
+      { id: 3, nom: 'Petites fournitures', montant: 667 },
+      { id: 4, nom: 'Photocopies et frais éducatifs', montant: 300 },
+      { id: 5, nom: 'Prestataires formation', montant: 1318 }
     ],
     recettes: [
-      { id: 1, nom: 'Financement OPCO', montant: 40000 },
-      { id: 2, nom: 'Frais de scolarité', montant: 20000 },
-      { id: 3, nom: 'Subvention État', montant: 10000 }
+      { id: 1, nom: 'Droits d\'inscription', montant: 2301 },
+      { id: 2, nom: 'Frais de sélection', montant: 865 },
+      { id: 3, nom: 'Subvention Région', montant: 67332 },
+      { id: 4, nom: 'Aide apprentissage', montant: 125 }
     ],
     personnel: [
-      { id: 1, titre: 'Responsable Formation Continue', etp: 1, salaire: 4000, segur: true },
-      { id: 2, titre: 'Formateur CAFDES', etp: 1.5, salaire: 3500, segur: true },
-      { id: 3, titre: 'Formateur CAFERUIS', etp: 1.5, salaire: 3400, segur: true },
-      { id: 4, titre: 'Secrétaire pédagogique', etp: 2, salaire: 2400, segur: true }
+      { id: 1, titre: 'Formateur Resp. Secteur', etp: 1, salaire: 3950, segur: 238, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 2, titre: 'Formateur part. FI ME', etp: 0.24, salaire: 2891, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 3, titre: 'Formateur Resp. Secteur', etp: 1, salaire: 3817, segur: 238, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 4, titre: 'Formateur Resp. Secteur', etp: 1, salaire: 3622, segur: 0, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 5, titre: 'Formateur Resp. Secteur', etp: 1, salaire: 3151, segur: 238, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 6, titre: 'Agent Administratif', etp: 1, salaire: 2247, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' }
     ]
   },
   {
     id: 3,
-    nom: 'VAE',
-    type: 'prestation',
-    realisations: defaultRealisations(),
-    prixUnitaire: 1500,
-    tauxActivite: 100,
+    nom: 'FI Avion',
+    accueilPublic: true,
+    sessionsSimulees: [],
+    type: 'formation',
+    promos: {
+      [SITES.AVION]: [
+        { id: 'avion-fi', nom: 'Promo FI Avion', effectifInitial: 32, abandons: defaultAbandons(), dateDebut: '', dateFin: '' }
+      ]
+    },
+    tauxActivite: 90,
     investissements: {
       bienImmo: { montant: 0, duree: 25, taux: 0 },
       travaux: { montant: 0, duree: 10, taux: 0 },
       vehicule: { montant: 0, duree: 5, taux: 0 },
-      informatique: { montant: 5000, duree: 3, taux: 0 },
-      mobilier: { montant: 2000, duree: 10, taux: 0 },
+      informatique: { montant: 0, duree: 3, taux: 0 },
+      mobilier: { montant: 0, duree: 10, taux: 0 },
       fraisBancaires: { montant: 0, duree: 1, taux: 0 },
       fraisNotaire: { montant: 0, duree: 1, taux: 0 }
     },
     exploitation: [
-      { id: 1, nom: 'Fournitures', montant: 200 },
-      { id: 2, nom: 'Documentation', montant: 100 },
-      { id: 3, nom: 'Déplacements', montant: 300 }
+      { id: 1, nom: 'Carré potager', montant: 100 },
+      { id: 2, nom: 'Carburant', montant: 25 },
+      { id: 3, nom: 'Produits d\'entretien', montant: 21 },
+      { id: 4, nom: 'Petites fournitures', montant: 167 },
+      { id: 5, nom: 'Photocopies et frais éducatifs', montant: 75 },
+      { id: 6, nom: 'Prestataires formation', montant: 874 },
+      { id: 7, nom: 'Location immobilière', montant: 1340 }
     ],
     recettes: [
-      { id: 1, nom: 'Prestations VAE', montant: 0 }
+      { id: 1, nom: 'Droits d\'inscription', montant: 1980 },
+      { id: 2, nom: 'Frais de sélection', montant: 575 },
+      { id: 3, nom: 'Remboursement frais site Avion', montant: 2667 },
+      { id: 4, nom: 'Subvention Région', montant: 25249 },
+      { id: 5, nom: 'Subvention Communes', montant: 2500 },
+      { id: 6, nom: 'Autres financeurs', montant: 1333 },
+      { id: 7, nom: 'Aide apprentissage', montant: 125 }
     ],
     personnel: [
-      { id: 1, titre: 'Accompagnateur VAE', etp: 1, salaire: 2800, segur: true }
+      { id: 1, titre: 'Responsable site Avion', etp: 1, salaire: 3840, segur: 238, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 2, titre: 'Formateur', etp: 1, salaire: 2805, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' }
     ]
   },
   {
     id: 4,
-    nom: 'Prestations Formation',
-    type: 'prestation',
-    realisations: defaultRealisations(),
-    prixUnitaire: 800,
-    tauxActivite: 100,
+    nom: 'Formation Continue',
+    accueilPublic: true,
+    sessionsSimulees: [],
+    type: 'formation',
+    promos: {
+      [SITES.SAINT_LAURENT]: [
+        { id: 'slb-caferuis', nom: 'CAFERUIS', effectifInitial: 20, abandons: defaultAbandons(), dateDebut: '', dateFin: '' },
+        { id: 'slb-apprentissage', nom: 'Apprentissage', effectifInitial: 15, abandons: defaultAbandons(), dateDebut: '', dateFin: '' }
+      ]
+    },
+    tauxActivite: 85,
     investissements: {
       bienImmo: { montant: 0, duree: 25, taux: 0 },
       travaux: { montant: 0, duree: 10, taux: 0 },
       vehicule: { montant: 0, duree: 5, taux: 0 },
-      informatique: { montant: 3000, duree: 3, taux: 0 },
-      mobilier: { montant: 1500, duree: 10, taux: 0 },
+      informatique: { montant: 0, duree: 3, taux: 0 },
+      mobilier: { montant: 0, duree: 10, taux: 0 },
       fraisBancaires: { montant: 0, duree: 1, taux: 0 },
       fraisNotaire: { montant: 0, duree: 1, taux: 0 }
     },
     exploitation: [
-      { id: 1, nom: 'Fournitures', montant: 150 },
-      { id: 2, nom: 'Documentation', montant: 100 },
-      { id: 3, nom: 'Déplacements', montant: 400 }
+      { id: 1, nom: 'Carburant', montant: 13 },
+      { id: 2, nom: 'Produits d\'entretien', montant: 21 },
+      { id: 3, nom: 'Petites fournitures', montant: 167 },
+      { id: 4, nom: 'Photocopies et frais éducatifs', montant: 75 },
+      { id: 5, nom: 'Prestataires formation', montant: 766 }
     ],
     recettes: [
-      { id: 1, nom: 'Prestations Formation', montant: 0 }
+      { id: 1, nom: 'Conventions formation (CAFERUIS, Prépa, GAP)', montant: 18168 },
+      { id: 2, nom: 'Apprentissage', montant: 10833 },
+      { id: 3, nom: 'VAE', montant: 3239 },
+      { id: 4, nom: 'Formation continue - micro formation', montant: 10000 },
+      { id: 5, nom: 'Aide apprentissage', montant: 125 }
     ],
     personnel: [
-      { id: 1, titre: 'Formateur Prestation', etp: 1, salaire: 3000, segur: true }
-    ]
-  },
-  {
-    id: 5,
-    nom: 'Supervision',
-    type: 'prestation',
-    realisations: defaultRealisations(),
-    prixUnitaire: 500,
-    tauxActivite: 100,
-    investissements: {
-      bienImmo: { montant: 0, duree: 25, taux: 0 },
-      travaux: { montant: 0, duree: 10, taux: 0 },
-      vehicule: { montant: 0, duree: 5, taux: 0 },
-      informatique: { montant: 2000, duree: 3, taux: 0 },
-      mobilier: { montant: 1000, duree: 10, taux: 0 },
-      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
-      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
-    },
-    exploitation: [
-      { id: 1, nom: 'Fournitures', montant: 100 },
-      { id: 2, nom: 'Documentation', montant: 50 },
-      { id: 3, nom: 'Déplacements', montant: 350 }
-    ],
-    recettes: [
-      { id: 1, nom: 'Prestations Supervision', montant: 0 }
-    ],
-    personnel: [
-      { id: 1, titre: 'Superviseur', etp: 0.5, salaire: 3500, segur: true }
-    ]
-  },
-  {
-    id: 6,
-    nom: 'GAP (Groupe d\'Analyse des Pratiques)',
-    type: 'prestation',
-    realisations: defaultRealisations(),
-    prixUnitaire: 400,
-    tauxActivite: 100,
-    investissements: {
-      bienImmo: { montant: 0, duree: 25, taux: 0 },
-      travaux: { montant: 0, duree: 10, taux: 0 },
-      vehicule: { montant: 0, duree: 5, taux: 0 },
-      informatique: { montant: 2000, duree: 3, taux: 0 },
-      mobilier: { montant: 1000, duree: 10, taux: 0 },
-      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
-      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
-    },
-    exploitation: [
-      { id: 1, nom: 'Fournitures', montant: 100 },
-      { id: 2, nom: 'Documentation', montant: 100 },
-      { id: 3, nom: 'Déplacements', montant: 400 }
-    ],
-    recettes: [
-      { id: 1, nom: 'Prestations GAP', montant: 0 }
-    ],
-    personnel: [
-      { id: 1, titre: 'Animateur GAP', etp: 0.5, salaire: 3200, segur: true }
+      { id: 1, titre: 'Formateur part. FC', etp: 0.76, salaire: 2891, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 2, titre: 'Formateur Resp. Secteur', etp: 1, salaire: 3509, segur: 238, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 3, titre: 'Formateur Resp. Secteur', etp: 1, salaire: 3647, segur: 238, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 4, titre: 'Formateur/Chargé développement', etp: 1, salaire: 2549, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' },
+      { id: 5, titre: 'Secrétaire Administrative', etp: 1, salaire: 2277, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' }
     ]
   }
 ];

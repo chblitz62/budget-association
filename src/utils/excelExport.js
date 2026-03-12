@@ -1,25 +1,34 @@
 import * as XLSX from 'xlsx';
-import { COMPTES_EXPLOITATION, COMPTES_RECETTES, COMPTES_IMMO, MOIS, SITES } from './constants';
-import { calculerBudgetDirection, calculerBudgetService, calculerProvisions, calculerBFR, calculerSynthese3Ans } from './calculations';
+import { COMPTES_EXPLOITATION, COMPTES_RECETTES, COMPTES_IMMO, MOIS, SITES, TAUX_CHARGE_TOTAL } from './constants';
+import { calculerBudgetDirection, calculerBudgetService, calculerBudgetPoleSupport, calculerProvisions, calculerBFR, calculerSynthese3Ans } from './calculations';
+import { formatEuroNumber as formatEuro } from './formatting';
 
 // Styles pour les en-têtes (via largeur de colonnes)
 const setColumnWidths = (ws, widths) => {
   ws['!cols'] = widths.map(w => ({ wch: w }));
 };
 
-// Formater un nombre en euros
-const formatEuro = (val) => {
-  if (typeof val !== 'number' || isNaN(val)) return 0;
-  return Math.round(val * 100) / 100;
+// Helper : détail des charges siège (supporte ancien et nouveau format)
+const getChargesSiegeDetail = (direction) => {
+  if (direction.chargesSiege && Array.isArray(direction.chargesSiege)) {
+    return direction.chargesSiege.map(c => ({ nom: c.nom, montant: c.montant * 12 }));
+  }
+  return [
+    { nom: 'Loyer siège', montant: (direction.loyer || 0) * 12 },
+    { nom: 'Charges siège', montant: (direction.charges || 0) * 12 },
+    { nom: 'Autres charges siège', montant: (direction.autresCharges || 0) * 12 },
+  ].filter(c => c.montant > 0);
 };
 
 // Créer l'onglet Compte de Résultat
-const createCompteResultat = (direction, services) => {
+const createCompteResultat = (direction, services, poleSupport = null) => {
   const budgetDir = calculerBudgetDirection(direction);
+  const budgetPS = poleSupport ? calculerBudgetPoleSupport(poleSupport) : null;
   const budgetsServices = services.map(s => ({
     nom: s.nom,
     budget: calculerBudgetService(s)
   }));
+  if (budgetPS) budgetsServices.push({ nom: 'Pôle Support', budget: budgetPS });
 
   const data = [];
 
@@ -39,7 +48,7 @@ const createCompteResultat = (direction, services) => {
   // Regrouper les charges d'exploitation par compte
   const chargesParCompte = {};
   budgetsServices.forEach(({ nom, budget }) => {
-    budget.exploitationDetails.forEach(item => {
+    (budget.exploitationDetails || []).forEach(item => {
       const compte = COMPTES_EXPLOITATION[item.nom] || '6';
       if (!chargesParCompte[compte]) {
         chargesParCompte[compte] = { libelle: item.nom, montant: 0 };
@@ -53,12 +62,12 @@ const createCompteResultat = (direction, services) => {
     totalAchats += montant;
   });
 
-  // Charges siège
-  const chargesSiege = budgetDir.chargesSiege;
-  data.push(['  Loyer siège', '613', formatEuro(direction.loyer * 12)]);
-  data.push(['  Charges siège', '614', formatEuro(direction.charges * 12)]);
-  data.push(['  Autres charges siège', '6', formatEuro(direction.autresCharges * 12)]);
-  totalAchats += chargesSiege;
+  // Charges siège (supporte les deux formats)
+  const chargesSiegeDetail = getChargesSiegeDetail(direction);
+  chargesSiegeDetail.forEach(c => {
+    data.push([`  ${c.nom}`, '6', formatEuro(c.montant)]);
+  });
+  totalAchats += budgetDir.chargesSiege;
 
   data.push(['TOTAL ACHATS ET CHARGES EXTERNES', '', formatEuro(totalAchats)]);
   data.push([]);
@@ -80,7 +89,7 @@ const createCompteResultat = (direction, services) => {
   data.push(['68 - DOTATIONS AUX AMORTISSEMENTS']);
   let totalAmort = 0;
   budgetsServices.forEach(({ nom, budget }) => {
-    if (budget.amortissements > 0) {
+    if ((budget.amortissements || 0) > 0) {
       data.push([`  Amortissements ${nom}`, '681', formatEuro(budget.amortissements)]);
       totalAmort += budget.amortissements;
     }
@@ -92,7 +101,7 @@ const createCompteResultat = (direction, services) => {
   data.push(['66 - CHARGES FINANCIÈRES']);
   let totalInterets = 0;
   budgetsServices.forEach(({ nom, budget }) => {
-    if (budget.interets > 0) {
+    if ((budget.interets || 0) > 0) {
       data.push([`  Intérêts emprunts ${nom}`, '661', formatEuro(budget.interets)]);
       totalInterets += budget.interets;
     }
@@ -109,18 +118,10 @@ const createCompteResultat = (direction, services) => {
   data.push(['PRODUITS', 'Compte PCG', 'Montant (€)']);
   data.push([]);
 
-  // 70 - Ventes et prestations
-  data.push(['70 - VENTES ET PRESTATIONS DE SERVICES']);
-  let totalVentes = 0;
-
-  // 74 - Subventions
-  data.push(['74 - SUBVENTIONS D\'EXPLOITATION']);
-  let totalSubventions = 0;
-
   const produitsParCompte = { '70': [], '74': [], '75': [] };
 
   budgetsServices.forEach(({ nom, budget }) => {
-    budget.recettesDetails.forEach(item => {
+    (budget.recettesDetails || []).forEach(item => {
       const compte = COMPTES_RECETTES[item.nom] || '70';
       const classe = compte.startsWith('74') ? '74' : compte.startsWith('75') ? '75' : '70';
       produitsParCompte[classe].push({
@@ -131,9 +132,7 @@ const createCompteResultat = (direction, services) => {
     });
   });
 
-  // Réorganiser les données
-  data.length -= 2; // Retirer les deux dernières lignes
-
+  let totalVentes = 0;
   data.push(['70 - VENTES ET PRESTATIONS DE SERVICES']);
   produitsParCompte['70'].forEach(({ libelle, compte, montant }) => {
     data.push([`  ${libelle}`, compte, formatEuro(montant)]);
@@ -142,6 +141,7 @@ const createCompteResultat = (direction, services) => {
   data.push(['TOTAL VENTES ET PRESTATIONS', '', formatEuro(totalVentes)]);
   data.push([]);
 
+  let totalSubventions = 0;
   data.push(['74 - SUBVENTIONS D\'EXPLOITATION']);
   produitsParCompte['74'].forEach(({ libelle, compte, montant }) => {
     data.push([`  ${libelle}`, compte, formatEuro(montant)]);
@@ -150,9 +150,9 @@ const createCompteResultat = (direction, services) => {
   data.push(['TOTAL SUBVENTIONS', '', formatEuro(totalSubventions)]);
   data.push([]);
 
+  let totalAutres = 0;
   if (produitsParCompte['75'].length > 0) {
     data.push(['75 - AUTRES PRODUITS DE GESTION COURANTE']);
-    let totalAutres = 0;
     produitsParCompte['75'].forEach(({ libelle, compte, montant }) => {
       data.push([`  ${libelle}`, compte, formatEuro(montant)]);
       totalAutres += montant;
@@ -161,7 +161,7 @@ const createCompteResultat = (direction, services) => {
     data.push([]);
   }
 
-  const totalProduits = totalVentes + totalSubventions + produitsParCompte['75'].reduce((s, p) => s + p.montant, 0);
+  const totalProduits = totalVentes + totalSubventions + totalAutres;
   data.push(['TOTAL PRODUITS', '', formatEuro(totalProduits)]);
   data.push([]);
   data.push([]);
@@ -177,8 +177,9 @@ const createCompteResultat = (direction, services) => {
 };
 
 // Créer l'onglet Balance Générale
-const createBalance = (direction, services) => {
+const createBalance = (direction, services, poleSupport = null) => {
   const budgetDir = calculerBudgetDirection(direction);
+  const budgetPS = poleSupport ? calculerBudgetPoleSupport(poleSupport) : null;
   const budgetsServices = services.map(s => ({
     nom: s.nom,
     budget: calculerBudgetService(s)
@@ -192,29 +193,38 @@ const createBalance = (direction, services) => {
 
   const comptes = {};
 
-  // Charges (débit)
-  // Personnel
+  // Personnel : 641 (rémunérations brutes) et 645 (charges patronales)
   comptes['641'] = { libelle: 'Rémunérations du personnel', debit: 0, credit: 0 };
   comptes['645'] = { libelle: 'Charges sociales', debit: 0, credit: 0 };
 
-  budgetDir.detailsSalaires.forEach(s => {
-    comptes['641'].debit += s.brut + (s.segur / 1.42);
-    comptes['645'].debit += s.charges + (s.segur - s.segur / 1.42);
-  });
-
-  budgetsServices.forEach(({ budget }) => {
-    budget.detailsSalaires.forEach(s => {
-      comptes['641'].debit += s.brut + (s.segur / 1.42);
-      comptes['645'].debit += s.charges + (s.segur - s.segur / 1.42);
+  const addSalaires = (detailsSalaires) => {
+    (detailsSalaires || []).forEach(s => {
+      // s.segur = montantSegur × TAUX_CHARGE_TOTAL × 12 × etp
+      // segurBrut = s.segur / TAUX_CHARGE_TOTAL
+      const segurBrut = s.segur / TAUX_CHARGE_TOTAL;
+      comptes['641'].debit += s.brut + segurBrut;
+      comptes['645'].debit += s.charges + (s.segur - segurBrut);
     });
+  };
+
+  addSalaires(budgetDir.detailsSalaires);
+  if (budgetPS) addSalaires(budgetPS.detailsSalaires);
+  budgetsServices.forEach(({ budget }) => addSalaires(budget.detailsSalaires));
+
+  // Exploitation siège (supporte les deux formats)
+  const chargesSiegeDetail = getChargesSiegeDetail(direction);
+  chargesSiegeDetail.forEach(c => {
+    if (!comptes['6']) comptes['6'] = { libelle: 'Charges siège diverses', debit: 0, credit: 0 };
+    comptes['6'].debit += c.montant;
   });
 
-  // Exploitation
-  comptes['613'] = { libelle: 'Locations', debit: direction.loyer * 12, credit: 0 };
-  comptes['614'] = { libelle: 'Charges locatives', debit: direction.charges * 12, credit: 0 };
+  // Exploitation services + pôle support
+  const allBudgets = budgetPS
+    ? [...budgetsServices, { nom: 'Pôle Support', budget: budgetPS }]
+    : budgetsServices;
 
-  budgetsServices.forEach(({ budget }) => {
-    budget.exploitationDetails.forEach(item => {
+  allBudgets.forEach(({ budget }) => {
+    (budget.exploitationDetails || []).forEach(item => {
       const compte = COMPTES_EXPLOITATION[item.nom] || '6';
       if (!comptes[compte]) {
         comptes[compte] = { libelle: item.nom, debit: 0, credit: 0 };
@@ -226,18 +236,18 @@ const createBalance = (direction, services) => {
   // Amortissements
   comptes['681'] = { libelle: 'Dotations aux amortissements', debit: 0, credit: 0 };
   budgetsServices.forEach(({ budget }) => {
-    comptes['681'].debit += budget.amortissements;
+    comptes['681'].debit += budget.amortissements || 0;
   });
 
   // Intérêts
   comptes['661'] = { libelle: 'Charges d\'intérêts', debit: 0, credit: 0 };
   budgetsServices.forEach(({ budget }) => {
-    comptes['661'].debit += budget.interets;
+    comptes['661'].debit += budget.interets || 0;
   });
 
   // Produits (crédit)
-  budgetsServices.forEach(({ budget }) => {
-    budget.recettesDetails.forEach(item => {
+  allBudgets.forEach(({ budget }) => {
+    (budget.recettesDetails || []).forEach(item => {
       const compte = COMPTES_RECETTES[item.nom] || '706';
       if (!comptes[compte]) {
         comptes[compte] = { libelle: item.nom, debit: 0, credit: 0 };
@@ -269,8 +279,9 @@ const createBalance = (direction, services) => {
 };
 
 // Créer l'onglet Détail Charges
-const createDetailCharges = (direction, services) => {
+const createDetailCharges = (direction, services, poleSupport = null) => {
   const budgetDir = calculerBudgetDirection(direction);
+  const budgetPS = poleSupport ? calculerBudgetPoleSupport(poleSupport) : null;
 
   const data = [];
   data.push(['DÉTAIL DES CHARGES PAR SERVICE']);
@@ -285,10 +296,36 @@ const createDetailCharges = (direction, services) => {
   });
   data.push(['TOTAL SALAIRES DIRECTION', '', '', '', '', formatEuro(budgetDir.salaires)]);
   data.push([]);
-  data.push(['Charges siège', '', '', '', '', formatEuro(budgetDir.chargesSiege)]);
+
+  const chargesSiegeDetail = getChargesSiegeDetail(direction);
+  chargesSiegeDetail.forEach(c => {
+    data.push([c.nom, '', '', '', '', formatEuro(c.montant)]);
+  });
+  data.push(['Charges siège (total)', '', '', '', '', formatEuro(budgetDir.chargesSiege)]);
   data.push(['TOTAL DIRECTION', '', '', '', '', formatEuro(budgetDir.total)]);
   data.push([]);
   data.push([]);
+
+  // Pôle Support
+  if (budgetPS) {
+    data.push(['PÔLE SUPPORT']);
+    data.push(['Poste', 'ETP', 'Salaire brut', 'Charges', 'Prime Ségur', 'Coût total']);
+    budgetPS.detailsSalaires.forEach(s => {
+      data.push([s.titre, '', formatEuro(s.brut), formatEuro(s.charges), formatEuro(s.segur), formatEuro(s.total)]);
+    });
+    data.push(['TOTAL SALAIRES PÔLE SUPPORT', '', '', '', '', formatEuro(budgetPS.salaires)]);
+    data.push([]);
+    if ((budgetPS.exploitationDetails || []).length > 0) {
+      data.push(['CHARGES EXPLOITATION PÔLE SUPPORT']);
+      budgetPS.exploitationDetails.forEach(item => {
+        data.push([item.nom, '', '', '', '', formatEuro(item.montant * 12)]);
+      });
+      data.push(['TOTAL EXPLOITATION PÔLE SUPPORT', '', '', '', '', formatEuro(budgetPS.exploitation)]);
+    }
+    data.push(['TOTAL PÔLE SUPPORT', '', '', '', '', formatEuro(budgetPS.total)]);
+    data.push([]);
+    data.push([]);
+  }
 
   // Services
   services.forEach(service => {
@@ -436,8 +473,8 @@ const createEffectifs = (services) => {
 };
 
 // Créer l'onglet Budget 3 ans
-const createBudget3Ans = (direction, services, globalParams) => {
-  const synthese = calculerSynthese3Ans(direction, services, globalParams);
+const createBudget3Ans = (direction, services, globalParams, poleSupport = null) => {
+  const synthese = calculerSynthese3Ans(direction, services, globalParams, poleSupport);
 
   const data = [];
   data.push(['BUDGET PRÉVISIONNEL SUR 3 ANS']);
@@ -448,12 +485,15 @@ const createBudget3Ans = (direction, services, globalParams) => {
   data.push(['', 'Année 1', 'Année 2', 'Année 3', 'Évolution']);
   data.push([]);
 
-  // Totaux
+  const evo = synthese[0].total > 0
+    ? `+${((synthese[2].total / synthese[0].total - 1) * 100).toFixed(1)}%`
+    : '-';
+
   data.push(['BUDGET TOTAL',
     formatEuro(synthese[0].total),
     formatEuro(synthese[1].total),
     formatEuro(synthese[2].total),
-    `+${((synthese[2].total / synthese[0].total - 1) * 100).toFixed(1)}%`
+    evo
   ]);
 
   data.push(['dont Direction',
@@ -481,11 +521,11 @@ const createBudget3Ans = (direction, services, globalParams) => {
   data.push(['DÉTAIL PAR SERVICE']);
   data.push([]);
 
-  // Par service
   services.forEach((service, idx) => {
     const s1 = synthese[0].detailsServices[idx];
     const s2 = synthese[1].detailsServices[idx];
     const s3 = synthese[2].detailsServices[idx];
+    if (!s1) return;
 
     data.push([service.nom]);
     data.push(['  Budget total', formatEuro(s1.budget), formatEuro(s2.budget), formatEuro(s3.budget), '']);
@@ -548,17 +588,17 @@ const createAmortissements = (services) => {
 };
 
 // Créer l'onglet Synthèse
-const createSynthese = (direction, services, globalParams) => {
+const createSynthese = (direction, services, globalParams, poleSupport = null) => {
   const budgetDir = calculerBudgetDirection(direction);
-  const provisions = calculerProvisions(direction, services, globalParams);
-  const bfr = calculerBFR(direction, services, globalParams);
+  const budgetPS = poleSupport ? calculerBudgetPoleSupport(poleSupport) : null;
+  const provisions = calculerProvisions(direction, services, globalParams, poleSupport);
+  const bfr = calculerBFR(direction, services, globalParams, poleSupport);
 
   const data = [];
   data.push(['SYNTHÈSE BUDGÉTAIRE']);
   data.push(['Association AFERTES - Exercice N']);
   data.push([]);
 
-  // Tableau récapitulatif
   data.push(['SERVICE', 'CHARGES', 'PRODUITS', 'SOLDE', 'INDICATEUR']);
   data.push([]);
 
@@ -566,6 +606,12 @@ const createSynthese = (direction, services, globalParams) => {
 
   let totalCharges = budgetDir.total;
   let totalProduits = 0;
+
+  if (budgetPS) {
+    data.push(['Pôle Support', formatEuro(budgetPS.total), formatEuro(budgetPS.recettes || 0), formatEuro((budgetPS.recettes || 0) - budgetPS.total), '']);
+    totalCharges += budgetPS.total;
+    totalProduits += budgetPS.recettes || 0;
+  }
 
   services.forEach(service => {
     const budget = calculerBudgetService(service);
@@ -582,7 +628,7 @@ const createSynthese = (direction, services, globalParams) => {
   data.push([]);
   data.push([]);
 
-  // Provisions (dynamiques)
+  // Provisions
   data.push(['PROVISIONS RECOMMANDÉES']);
   if (provisions.details && provisions.details.length > 0) {
     provisions.details.forEach(prov => {
@@ -609,30 +655,54 @@ const createSynthese = (direction, services, globalParams) => {
 };
 
 // Fonction principale d'export
-export const exportToExcel = (direction, services, globalParams) => {
-  const wb = XLSX.utils.book_new();
+export const exportToExcel = (direction, services, globalParams, poleSupport = null) => {
+  try {
+    const wb = XLSX.utils.book_new();
 
-  // Créer tous les onglets
-  const wsCompteResultat = createCompteResultat(direction, services);
-  const wsBalance = createBalance(direction, services);
-  const wsDetailCharges = createDetailCharges(direction, services);
-  const wsDetailProduits = createDetailProduits(services);
-  const wsEffectifs = createEffectifs(services);
-  const wsBudget3Ans = createBudget3Ans(direction, services, globalParams);
-  const wsAmortissements = createAmortissements(services);
-  const wsSynthese = createSynthese(direction, services, globalParams);
+    const wsCompteResultat = createCompteResultat(direction, services, poleSupport);
+    const wsBalance = createBalance(direction, services, poleSupport);
+    const wsDetailCharges = createDetailCharges(direction, services, poleSupport);
+    const wsDetailProduits = createDetailProduits(services);
+    const wsEffectifs = createEffectifs(services);
+    const wsBudget3Ans = createBudget3Ans(direction, services, globalParams, poleSupport);
+    const wsAmortissements = createAmortissements(services);
+    const wsSynthese = createSynthese(direction, services, globalParams, poleSupport);
 
-  // Ajouter les onglets au classeur
-  XLSX.utils.book_append_sheet(wb, wsCompteResultat, 'Compte de Résultat');
-  XLSX.utils.book_append_sheet(wb, wsBalance, 'Balance Générale');
-  XLSX.utils.book_append_sheet(wb, wsDetailCharges, 'Détail Charges');
-  XLSX.utils.book_append_sheet(wb, wsDetailProduits, 'Détail Produits');
-  XLSX.utils.book_append_sheet(wb, wsEffectifs, 'Effectifs');
-  XLSX.utils.book_append_sheet(wb, wsBudget3Ans, 'Budget 3 Ans');
-  XLSX.utils.book_append_sheet(wb, wsAmortissements, 'Amortissements');
-  XLSX.utils.book_append_sheet(wb, wsSynthese, 'Synthèse');
+    XLSX.utils.book_append_sheet(wb, wsCompteResultat, 'Compte de Résultat');
+    XLSX.utils.book_append_sheet(wb, wsBalance, 'Balance Générale');
+    XLSX.utils.book_append_sheet(wb, wsDetailCharges, 'Détail Charges');
+    XLSX.utils.book_append_sheet(wb, wsDetailProduits, 'Détail Produits');
+    XLSX.utils.book_append_sheet(wb, wsEffectifs, 'Effectifs');
+    XLSX.utils.book_append_sheet(wb, wsBudget3Ans, 'Budget 3 Ans');
+    XLSX.utils.book_append_sheet(wb, wsAmortissements, 'Amortissements');
+    XLSX.utils.book_append_sheet(wb, wsSynthese, 'Synthèse');
 
-  // Générer le fichier
-  const date = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `Budget_AFERTES_${date}.xlsx`);
+    const date = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `Budget_AFERTES_${date}.xlsx`);
+  } catch (err) {
+    alert(`Erreur lors de l'export Excel : ${err.message}`);
+  }
+};
+
+export const exportReportingFC = (records, services) => {
+  try {
+    const wb = XLSX.utils.book_new();
+    const headers = ['Stagiaire', 'Formation', 'Date début', 'Date fin', 'Heures', 'Coût (€)', 'Financement OPCO (€)', 'Service'];
+    const rows = records.map(r => [
+      r.stagiaire,
+      r.formation,
+      r.dateDebut,
+      r.dateFin,
+      r.heures,
+      r.cout,
+      r.financementOPCO,
+      services.find(s => s.id === r.serviceId)?.nom || ''
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = headers.map((_, i) => ({ wch: i < 2 ? 25 : 15 }));
+    XLSX.utils.book_append_sheet(wb, ws, 'Reporting FC');
+    XLSX.writeFile(wb, `reporting_fc_${new Date().toISOString().split('T')[0]}.xlsx`);
+  } catch (err) {
+    alert(`Erreur lors de l'export Reporting FC : ${err.message}`);
+  }
 };

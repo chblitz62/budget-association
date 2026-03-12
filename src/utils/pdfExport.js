@@ -1,13 +1,21 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { calculerBudgetDirection, calculerBudgetService, calculerProvisions, calculerBFR, calculerFondRoulement, calculerSynthese3Ans } from './calculations';
+import { calculerBudgetDirection, calculerBudgetService, calculerBudgetPoleSupport, calculerProvisions, calculerBFR, calculerFondRoulement, calculerSynthese3Ans } from './calculations';
+import { formatEuro } from './formatting';
 
-const formatEuro = (val) => {
-  if (typeof val !== 'number' || isNaN(val)) return '0 €';
-  return Math.round(val).toLocaleString('fr-FR') + ' €';
+const getChargesSiegeDetail = (direction) => {
+  if (direction.chargesSiege && Array.isArray(direction.chargesSiege)) {
+    return direction.chargesSiege.map(c => ({ nom: c.nom, montant: c.montant * 12 }));
+  }
+  return [
+    { nom: 'Loyer siège', montant: (direction.loyer || 0) * 12 },
+    { nom: 'Charges siège', montant: (direction.charges || 0) * 12 },
+    { nom: 'Autres charges siège', montant: (direction.autresCharges || 0) * 12 },
+  ].filter(c => c.montant > 0);
 };
 
-export const exportToPDF = (direction, services, globalParams) => {
+export const exportToPDF = (direction, services, globalParams, poleSupport = null) => {
+  try {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   let yPos = 20;
@@ -29,7 +37,7 @@ export const exportToPDF = (direction, services, globalParams) => {
   doc.text('Synthèse sur 3 ans', 14, yPos);
   yPos += 8;
 
-  const summary3Ans = calculerSynthese3Ans(direction, services, globalParams);
+  const summary3Ans = calculerSynthese3Ans(direction, services, globalParams, poleSupport);
   autoTable(doc, {
     startY: yPos,
     head: [['', 'Année 1', 'Année 2', 'Année 3']],
@@ -69,18 +77,41 @@ export const exportToPDF = (direction, services, globalParams) => {
   yPos = doc.lastAutoTable.finalY + 10;
 
   // Charges siège
+  const chargesDetail = getChargesSiegeDetail(direction);
   autoTable(doc, {
     startY: yPos,
     body: [
-      ['Loyer', formatEuro(direction.loyer * 12)],
-      ['Charges', formatEuro(direction.charges * 12)],
-      ['Autres charges', formatEuro(direction.autresCharges * 12)],
+      ...chargesDetail.map(c => [c.nom, formatEuro(c.montant)]),
       ['Total charges siège', formatEuro(budgetDir.chargesSiege)]
     ],
     theme: 'plain',
     styles: { fontSize: 8 }
   });
   yPos = doc.lastAutoTable.finalY + 15;
+
+  // Pôle Support
+  if (poleSupport) {
+    if (yPos > 250) { doc.addPage(); yPos = 20; }
+    const budgetPS = calculerBudgetPoleSupport(poleSupport);
+    doc.setFontSize(14);
+    doc.setTextColor(20, 184, 166);
+    doc.text('Pôle Support', 14, yPos);
+    yPos += 8;
+    doc.setTextColor(0);
+    autoTable(doc, {
+      startY: yPos,
+      body: [
+        ['Masse salariale', formatEuro(budgetPS.salaires)],
+        ['Exploitation', formatEuro(budgetPS.exploitation)],
+        ['Recettes', formatEuro(budgetPS.recettes)],
+        ['Solde', formatEuro(budgetPS.solde)]
+      ],
+      theme: 'plain',
+      styles: { fontSize: 8 },
+      columnStyles: { 1: { fontStyle: 'bold' } }
+    });
+    yPos = doc.lastAutoTable.finalY + 15;
+  }
 
   // Services
   services.forEach((service, idx) => {
@@ -125,7 +156,7 @@ export const exportToPDF = (direction, services, globalParams) => {
   doc.text('Provisions pour risque', 14, yPos);
   yPos += 8;
 
-  const provisions = calculerProvisions(direction, services, globalParams);
+  const provisions = calculerProvisions(direction, services, globalParams, poleSupport);
   doc.setTextColor(0);
   autoTable(doc, {
     startY: yPos,
@@ -151,7 +182,7 @@ export const exportToPDF = (direction, services, globalParams) => {
   doc.text('Besoin en Fonds de Roulement (BFR)', 14, yPos);
   yPos += 8;
 
-  const bfr = calculerBFR(direction, services, globalParams);
+  const bfr = calculerBFR(direction, services, globalParams, poleSupport);
   doc.setTextColor(0);
   doc.setFontSize(9);
   doc.text('Méthode de calcul:', 14, yPos);
@@ -238,7 +269,70 @@ export const exportToPDF = (direction, services, globalParams) => {
     columnStyles: { 1: { fontStyle: 'bold' } }
   });
 
-  // Sauvegarde
-  const date = new Date().toISOString().slice(0, 10);
-  doc.save(`Budget_AFERTES_${date}.pdf`);
+    // Sauvegarde
+    const date = new Date().toISOString().slice(0, 10);
+    doc.save(`Budget_AFERTES_${date}.pdf`);
+  } catch (err) {
+    alert(`Erreur lors de l'export PDF : ${err.message}`);
+  }
+};
+
+export const exportReportingFCPdf = (records, services) => {
+  try {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFontSize(18);
+    doc.setTextColor(79, 70, 229);
+    doc.text('Reporting Formation Continue', pageWidth / 2, 18, { align: 'center' });
+
+    doc.setFontSize(9);
+    doc.setTextColor(100);
+    doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth / 2, 25, { align: 'center' });
+
+    const totalHeures = records.reduce((s, r) => s + (parseFloat(r.heures) || 0), 0);
+    const totalCout = records.reduce((s, r) => s + (parseFloat(r.cout) || 0), 0);
+    const totalOPCO = records.reduce((s, r) => s + (parseFloat(r.financementOPCO) || 0), 0);
+
+    autoTable(doc, {
+      startY: 32,
+      head: [['Stagiaire', 'Formation', 'Date début', 'Date fin', 'Heures', 'Coût (€)', 'OPCO (€)', 'Service']],
+      body: records.map(r => [
+        r.stagiaire,
+        r.formation,
+        r.dateDebut,
+        r.dateFin,
+        (parseFloat(r.heures) || 0).toLocaleString('fr-FR'),
+        Math.round(parseFloat(r.cout) || 0).toLocaleString('fr-FR') + ' €',
+        Math.round(parseFloat(r.financementOPCO) || 0).toLocaleString('fr-FR') + ' €',
+        services.find(s => s.id === r.serviceId)?.nom || ''
+      ]),
+      foot: [[
+        `TOTAL (${records.length})`, '', '', '',
+        totalHeures.toLocaleString('fr-FR') + ' h',
+        Math.round(totalCout).toLocaleString('fr-FR') + ' €',
+        Math.round(totalOPCO).toLocaleString('fr-FR') + ' €',
+        ''
+      ]],
+      theme: 'striped',
+      headStyles: { fillColor: [79, 70, 229] },
+      footStyles: { fillColor: [199, 210, 254], textColor: [30, 27, 75], fontStyle: 'bold' },
+      styles: { fontSize: 8, cellPadding: 3 },
+      columnStyles: {
+        0: { cellWidth: 35 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 22 },
+        4: { cellWidth: 18, halign: 'right' },
+        5: { cellWidth: 22, halign: 'right' },
+        6: { cellWidth: 22, halign: 'right' },
+        7: { cellWidth: 35 },
+      }
+    });
+
+    const date = new Date().toISOString().slice(0, 10);
+    doc.save(`reporting_fc_${date}.pdf`);
+  } catch (err) {
+    alert(`Erreur lors de l'export PDF Reporting FC : ${err.message}`);
+  }
 };

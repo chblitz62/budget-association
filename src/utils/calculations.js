@@ -1,4 +1,4 @@
-import { CHARGES_PATRONALES, PRIME_SEGUR, JOURS_ANNEE, calculerStatsFormation } from './constants';
+import { CHARGES_PATRONALES, TAUX_CHARGE_TOTAL, PRIME_SEGUR, JOURS_ANNEE, calculerStatsFormation } from './constants';
 
 // Fonctions de validation des champs numériques
 export const validerNombre = (valeur, min = 0, max = Infinity) => {
@@ -17,6 +17,7 @@ export const validerTaux = (valeur) => validerNombre(valeur, 0, 100);
 export const validerETP = (valeur) => validerNombre(valeur, 0, 100);
 export const validerSalaire = (valeur) => validerEntier(valeur, 0, 50000);
 export const validerMontant = (valeur) => validerEntier(valeur, 0, 10000000);
+export const validerMontantSigne = (valeur) => validerEntier(valeur, -10000000, 10000000);
 export const validerDuree = (valeur) => validerEntier(valeur, 1, 50);
 export const validerJours = (valeur) => validerEntier(valeur, 0, 365);
 export const validerUnites = (valeur) => validerEntier(valeur, 1, 1000);
@@ -34,7 +35,9 @@ export const calculerMensualitePret = (capital, dureeAnnees, tauxAnnuel) => {
 export const calculerSalaireAnnuel = (salaire, etp, segur) => {
   const salaireAnnuel = salaire * 12 * etp;
   const charges = salaireAnnuel * CHARGES_PATRONALES;
-  const primeSegur = segur ? (PRIME_SEGUR * 1.42) * 12 * etp : 0;
+  // segur peut être un montant mensuel (number) ou un booléen (rétrocompat : true → 238€)
+  const montantSegurMensuel = segur === true ? PRIME_SEGUR : (typeof segur === 'number' ? segur : 0);
+  const primeSegur = montantSegurMensuel > 0 ? (montantSegurMensuel * TAUX_CHARGE_TOTAL) * 12 * etp : 0;
   return {
     brut: salaireAnnuel,
     charges: charges,
@@ -118,7 +121,10 @@ export const calculerBudgetDirection = (direction) => {
   }));
 
   const totalSalaires = detailsSalaires.reduce((sum, s) => sum + s.total, 0);
-  const chargesSiege = (direction.loyer + direction.charges + direction.autresCharges) * 12;
+  // Support ancien format (loyer/charges/autresCharges) et nouveau format (chargesSiege[])
+  const chargesSiege = direction.chargesSiege
+    ? direction.chargesSiege.reduce((sum, c) => sum + (parseFloat(c.montant) || 0), 0) * 12
+    : ((direction.loyer || 0) + (direction.charges || 0) + (direction.autresCharges || 0)) * 12;
 
   return {
     salaires: totalSalaires,
@@ -139,6 +145,15 @@ export const calculerBudgetService = (service) => {
   }));
 
   const salaires = detailsSalaires.reduce((sum, s) => sum + s.total, 0);
+
+  const moisKeysFI = ['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];
+  const salairesAllouesFI = service.personnel.reduce((sum, p) => {
+    if (!p.repartitionFI) return sum;
+    const sal = calculerSalaireAnnuel(p.salaire, p.etp, p.segur);
+    const pctMoyen = moisKeysFI.reduce((s, m) => s + (p.repartitionFI[m] || 0), 0) / 12;
+    return sum + sal.total * pctMoyen / 100;
+  }, 0);
+
   const exploitation = service.exploitation.reduce((sum, item) => sum + item.montant * 12, 0);
 
   // Calcul des recettes annuelles
@@ -181,6 +196,7 @@ export const calculerBudgetService = (service) => {
 
   return {
     salaires,
+    salairesAllouesFI,
     detailsSalaires,
     exploitation,
     exploitationDetails: service.exploitation,
@@ -203,8 +219,20 @@ export const calculerBudgetService = (service) => {
 // Alias pour compatibilité
 export const calculerBudgetLieu = calculerBudgetService;
 
+// Calcul du budget Pôle Support
+export const calculerBudgetPoleSupport = (poleSupport) => {
+  const detailsSalaires = poleSupport.personnel.map(p => ({
+    titre: p.titre,
+    ...calculerSalaireAnnuel(p.salaire, p.etp, p.segur)
+  }));
+  const salaires = detailsSalaires.reduce((sum, s) => sum + s.total, 0);
+  const exploitation = (poleSupport.exploitation || []).reduce((sum, item) => sum + item.montant * 12, 0);
+  const recettes = (poleSupport.recettes || []).reduce((sum, item) => sum + item.montant * 12, 0);
+  return { salaires, detailsSalaires, exploitation, recettes, total: salaires + exploitation };
+};
+
 // Calcul des provisions (dynamique avec catégories personnalisables)
-export const calculerProvisions = (direction, services, globalParams) => {
+export const calculerProvisions = (direction, services, globalParams, poleSupport = null) => {
   const budgetDir = calculerBudgetDirection(direction);
   let totalSalaires = budgetDir.salaires;
   let totalInvestissements = 0;
@@ -214,8 +242,13 @@ export const calculerProvisions = (direction, services, globalParams) => {
     const bService = calculerBudgetService(s);
     totalSalaires += bService.salaires;
     totalInvestissements += bService.totalInvestissements;
-    chiffreAffaires += bService.total;
+    chiffreAffaires += bService.recettes; // CA = recettes, pas les charges totales
   });
+
+  if (poleSupport) {
+    const bPS = calculerBudgetPoleSupport(poleSupport);
+    totalSalaires += bPS.salaires;
+  }
 
   // Bases de calcul disponibles
   const bases = {
@@ -252,7 +285,7 @@ export const calculerProvisions = (direction, services, globalParams) => {
 };
 
 // Calcul du BFR
-export const calculerBFR = (direction, services, globalParams) => {
+export const calculerBFR = (direction, services, globalParams, poleSupport = null) => {
   let chiffreAffaires = 0;
   let achatsExploitation = 0;
 
@@ -265,9 +298,14 @@ export const calculerBFR = (direction, services, globalParams) => {
     achatsExploitation += bService.exploitation;
   });
 
+  if (poleSupport) {
+    const bPS = calculerBudgetPoleSupport(poleSupport);
+    achatsExploitation += bPS.exploitation;
+  }
+
   const stocks = globalParams.stocksValeur || 0;
-  const creancesClients = (chiffreAffaires / 365) * globalParams.delaiPaiementClients;
-  const dettesFournisseurs = (achatsExploitation / 365) * globalParams.delaiPaiementFournisseurs;
+  const creancesClients = (chiffreAffaires / JOURS_ANNEE) * globalParams.delaiPaiementClients;
+  const dettesFournisseurs = (achatsExploitation / JOURS_ANNEE) * globalParams.delaiPaiementFournisseurs;
   const bfr = stocks + creancesClients - dettesFournisseurs;
   const bfrEnJours = chiffreAffaires > 0 ? (bfr / chiffreAffaires) * 365 : 0;
 
@@ -318,27 +356,30 @@ export const calculerFondRoulement = (direction, services, globalParams) => {
 };
 
 // Calcul synthèse 3 ans
-export const calculerSynthese3Ans = (direction, services, globalParams) => {
+export const calculerSynthese3Ans = (direction, services, globalParams, poleSupport = null) => {
+  // Calcul unique de bService pour tous les services (évite les appels multiples et l'accès à s.unites inexistant)
+  const bServices = services.map(s => calculerBudgetService(s));
+
+  const bPoleSupport = poleSupport ? calculerBudgetPoleSupport(poleSupport) : null;
+
   return [1, 2, 3].map(annee => {
     const indexAnnee = annee - 1;
     const augmentation = Math.pow(1 + globalParams.augmentationAnnuelle / 100, indexAnnee);
     const budgetDir = calculerBudgetDirection(direction);
     const budgetDirAjuste = (budgetDir.salaires + budgetDir.chargesSiege) * augmentation;
+    const budgetPSAjuste = bPoleSupport ? (bPoleSupport.salaires + bPoleSupport.exploitation) * augmentation : 0;
 
-    let totalUnitesGlobal = 0;
-    services.forEach(s => {
-      const unitesService = s.unites * (s.tauxActivite / 100) * JOURS_ANNEE;
-      totalUnitesGlobal += unitesService;
-    });
+    // Total des unités calculé depuis bServices (correct pour les services avec promos)
+    const totalUnitesGlobal = bServices.reduce((sum, b) => sum + b.unitesAnnuelles, 0);
 
-    let totalGlobal = budgetDirAjuste;
+    let totalGlobal = budgetDirAjuste + budgetPSAjuste;
     let totalUnites = 0;
     let amortTotal = 0;
     let interetsTotal = 0;
     let detailsServices = [];
 
-    services.forEach(s => {
-      const bService = calculerBudgetService(s);
+    bServices.forEach((bService, idx) => {
+      const s = services[idx];
       const budgetServiceAjuste = (bService.salaires + bService.exploitation) * augmentation;
       const interetsAnnee = bService.interetsParAnnee[indexAnnee] || 0;
       const proportionService = totalUnitesGlobal > 0 ? bService.unitesAnnuelles / totalUnitesGlobal : 0;
@@ -376,7 +417,7 @@ export const calculerSynthese3Ans = (direction, services, globalParams) => {
 };
 
 // Calcul budget annuel détaillé par mois
-export const calculerBudgetAnnuelMensuel = (direction, services, globalParams) => {
+export const calculerBudgetAnnuelMensuel = (direction, services, globalParams, poleSupport = null) => {
   const budgetDir = calculerBudgetDirection(direction);
 
   let totalSalaires = budgetDir.salaires;
@@ -391,6 +432,12 @@ export const calculerBudgetAnnuelMensuel = (direction, services, globalParams) =
     totalAmortissements += bService.amortissements;
     totalInterets += bService.interets;
   });
+
+  if (poleSupport) {
+    const bPS = calculerBudgetPoleSupport(poleSupport);
+    totalSalaires += bPS.salaires;
+    totalExploitation += bPS.exploitation;
+  }
 
   const total = totalSalaires + totalExploitation + totalAmortissements + totalInterets;
 
