@@ -4603,7 +4603,8 @@ const BudgetTool = () => {
           checkPassword={checkPassword}
           startEmpty={pilotageResetKey > 0}
           budgetPersonnel={[
-            ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction' })),
+            ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction / Siège' })),
+            ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support' })),
             ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom })))
           ]}
           externalSites={pilotageSites}

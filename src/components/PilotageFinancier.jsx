@@ -263,6 +263,21 @@ const SiteView = ({ site, onUpdateSite, tauxFraisStructure, dm, budgetPersonnel 
   const [showImport, setShowImport] = useState(false);
   const totalFF = fraisFixes.reduce((s, f) => s + (parseFloat(f.montant) || 0), 0);
 
+  // Salariés budget convertis au format calcSalarie (sélectionnables directement)
+  const budgetFormateurs = (budgetPersonnel || []).map(p => ({
+    id: 'b' + p.id,
+    nom: p.titre || 'Sans nom',
+    type: 'interne',
+    salaireBrut: Math.round((p.salaire + (p.segur ? PRIME_SEGUR : 0)) * (p.etp || 1)),
+    tauxCharges: Math.round(CHARGES_PATRONALES * 100),
+    heuresHebdo: Math.round(35 * (p.etp || 1) * 10) / 10,
+    heuresHorsProduction: 7,
+    ratioPreparation: 1.2,
+    joursAbsence: 0,
+    _source: p.source || 'Budget',
+  }));
+  const allFormateurs = [...salaries, ...budgetFormateurs];
+
   const card       = `rounded-2xl border shadow-md ${dm ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`;
   const textPri    = dm ? 'text-white' : 'text-slate-800';
   const textMuted  = dm ? 'text-gray-400' : 'text-slate-500';
@@ -305,7 +320,7 @@ const SiteView = ({ site, onUpdateSite, tauxFraisStructure, dm, budgetPersonnel 
   };
 
   const activeSess = sessions.find(s => s.id === activeSessionId);
-  const activeRes  = activeSess ? calcSession(activeSess, salaries, tauxFraisStructure) : null;
+  const activeRes  = activeSess ? calcSession(activeSess, allFormateurs, tauxFraisStructure) : null;
 
   return (
     <div className="space-y-6">
@@ -560,7 +575,7 @@ const SiteView = ({ site, onUpdateSite, tauxFraisStructure, dm, budgetPersonnel 
         {/* Onglets sessions */}
         <div className="flex flex-wrap gap-2 mb-5">
           {sessions.map(sess => {
-            const res = calcSession(sess, salaries, tauxFraisStructure);
+            const res = calcSession(sess, allFormateurs, tauxFraisStructure);
             const isActive = sess.id === activeSessionId;
             return (
               <div key={sess.id} className="relative group">
@@ -641,22 +656,42 @@ const SiteView = ({ site, onUpdateSite, tauxFraisStructure, dm, budgetPersonnel 
                   </div>
                   <div>
                     <label className={`block text-xs font-bold mb-1 ${textMuted}`}>Formateur / Vacataire</label>
-                    {salaries.length === 0 ? (
+                    {allFormateurs.length === 0 ? (
                       <div className={`px-3 py-2 rounded-xl border text-sm ${dm ? 'bg-gray-700 border-gray-600 text-gray-500' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
-                        Aucun (module 02)
+                        Aucun formateur — ajoutez un salarié ou un vacataire ci-dessous
                       </div>
                     ) : (
-                      <select value={activeSess.formateurId ?? salaries[0]?.id}
-                        onChange={e => upSess(activeSess.id, 'formateurId', parseInt(e.target.value))}
+                      <select
+                        value={activeSess.formateurId ?? allFormateurs[0]?.id}
+                        onChange={e => {
+                          const v = e.target.value;
+                          upSess(activeSess.id, 'formateurId', String(v).startsWith('b') ? v : parseInt(v));
+                        }}
                         className={inputCls}>
-                        {salaries.map(s => {
-                          const c = calcSalarie(s);
-                          return (
-                            <option key={s.id} value={s.id}>
-                              {s.nom} ({s.type === 'vacataire' ? 'vac.' : 'int.'}) — {c.coutHoraireFacture.toFixed(0)} €/h
-                            </option>
-                          );
-                        })}
+                        {salaries.length > 0 && (
+                          <optgroup label="Formateurs / Vacataires">
+                            {salaries.map(s => {
+                              const c = calcSalarie(s);
+                              return (
+                                <option key={s.id} value={s.id}>
+                                  {s.nom} ({s.type === 'vacataire' ? 'vac.' : 'int.'}) — {c.coutHoraireFacture.toFixed(0)} €/h
+                                </option>
+                              );
+                            })}
+                          </optgroup>
+                        )}
+                        {budgetFormateurs.length > 0 && (
+                          <optgroup label="Salariés budget">
+                            {budgetFormateurs.map(s => {
+                              const c = calcSalarie(s);
+                              return (
+                                <option key={s.id} value={s.id}>
+                                  {s.nom} — {c.coutHoraireFacture.toFixed(0)} €/h
+                                </option>
+                              );
+                            })}
+                          </optgroup>
+                        )}
                       </select>
                     )}
                   </div>
