@@ -1903,9 +1903,38 @@ const BudgetTool = () => {
               site.salaries.map(s => ({ ...s, siteNom: site.nom, siteId: site.id }))
             );
 
+            // Salariés du budget convertis au format calcSalarieFormateur
+            const salariesBudget = [
+              ...direction.personnel.map(p => ({
+                id: `budget-${p.id}`, nom: p.titre || 'Sans nom', type: 'interne',
+                salaireBrut: p.salaire || 0,
+                tauxCharges: Math.round(CHARGES_PATRONALES * 100),
+                heuresHebdo: Math.round(35 * (p.etp || 1)),
+                heuresHorsProduction: 7, ratioPreparation: 1.2, joursAbsence: 0,
+                _source: 'Direction / Siège',
+              })),
+              ...poleSupport.personnel.map(p => ({
+                id: `budget-${p.id}`, nom: p.titre || 'Sans nom', type: 'interne',
+                salaireBrut: p.salaire || 0,
+                tauxCharges: Math.round(CHARGES_PATRONALES * 100),
+                heuresHebdo: Math.round(35 * (p.etp || 1)),
+                heuresHorsProduction: 7, ratioPreparation: 1.2, joursAbsence: 0,
+                _source: 'Pôle Support',
+              })),
+              ...services.flatMap(svc => (svc.personnel || []).map(p => ({
+                id: `budget-${p.id}`, nom: p.titre || 'Sans nom', type: 'interne',
+                salaireBrut: p.salaire || 0,
+                tauxCharges: Math.round(CHARGES_PATRONALES * 100),
+                heuresHebdo: Math.round(35 * (p.etp || 1)),
+                heuresHorsProduction: 7, ratioPreparation: 1.2, joursAbsence: 0,
+                _source: svc.nom,
+              }))),
+            ];
+
             // Calcul résultat d'une session simulée
             const calcSession = (sess) => {
-              const formateur = tousSalariesPilotage.find(s => s.id === sess.formateurId);
+              const formateur = tousSalariesPilotage.find(s => s.id === sess.formateurId)
+                             || salariesBudget.find(s => s.id === sess.formateurId);
               if (!formateur) return { ca: 0, coutFormateur: 0, marge: 0 };
               const calc = calcSalarieFormateur(formateur);
               const coutFormateur = calc.coutHoraireFacture * (sess.nbHeures || 0);
@@ -3076,7 +3105,8 @@ const BudgetTool = () => {
                           <div className="space-y-3 mb-4">
                             {sessionsSimulees.map((sess, sessIdx) => {
                               const res = calcSession(sess);
-                              const formateur = tousSalariesPilotage.find(s => s.id === sess.formateurId);
+                              const formateur = tousSalariesPilotage.find(s => s.id === sess.formateurId)
+                                             || salariesBudget.find(s => s.id === sess.formateurId);
                               return (
                                 <div key={sess.id} className={`p-4 rounded-xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-indigo-100'}`}>
                                   <div className="flex items-start gap-3 flex-wrap">
@@ -3119,8 +3149,29 @@ const BudgetTool = () => {
                                         onChange={e => setServices(services.map(s => s.id === service.id ? {...s, sessionsSimulees: s.sessionsSimulees.map(ss => ss.id === sess.id ? {...ss, formateurId: parseInt(e.target.value) || e.target.value} : ss)} : s))}
                                       >
                                         <option value="">— Choisir —</option>
+                                        {/* Salariés du budget */}
+                                        {salariesBudget.length > 0 && (() => {
+                                          const groupes = {};
+                                          salariesBudget.forEach(s => {
+                                            if (!groupes[s._source]) groupes[s._source] = [];
+                                            groupes[s._source].push(s);
+                                          });
+                                          return Object.entries(groupes).map(([src, membres]) => (
+                                            <optgroup key={`budget-${src}`} label={src}>
+                                              {membres.map(sal => {
+                                                const c = calcSalarieFormateur(sal);
+                                                return (
+                                                  <option key={sal.id} value={sal.id}>
+                                                    {sal.nom} ({Math.round(c.coutHoraireFacture)}€/h)
+                                                  </option>
+                                                );
+                                              })}
+                                            </optgroup>
+                                          ));
+                                        })()}
+                                        {/* Salariés Pilotage Financier */}
                                         {pilotageSites.map(site => (
-                                          <optgroup key={site.id} label={site.nom}>
+                                          <optgroup key={site.id} label={`Pilotage — ${site.nom}`}>
                                             {site.salaries.map(sal => {
                                               const c = calcSalarieFormateur(sal);
                                               return (
