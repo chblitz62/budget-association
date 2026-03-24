@@ -525,7 +525,7 @@ const BudgetTool = () => {
         const snapshot = {
           ts: new Date().toISOString(),
           globalParams, direction, services, poleSupport, poolRH,
-          enveloppeFormation, reportingFC, donneesN1, planningAbsences
+          enveloppeFormation, reportingFC, donneesN1, planningAbsences, pilotageSites
         };
         // Rotation sur 3 slots
         const slot = ((parseInt(localStorage.getItem('assoc_backup_slot') || '0') % 3) + 1);
@@ -536,7 +536,7 @@ const BudgetTool = () => {
     };
     const id = setInterval(doBackup, 10 * 60 * 1000);
     return () => clearInterval(id);
-  }, [globalParams, direction, services, poleSupport, poolRH, enveloppeFormation, reportingFC, donneesN1, planningAbsences]);
+  }, [globalParams, direction, services, poleSupport, poolRH, enveloppeFormation, reportingFC, donneesN1, planningAbsences, pilotageSites]);
 
   // Navigation inter-onglets RH ↔ Budget
   const [focusedAgentId, setFocusedAgentId] = useState(null);
@@ -655,6 +655,8 @@ const BudgetTool = () => {
       if (snap.direction)   setDirection(snap.direction);
       if (snap.services)    setServices(snap.services);
       if (snap.poleSupport) setPoleSupport(snap.poleSupport);
+      if (snap.poolRH)      setPoolRH(snap.poolRH);
+      if (snap.pilotageSites) setPilotageSites(snap.pilotageSites);
       if (snap.enveloppeFormation) setEnveloppeFormation(snap.enveloppeFormation);
       if (snap.reportingFC) setReportingFC(snap.reportingFC);
       if (snap.donneesN1)   setDonneesN1(snap.donneesN1);
@@ -2691,6 +2693,15 @@ const BudgetTool = () => {
                             </select>
                             <label className="flex items-center gap-1"><input type="checkbox" checked={p.rqth || false} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, rqth: e.target.checked} : x)} : s))} /><span className={p.rqth ? 'text-amber-500 font-black' : (darkMode ? 'text-gray-400' : 'text-slate-500')}>RQTH</span></label>
                             <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" checked={!!p.segur} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, segur: e.target.checked} : x)} : s))} /><span className={`text-xs ${p.segur ? (darkMode ? 'text-blue-400 font-bold' : 'text-blue-600 font-bold') : (darkMode ? 'text-gray-400' : 'text-slate-500')}`}>Ségur {p.segur ? `(+${p.segur === true ? (globalParams.montantSegurETP ?? 238) : (parseFloat(p.segur) || 0)} €/m)` : ''}</span></label>
+                            <button
+                              onClick={() => {
+                                const updatedAgent = { ...p, multiAffectation: true, affectations: [{ entityType: 'service', entityId: service.id, pct: 100 }] };
+                                setPoolRH([...poolRH, updatedAgent]);
+                                setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.filter(x => x.id !== p.id)} : s));
+                              }}
+                              title="Marquer comme partagé — déplace l'agent dans le Pool RH commun (affectable à plusieurs services)"
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold no-print transition-colors ${darkMode ? 'bg-gray-600 text-gray-400 hover:bg-purple-900/40 hover:text-purple-300' : 'bg-slate-100 text-slate-400 hover:bg-purple-100 hover:text-purple-700'}`}
+                            >Partagé</button>
                             <div className="flex items-center gap-1">
                               <InfoTooltip content="Année de naissance — utilisée pour la pyramide des âges et les alertes départs en retraite." darkMode={darkMode} position="top"><span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Né(e) en</span></InfoTooltip>
                               <input type="number" min="1940" max="2005" placeholder="1980"
@@ -2790,6 +2801,43 @@ const BudgetTool = () => {
                         </div>
                       ))}
                     </div>
+                    {/* Agents Pool RH affectés à ce service */}
+                    {poolRH.filter(a => (a.affectations || []).some(aff => aff.entityType === 'service' && aff.entityId === service.id)).map(poolAgent => {
+                      const aff = (poolAgent.affectations || []).find(a => a.entityType === 'service' && a.entityId === service.id);
+                      return (
+                        <div key={poolAgent.id} className={`mt-2 p-3 rounded-xl border group ${darkMode ? 'bg-purple-900/20 border-purple-700' : 'bg-purple-50 border-purple-200'}`}>
+                          <div className="flex items-center gap-2 flex-wrap text-xs">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase bg-purple-500 text-white">Partagé</span>
+                            <span className={`font-bold flex-1 ${darkMode ? 'text-white' : 'text-slate-800'}`}>{poolAgent.titre}</span>
+                            <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Quote-part :</span>
+                            <input
+                              type="number" min="0" max="100"
+                              className={`w-14 text-right rounded px-2 py-1 font-bold border ${darkMode ? 'bg-purple-900/40 border-purple-600 text-purple-200' : 'bg-white border-purple-300'}`}
+                              value={aff?.pct ?? 100}
+                              onChange={e => {
+                                const newPct = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                setPoolRH(poolRH.map(a => a.id === poolAgent.id ? {
+                                  ...a,
+                                  affectations: a.affectations.map(af =>
+                                    af.entityType === 'service' && af.entityId === service.id ? {...af, pct: newPct} : af
+                                  )
+                                } : a));
+                              }}
+                            />
+                            <span className={darkMode ? 'text-gray-500' : 'text-slate-400'}>%</span>
+                            <button
+                              onClick={() => {
+                                const {multiAffectation: _ma, affectations: _af, ...agentBack} = poolAgent;
+                                setServices(services.map(s => s.id === service.id ? {...s, personnel: [...s.personnel, agentBack]} : s));
+                                setPoolRH(poolRH.filter(x => x.id !== poolAgent.id));
+                              }}
+                              title="Annuler le partage — replacer dans ce service uniquement"
+                              className={`no-print ml-auto p-1 rounded ${darkMode ? 'text-purple-400 hover:bg-purple-800' : 'text-purple-600 hover:bg-purple-100'}`}
+                            ><X size={12} /></button>
+                          </div>
+                        </div>
+                      );
+                    })}
                     {/* Vacataires pédagogiques */}
                     {(() => {
                       const MOIS_VAC_COURTS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
@@ -3095,9 +3143,9 @@ const BudgetTool = () => {
 
                   {simOuverte && (
                     <div className={`p-5 ${darkMode ? 'bg-indigo-900/20' : 'bg-indigo-50/50'}`}>
-                      {tousSalariesPilotage.length === 0 ? (
+                      {tousSalariesPilotage.length === 0 && salariesBudget.length === 0 ? (
                         <p className={`text-sm text-center py-4 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
-                          Aucun formateur dans le Pilotage Financier. Ajoutez des formateurs/vacataires dans la section ci-dessous.
+                          Aucun formateur configuré. Ajoutez des agents dans les équipes des services ou des formateurs dans le Pilotage Financier.
                         </p>
                       ) : (
                         <>
