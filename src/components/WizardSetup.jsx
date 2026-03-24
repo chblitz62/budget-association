@@ -56,13 +56,31 @@ const newRecette = (nom, montant = 0) => ({
   id: newId(), nom, montant,
 });
 
+// ── Parsing robuste : gère virgule, point, espaces (notation française) ────────
+function parseLocaleNumber(str) {
+  const s = str.trim().replace(/\s/g, '');
+  const lastDot = s.lastIndexOf('.');
+  const lastComma = s.lastIndexOf(',');
+  let normalized;
+  if (lastDot > lastComma) {
+    // point = séparateur décimal : "2,500.50" → supprimer virgules
+    normalized = s.replace(/,/g, '');
+  } else if (lastComma > lastDot) {
+    // virgule = séparateur décimal : "2.500,50" → supprimer points, virgule→point
+    normalized = s.replace(/\./g, '').replace(',', '.');
+  } else {
+    normalized = s;
+  }
+  return parseFloat(normalized);
+}
+
 // ── Champ numérique tolérant virgule et point ─────────────────────────────────
-function DecimalInput({ value, onChange, className, ...props }) {
+function DecimalInput({ value, onChange, integer = false, className, ...props }) {
   const [str, setStr] = useState(String(value ?? ''));
   const lastExternal = useRef(value);
   useEffect(() => {
     if (value !== lastExternal.current) {
-      const parsedStr = parseFloat(str.replace(',', '.'));
+      const parsedStr = parseLocaleNumber(str);
       if (isNaN(parsedStr) || parsedStr !== value) setStr(String(value ?? ''));
       lastExternal.current = value;
     }
@@ -76,9 +94,14 @@ function DecimalInput({ value, onChange, className, ...props }) {
       value={str}
       onChange={e => setStr(e.target.value)}
       onBlur={() => {
-        const parsed = parseFloat(str.replace(',', '.'));
-        if (!isNaN(parsed)) { lastExternal.current = parsed; onChange(parsed); }
-        else setStr(String(value ?? ''));
+        const parsed = parseLocaleNumber(str);
+        if (!isNaN(parsed)) {
+          const v = integer ? Math.round(parsed) : parsed;
+          lastExternal.current = v;
+          onChange(v);
+        } else {
+          setStr(String(value ?? ''));
+        }
       }}
     />
   );
@@ -148,10 +171,10 @@ function AgentTable({ agents, onChange, poolable = true, services = [], darkMode
                 />
               </div>
               <div className="flex items-center gap-1">
-                <input type="number" step="50" min="0"
+                <DecimalInput integer
                   className={inp('w-20 text-right')}
                   value={agent.salaire}
-                  onChange={e => update(agent.id, 'salaire', parseInt(e.target.value) || 0)}
+                  onChange={v => update(agent.id, 'salaire', v || 0)}
                 />
                 <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€/m</span>
               </div>
