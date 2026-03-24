@@ -173,7 +173,7 @@ function AgentTable({ agents, onChange, poolable = true, services = [], darkMode
                 />
               </div>
               <div className="flex items-center gap-1">
-                <DecimalInput integer
+                <DecimalInput
                   className={inp('w-20 text-right')}
                   value={agent.salaire}
                   onChange={v => update(agent.id, 'salaire', v || 0)}

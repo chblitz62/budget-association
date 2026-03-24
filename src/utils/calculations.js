@@ -29,14 +29,15 @@ export const validerNombre = (valeur, min = 0, max = Infinity) => {
 };
 
 export const validerEntier = (valeur, min = 0, max = Infinity) => {
-  const num = Math.round(parseLocaleNumber(valeur));
+  const num = Math.trunc(parseLocaleNumber(valeur));
   if (isNaN(num)) return min;
   return Math.min(Math.max(num, min), max);
 };
 
 export const validerTaux = (valeur) => validerNombre(valeur, 0, 100);
 export const validerETP = (valeur) => validerNombre(valeur, 0, 100);
-export const validerSalaire = (valeur) => validerEntier(valeur, 0, 50000);
+// Salaire : on accepte les décimales (ex : 2500,50 → 2500.5)
+export const validerSalaire = (valeur) => validerNombre(valeur, 0, 50000);
 export const validerMontant = (valeur) => validerEntier(valeur, 0, 10000000);
 export const validerMontantSigne = (valeur) => validerEntier(valeur, -10000000, 10000000);
 export const validerDuree = (valeur) => validerEntier(valeur, 1, 50);
