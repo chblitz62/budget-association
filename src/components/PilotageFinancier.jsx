@@ -264,15 +264,16 @@ const SiteView = ({ site, onUpdateSite, tauxFraisStructure, dm, budgetPersonnel 
   const totalFF = fraisFixes.reduce((s, f) => s + (parseFloat(f.montant) || 0), 0);
 
   // Salariés budget convertis au format calcSalarie (sélectionnables directement)
+  // CHARGES_PATRONALES = 42 (%) et PRIME_SEGUR = 238 sont des const locales du fichier
   const budgetFormateurs = (budgetPersonnel || []).map(p => ({
     id: 'b' + p.id,
     nom: p.titre || 'Sans nom',
     type: 'interne',
-    salaireBrut: Math.round((p.salaire + (p.segur ? PRIME_SEGUR : 0)) * (p.etp || 1)),
-    tauxCharges: Math.round(CHARGES_PATRONALES * 100),
-    heuresHebdo: Math.round(35 * (p.etp || 1) * 10) / 10,
-    heuresHorsProduction: 7,
-    ratioPreparation: 1.2,
+    salaireBrut: (p.salaire || 0) + (p.segur ? PRIME_SEGUR : 0),
+    tauxCharges: CHARGES_PATRONALES,          // déjà en % (42)
+    heuresHebdo: 35 * (p.etp || 1),           // heures hebdo selon ETP
+    heuresHorsProduction: 7 * (p.etp || 1),   // hors-prod proportionnel à l'ETP
+    ratioPreparation: 1.5,
     joursAbsence: 0,
     _source: p.source || 'Budget',
   }));
