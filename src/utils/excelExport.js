@@ -28,7 +28,7 @@ const createCompteResultat = (direction, services, poleSupport = null) => {
     nom: s.nom,
     budget: calculerBudgetService(s)
   }));
-  if (budgetPS) budgetsServices.push({ nom: 'Pôle Support', budget: budgetPS });
+  if (budgetPS) budgetsServices.push({ nom: 'Pôle Ressource', budget: budgetPS });
 
   const data = [];
 
@@ -75,7 +75,7 @@ const createCompteResultat = (direction, services, poleSupport = null) => {
   // 64 - Charges de personnel
   data.push(['64 - CHARGES DE PERSONNEL']);
   let totalPersonnel = budgetDir.salaires;
-  data.push(['  Personnel Direction', '641/645', formatEuro(budgetDir.salaires)]);
+  data.push(['  Personnel Siège', '641/645', formatEuro(budgetDir.salaires)]);
 
   budgetsServices.forEach(({ nom, budget }) => {
     data.push([`  Personnel ${nom}`, '641/645', formatEuro(budget.salaires)]);
@@ -220,7 +220,7 @@ const createBalance = (direction, services, poleSupport = null) => {
 
   // Exploitation services + pôle support
   const allBudgets = budgetPS
-    ? [...budgetsServices, { nom: 'Pôle Support', budget: budgetPS }]
+    ? [...budgetsServices, { nom: 'Pôle Ressource', budget: budgetPS }]
     : budgetsServices;
 
   allBudgets.forEach(({ budget }) => {
@@ -496,7 +496,7 @@ const createBudget3Ans = (direction, services, globalParams, poleSupport = null)
     evo
   ]);
 
-  data.push(['dont Direction',
+  data.push(['dont Siège',
     formatEuro(synthese[0].budgetDirection),
     formatEuro(synthese[1].budgetDirection),
     formatEuro(synthese[2].budgetDirection),
@@ -602,13 +602,13 @@ const createSynthese = (direction, services, globalParams, poleSupport = null) =
   data.push(['SERVICE', 'CHARGES', 'PRODUITS', 'SOLDE', 'INDICATEUR']);
   data.push([]);
 
-  data.push(['Direction', formatEuro(budgetDir.total), '-', formatEuro(-budgetDir.total), '']);
+  data.push(['Siège', formatEuro(budgetDir.total), '-', formatEuro(-budgetDir.total), '']);
 
   let totalCharges = budgetDir.total;
   let totalProduits = 0;
 
   if (budgetPS) {
-    data.push(['Pôle Support', formatEuro(budgetPS.total), formatEuro(budgetPS.recettes || 0), formatEuro((budgetPS.recettes || 0) - budgetPS.total), '']);
+    data.push(['Pôle Ressource', formatEuro(budgetPS.total), formatEuro(budgetPS.recettes || 0), formatEuro((budgetPS.recettes || 0) - budgetPS.total), '']);
     totalCharges += budgetPS.total;
     totalProduits += budgetPS.recettes || 0;
   }
@@ -654,6 +654,119 @@ const createSynthese = (direction, services, globalParams, poleSupport = null) =
   return ws;
 };
 
+// Créer l'onglet Vacataires
+const createVacataires = (services) => {
+  const moisCourts = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+  const moisKeys = ['jan', 'fev', 'mar', 'avr', 'mai', 'jun', 'jul', 'aou', 'sep', 'oct', 'nov', 'dec'];
+  const CHARGES_VAC = 0.15;
+
+  const data = [];
+  data.push(['TABLEAU DES INTERVENANTS VACATAIRES']);
+  data.push(['Association AFERTES - Exercice N']);
+  data.push([`Compte PCG : 621 – Personnel extérieur (conventions) / 604 – Achats (auto-entrepreneur)`]);
+  data.push([]);
+
+  // En-tête détail
+  data.push([
+    'Service', 'Intervenant', 'Type', 'Contrat', 'SIRET', 'Date début', 'Date fin',
+    'Taux horaire', 'Heures/an', 'Charges %', 'Coût brut', 'Coût chargé',
+    'Part FI (€)', 'Part FC (€)', 'Compte PCG',
+    ...moisCourts
+  ]);
+
+  let grandTotalHeures = 0;
+  let grandTotalBrut = 0;
+  let grandTotalCharge = 0;
+  let grandTotalFI = 0;
+  let grandTotalFC = 0;
+
+  services.forEach(service => {
+    const vacs = service.vacataires || [];
+    if (vacs.length === 0) return;
+
+    let stHeures = 0, stBrut = 0, stCharge = 0, stFI = 0, stFC = 0;
+
+    vacs.forEach(v => {
+      const heuresMois = moisKeys.map(k => parseFloat(v.planningMensuel?.[k]) || 0);
+      const heures = heuresMois.reduce((s, h) => s + h, 0) || parseFloat(v.heuresAnnuelles) || 0;
+      const tauxH = parseFloat(v.tauxHoraire) || 0;
+      const chargesPct = parseFloat(v.charges ?? CHARGES_VAC * 100) / 100;
+      const brut = heures * tauxH;
+      const charge = brut * (1 + chargesPct);
+      const ratioFI = v.type === 'FC' ? 0 : v.type === 'FI' ? 1 : 0.5;
+      const fi = charge * ratioFI;
+      const fc = charge * (1 - ratioFI);
+      const compte = (v.typeContrat === 'auto_entrepreneur') ? '604' : '621';
+
+      data.push([
+        service.nom,
+        v.nom || 'Vacataire',
+        v.type || 'FI',
+        v.typeContrat === 'convention' ? 'Convention' :
+          v.typeContrat === 'auto_entrepreneur' ? 'Auto-entrepreneur' :
+          v.typeContrat === 'intervention' ? 'Lettre de commande' : 'Autre',
+        v.siret || '',
+        v.dateDebut || '',
+        v.dateFin || '',
+        formatEuro(tauxH),
+        heures.toFixed(1),
+        `${Math.round(chargesPct * 100)}%`,
+        formatEuro(brut),
+        formatEuro(charge),
+        formatEuro(fi),
+        formatEuro(fc),
+        compte,
+        ...heuresMois.map(h => h > 0 ? h.toFixed(1) : '')
+      ]);
+
+      stHeures += heures; stBrut += brut; stCharge += charge; stFI += fi; stFC += fc;
+    });
+
+    data.push([
+      `SOUS-TOTAL ${service.nom.toUpperCase()}`, '', '', '', '', '', '',
+      '', stHeures.toFixed(1), '', formatEuro(stBrut), formatEuro(stCharge),
+      formatEuro(stFI), formatEuro(stFC), '',
+      ...Array(12).fill('')
+    ]);
+    data.push([]);
+
+    grandTotalHeures += stHeures;
+    grandTotalBrut += stBrut;
+    grandTotalCharge += stCharge;
+    grandTotalFI += stFI;
+    grandTotalFC += stFC;
+  });
+
+  data.push([
+    'TOTAL GÉNÉRAL', '', '', '', '', '', '',
+    '', grandTotalHeures.toFixed(1), '', formatEuro(grandTotalBrut), formatEuro(grandTotalCharge),
+    formatEuro(grandTotalFI), formatEuro(grandTotalFC), '',
+    ...Array(12).fill('')
+  ]);
+
+  data.push([]);
+  data.push([]);
+
+  // Planning mensuel récapitulatif par service
+  data.push(['PLANNING MENSUEL CONSOLIDÉ (heures)']);
+  data.push(['Service', ...moisCourts, 'Total']);
+
+  services.forEach(service => {
+    const vacs = service.vacataires || [];
+    if (vacs.length === 0) return;
+    const moisTotaux = moisKeys.map(k =>
+      vacs.reduce((s, v) => s + (parseFloat(v.planningMensuel?.[k]) || 0), 0)
+    );
+    const total = moisTotaux.reduce((s, h) => s + h, 0);
+    data.push([service.nom, ...moisTotaux.map(h => h > 0 ? h.toFixed(1) : ''), total.toFixed(1)]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  setColumnWidths(ws, [22, 20, 8, 18, 14, 12, 12, 12, 10, 10, 12, 12, 12, 12, 8,
+    6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6]);
+  return ws;
+};
+
 // Fonction principale d'export
 export const exportToExcel = (direction, services, globalParams, poleSupport = null) => {
   try {
@@ -676,6 +789,9 @@ export const exportToExcel = (direction, services, globalParams, poleSupport = n
     XLSX.utils.book_append_sheet(wb, wsBudget3Ans, 'Budget 3 Ans');
     XLSX.utils.book_append_sheet(wb, wsAmortissements, 'Amortissements');
     XLSX.utils.book_append_sheet(wb, wsSynthese, 'Synthèse');
+
+    const wsVacataires = createVacataires(services);
+    XLSX.utils.book_append_sheet(wb, wsVacataires, 'Vacataires');
 
     const date = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(wb, `Budget_AFERTES_${date}.xlsx`);

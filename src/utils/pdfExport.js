@@ -43,7 +43,7 @@ export const exportToPDF = (direction, services, globalParams, poleSupport = nul
     head: [['', 'Année 1', 'Année 2', 'Année 3']],
     body: [
       ['Budget Total', ...summary3Ans.map(s => formatEuro(s.total))],
-      ['Direction', ...summary3Ans.map(s => formatEuro(s.budgetDirection))],
+      ['Siège', ...summary3Ans.map(s => formatEuro(s.budgetDirection))],
       ['Amortissements', ...summary3Ans.map(s => formatEuro(s.amortissements))],
       ['Intérêts', ...summary3Ans.map(s => formatEuro(s.interets))]
     ],
@@ -95,7 +95,7 @@ export const exportToPDF = (direction, services, globalParams, poleSupport = nul
     const budgetPS = calculerBudgetPoleSupport(poleSupport);
     doc.setFontSize(14);
     doc.setTextColor(20, 184, 166);
-    doc.text('Pôle Support', 14, yPos);
+    doc.text('Pôle Ressource', 14, yPos);
     yPos += 8;
     doc.setTextColor(0);
     autoTable(doc, {
@@ -250,8 +250,102 @@ export const exportToPDF = (direction, services, globalParams, poleSupport = nul
   });
   yPos = doc.lastAutoTable.finalY + 15;
 
+  // Vacataires
+  const allVacs = services.flatMap(s => (s.vacataires || []).map(v => ({ ...v, serviceNom: s.nom })));
+  if (allVacs.length > 0) {
+    doc.addPage();
+    yPos = 20;
+
+    doc.setFontSize(14);
+    doc.setTextColor(16, 185, 129); // emerald
+    doc.text('Intervenants Vacataires', 14, yPos);
+    yPos += 8;
+
+    const moisKeys = ['jan', 'fev', 'mar', 'avr', 'mai', 'jun', 'jul', 'aou', 'sep', 'oct', 'nov', 'dec'];
+    const CHARGES_VAC = 0.15;
+
+    const vacRows = allVacs.map(v => {
+      const heures = moisKeys.reduce((s, k) => s + (parseFloat(v.planningMensuel?.[k]) || 0), 0) || parseFloat(v.heuresAnnuelles) || 0;
+      const tauxH = parseFloat(v.tauxHoraire) || 0;
+      const chargesPct = parseFloat(v.charges ?? CHARGES_VAC * 100) / 100;
+      const brut = heures * tauxH;
+      const charge = brut * (1 + chargesPct);
+      const compte = v.typeContrat === 'auto_entrepreneur' ? '604' : '621';
+      return [
+        v.serviceNom,
+        v.nom || 'Vacataire',
+        v.type || 'FI',
+        v.typeContrat === 'auto_entrepreneur' ? 'AE' : v.typeContrat === 'convention' ? 'Conv.' : 'LdC',
+        heures.toFixed(0) + ' h',
+        formatEuro(tauxH) + '/h',
+        formatEuro(charge),
+        compte
+      ];
+    });
+
+    const totalCout = allVacs.reduce((s, v) => {
+      const heures = moisKeys.reduce((a, k) => a + (parseFloat(v.planningMensuel?.[k]) || 0), 0) || parseFloat(v.heuresAnnuelles) || 0;
+      const tauxH = parseFloat(v.tauxHoraire) || 0;
+      const chargesPct = parseFloat(v.charges ?? CHARGES_VAC * 100) / 100;
+      return s + heures * tauxH * (1 + chargesPct);
+    }, 0);
+
+    doc.setTextColor(0);
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Service', 'Intervenant', 'Type', 'Contrat', 'Heures', 'Taux', 'Coût chargé', 'PCG']],
+      body: vacRows,
+      foot: [['TOTAL', '', '', '', '', '', formatEuro(totalCout), '']],
+      theme: 'striped',
+      headStyles: { fillColor: [16, 185, 129] },
+      footStyles: { fillColor: [167, 243, 208], textColor: [0, 0, 0] },
+      styles: { fontSize: 7 },
+      columnStyles: {
+        0: { cellWidth: 30 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 12 },
+        3: { cellWidth: 16 },
+        4: { cellWidth: 16, halign: 'right' },
+        5: { cellWidth: 16, halign: 'right' },
+        6: { cellWidth: 22, halign: 'right', fontStyle: 'bold' },
+        7: { cellWidth: 12 },
+      }
+    });
+    yPos = doc.lastAutoTable.finalY + 10;
+
+    // Résumé par service
+    const parService = services.map(s => {
+      const vacs = s.vacataires || [];
+      const cout = vacs.reduce((sum, v) => {
+        const h = moisKeys.reduce((a, k) => a + (parseFloat(v.planningMensuel?.[k]) || 0), 0) || parseFloat(v.heuresAnnuelles) || 0;
+        const t = parseFloat(v.tauxHoraire) || 0;
+        const c = parseFloat(v.charges ?? CHARGES_VAC * 100) / 100;
+        return sum + h * t * (1 + c);
+      }, 0);
+      return [s.nom, vacs.length.toString(), formatEuro(cout)];
+    }).filter(r => r[1] !== '0');
+
+    if (parService.length > 0 && yPos < 250) {
+      doc.setFontSize(11);
+      doc.text('Synthèse par service', 14, yPos);
+      yPos += 6;
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Service', 'Nb vacataires', 'Coût total chargé']],
+        body: parService,
+        theme: 'plain',
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [209, 250, 229] },
+        columnStyles: { 2: { fontStyle: 'bold' } }
+      });
+      yPos = doc.lastAutoTable.finalY + 15;
+    }
+  }
+
   // Analyse FR - BFR
-  doc.setFontSize(12);
+  doc.addPage();
+  yPos = 20;
+  doc.setFontSize(14);
   doc.setTextColor(0);
   doc.text('Analyse FR - BFR', 14, yPos);
   yPos += 8;

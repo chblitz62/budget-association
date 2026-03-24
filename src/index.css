@@ -4,12 +4,35 @@
 
 body {
   margin: 0;
-  font-family: sans-serif;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-mono-numbers {
+  font-family: 'JetBrains Mono', monospace;
 }
 
 /* Smooth scroll for anchor navigation */
 html {
   scroll-behavior: smooth;
+}
+
+@layer utilities {
+  .animate-in {
+    animation-duration: 300ms;
+    animation-fill-mode: forwards;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .fade-in {
+    animation-name: fadeIn;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 }
 
 /* Sidebar navigation */

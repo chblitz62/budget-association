@@ -196,7 +196,7 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
   const serviceNames = services.map(s => s.nom);
   const allTargets = [
     { value: 'ignore', label: '— Ignorer —' },
-    { value: 'direction', label: 'Direction' },
+    { value: 'direction', label: 'Siège' },
     { value: 'poleSupport', label: 'Pôle Support' },
     ...services.map((s, i) => ({ value: `service_${i}`, label: s.nom })),
   ];
@@ -309,7 +309,7 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
   };
 
   const targetLabel = (key) => {
-    if (key === 'direction') return 'Direction';
+    if (key === 'direction') return 'Siège';
     if (key === 'poleSupport') return 'Pôle Support';
     if (key.startsWith('service_')) {
       const idx = parseInt(key.split('_')[1]);

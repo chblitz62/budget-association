@@ -144,7 +144,7 @@ const ImportN1Modal = ({ isOpen, onClose, onConfirm, darkMode }) => {
                   </tr>
                   {preview.poleSupport.salaires > 0 || preview.poleSupport.nom ? (
                     <tr className="border-t border-violet-200/30">
-                      <td className="py-1 pr-3 font-bold">Pôle Support</td>
+                      <td className="py-1 pr-3 font-bold">Pôle Ressource</td>
                       <td className="py-1 pr-3 text-right">{fmtE(preview.poleSupport.salaires)}</td>
                       <td className="py-1 pr-3 text-right">{fmtE(preview.poleSupport.exploitation)}</td>
                       <td className="py-1 text-right">{fmtE(preview.poleSupport.recettes)}</td>

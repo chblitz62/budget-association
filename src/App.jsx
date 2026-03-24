@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus, Banknote, TrendingDown, CheckCircle, AlertTriangle, FileSpreadsheet, Key, Eye, EyeOff, HelpCircle, X, AlertCircle, Clock, BarChart3, Search, Menu, ChevronLeft, ChevronRight, Home, Shield, Wallet, Building, Layers, Calculator, RotateCcw, Target, Gauge, Bell, GripVertical, ChevronDown, ChevronUp, UserCheck, UserX, Zap, Monitor } from 'lucide-react';
+import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus, Banknote, TrendingDown, CheckCircle, AlertTriangle, FileSpreadsheet, Key, Eye, EyeOff, HelpCircle, X, AlertCircle, Clock, BarChart3, Search, Menu, ChevronLeft, ChevronRight, Home, Shield, Wallet, Building, Layers, Calculator, RotateCcw, Target, Gauge, Bell, GripVertical, ChevronDown, ChevronUp, UserCheck, UserX, Zap, Monitor, Cog, ExternalLink } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
 import { exportToExcel, exportReportingFC } from './utils/excelExport';
 import { exportToPDF, exportReportingFCPdf } from './utils/pdfExport';
@@ -8,13 +8,36 @@ import PresentationMode from './components/PresentationMode';
 import PlanningAbsences from './components/PlanningAbsences';
 import ReportingFC from './components/ReportingFC';
 import ImportN1Modal from './components/ImportN1Modal';
+import SubventionRegion from './components/SubventionRegion';
+import DAF from './components/DAF';
+import VentilationBP from './components/VentilationBP';
 import WizardImportBP from './components/WizardImportBP';
+import WizardSetup from './components/WizardSetup';
+import CalculateurVacataires from './components/CalculateurVacataires';
+import ConfirmDialog from './components/ui/ConfirmDialog';
+import SaveIndicator from './components/ui/SaveIndicator';
+import HelpIcon from './components/ui/HelpIcon';
+import ModalFI from './components/modals/ModalFI';
+import ModalSaisonnalite from './components/modals/ModalSaisonnalite';
+import InfoTooltip from './components/ui/Tooltip';
+import ModalRoles from './components/modals/ModalRoles';
+import ModalPassword from './components/modals/ModalPassword';
+import ModalReset from './components/modals/ModalReset';
+import TabTresorerie from './components/TabTresorerie';
+import TabFormation from './components/tabs/TabFormation';
+import TabRH from './components/tabs/TabRH';
+import TabAnalyse from './components/tabs/TabAnalyse';
 
 // Import des constantes et valeurs par défaut
 import {
   CHARGES_PATRONALES,
   PRIME_SEGUR,
   JOURS_ANNEE,
+  JOURS_OUVRES_AN,
+  JOURS_CONGES_LEGAL,
+  CHARGES_VACATAIRE,
+  SEUIL_HEURES_VACATAIRE,
+  SEUIL_RATIO_VACATAIRE,
   COMPTES_IMMO,
   COMPTES_EXPLOITATION,
   COMPTES_RECETTES,
@@ -29,6 +52,9 @@ import {
   defaultDirection,
   defaultPoleSupport,
   defaultServices,
+  defaultServiceRecherche,
+  defaultServicePrevention,
+  defaultPromosFormationContinue,
   DATA_VERSION
 } from './utils/constants';
 
@@ -43,6 +69,10 @@ import {
   validerMontantSigne,
   validerDuree,
   validerUnites,
+  calculerPresenceEquipe,
+  calculerPresenceAgent,
+  calculerETPReelParMoisParService,
+  calculerStatsVacataires,
   calculerBudgetDirection,
   calculerBudgetService,
   calculerBudgetPoleSupport,
@@ -52,6 +82,9 @@ import {
   calculerFondRoulement,
   calculerSynthese3Ans,
   calculerBudgetAnnuelMensuel,
+  calculerAlertesRH,
+  calculerTresorerieMensuelle,
+  calculerPartPoolRH,
   loadFromStorage
 } from './utils/calculations';
 
@@ -175,59 +208,7 @@ const LoginScreen = ({ onLogin, checkPassword, darkMode }) => {
   );
 };
 
-// Composant de confirmation de suppression
-const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, darkMode }) => {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 no-print">
-      <div className={`max-w-md w-full mx-4 p-6 rounded-3xl shadow-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-3 rounded-full bg-red-100">
-            <AlertCircle className="text-red-600" size={24} />
-          </div>
-          <h3 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{title}</h3>
-        </div>
-        <p className={`mb-6 ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{message}</p>
-        <div className="flex gap-3 justify-end">
-          <button
-            onClick={onClose}
-            className={`px-4 py-2 rounded-xl font-bold ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
-          >
-            Annuler
-          </button>
-          <button
-            onClick={() => { onConfirm(); onClose(); }}
-            className="px-4 py-2 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600"
-          >
-            Supprimer
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
-// Composant indicateur de sauvegarde
-const SaveIndicator = ({ darkMode }) => {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const handleStorage = () => {
-      setVisible(true);
-      setTimeout(() => setVisible(false), 2000);
-    };
-    window.addEventListener('storage-save', handleStorage);
-    return () => window.removeEventListener('storage-save', handleStorage);
-  }, []);
-
-  if (!visible) return null;
-  return (
-    <div className={`fixed bottom-4 right-4 px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 z-40 ${darkMode ? 'bg-teal-900 text-teal-300' : 'bg-teal-500 text-white'}`}>
-      <CheckCircle size={18} />
-      <span className="font-bold text-sm">Sauvegardé</span>
-    </div>
-  );
-};
 
 // Composant menu latéral de navigation
 const SidebarNav = ({ services, darkMode, isOpen, onToggle, searchQuery, onSearchChange }) => {
@@ -237,8 +218,8 @@ const SidebarNav = ({ services, darkMode, isOpen, onToggle, searchQuery, onSearc
     { id: 'synthese-3ans', label: 'Synthèse 3 ans', icon: TrendingUp },
     { id: 'graphiques', label: 'Graphiques', icon: BarChart3 },
     { id: 'provisions-bfr-fr', label: 'Provisions / BFR / FR', icon: Shield },
-    { id: 'direction', label: 'Direction & Siège', icon: Building2 },
-    { id: 'pole-support', label: 'Pôle Support', icon: Building },
+    { id: 'direction', label: 'Siège', icon: Building2 },
+    { id: 'pole-support', label: 'Pôle Ressource', icon: Building },
     { id: 'planning-absences', label: 'Planning Absences', icon: Calendar },
     { id: 'enveloppe-formation', label: 'Enveloppe Formation', icon: GraduationCap },
     { id: 'reporting-fc', label: 'Reporting FC', icon: FileSpreadsheet },
@@ -376,6 +357,7 @@ const zeroServices = [];
 
 const zeroGlobalParams = {
   augmentationAnnuelle: 0,
+  montantSegurETP: 238,
   delaiPaiementClients: 30,
   delaiPaiementFournisseurs: 30,
   provisions: [
@@ -391,6 +373,17 @@ const zeroGlobalParams = {
     { id: 'subventionsInvest', nom: "Subventions d'investissement",   montant: 0 },
   ],
   stocksValeur: 0,
+  rolesPersonnel: [
+    { id: 'direction',         label: 'Siège' },
+    { id: 'directeur_adjoint', label: 'Directeur adjoint' },
+    { id: 'administratif',     label: 'Administratif' },
+    { id: 'technique',         label: 'Technique' },
+    { id: 'documentation',     label: 'Documentation' },
+    { id: 'communication',     label: 'Communication' },
+    { id: 'formateur',         label: 'Formateur' },
+    { id: 'responsable',       label: 'Resp. secteur' },
+    { id: 'vacataire',         label: 'Vacataire' },
+  ],
 };
 
 const BudgetTool = () => {
@@ -435,7 +428,27 @@ const BudgetTool = () => {
     }
     return d;
   });
-  const [services, setServices] = useState(() => loadFromStorage('assoc_services', defaultServices));
+  const [services, setServices] = useState(() => {
+    let svcs = loadFromStorage('assoc_services', defaultServices);
+    // Migration noms : renommer les anciens labels affichage
+    const nomsMigration = { 1: 'FI Saint-Laurent', 2: 'FI Avion', 3: 'FC' };
+    svcs = svcs.map(s => {
+      const newNom = nomsMigration[s.id];
+      if (newNom && s.nom !== newNom) return { ...s, nom: newNom };
+      return s;
+    });
+    // Migration : ajouter le site Avion au service FC (id:3) s'il n'existe pas encore
+    svcs = svcs.map(s => {
+      if (s.id === 3 && s.promos && !s.promos[SITES.AVION]) {
+        return { ...s, promos: { ...s.promos, [SITES.AVION]: defaultPromosFormationContinue[SITES.AVION] } };
+      }
+      return s;
+    });
+    // Migration : ajouter Recherche (id:4) et Prévention (id:5) si absents
+    if (!svcs.some(s => s.id === 4)) svcs = [...svcs, defaultServiceRecherche];
+    if (!svcs.some(s => s.id === 5)) svcs = [...svcs, defaultServicePrevention];
+    return svcs;
+  });
   const [poleSupport, setPoleSupport] = useState(() => loadFromStorage('assoc_pole_support', defaultPoleSupport));
   const [pilotageSites, setPilotageSites] = useState(() => loadFromStorage('assoc_pilotage_sites', pilotageDefaultSites));
 
@@ -455,6 +468,18 @@ const BudgetTool = () => {
   // Panels FI% ouverts par agent (Set de clés "${serviceId}-${personnelId}")
   const [fiPanelsOuverts, setFiPanelsOuverts] = useState(new Set());
 
+  // Modal FI% : { serviceId, agentId }
+  const [fiDialog, setFiDialog] = useState(null);
+  // Modal Saisonnalité recettes : { type:'service'|'poleSupport'|'direction', entityId, recetteId }
+  const [saisonnaliteDialog, setSaisonnaliteDialog] = useState(null);
+
+  // Pool RH — agents partagés entre plusieurs entités
+  const [poolRH, setPoolRH] = useState(() => loadFromStorage('assoc_pool_rh', []));
+
+  // Wizard setup initial
+  const isFirstLaunch = !localStorage.getItem('assoc_services') && !localStorage.getItem('assoc_direction');
+  const [showWizardSetup, setShowWizardSetup] = useState(isFirstLaunch);
+
   // Mode sombre persistant
   const [darkMode, setDarkMode] = useState(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -473,11 +498,15 @@ const BudgetTool = () => {
   const [showImportN1, setShowImportN1] = useState(false);
   const [showWizardBP, setShowWizardBP] = useState(false);
   const [simCharges, setSimCharges] = useState({ augSalaires: 0, augCharges: 0, augExploitation: 0 });
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('assoc_active_tab') || 'dashboard');
+  const [dafSub, setDafSub] = useState(() => localStorage.getItem('daf_sub') || 'subvention');
+  const setDafSubP = (v) => { setDafSub(v); localStorage.setItem('daf_sub', v); };
   const [presentationMode, setPresentationMode] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
   const [planningAbsences, setPlanningAbsences] = useState(() => loadFromStorage('assoc_planning_absences', {}));
   useEffect(() => { localStorage.setItem('assoc_planning_absences', JSON.stringify(planningAbsences)); }, [planningAbsences]);
   useEffect(() => { localStorage.setItem('assoc_services', JSON.stringify(services)); triggerSaveIndicator(); }, [services]);
+  useEffect(() => { localStorage.setItem('assoc_pool_rh', JSON.stringify(poolRH)); triggerSaveIndicator(); }, [poolRH]);
   useEffect(() => { localStorage.setItem('assoc_pole_support', JSON.stringify(poleSupport)); triggerSaveIndicator(); }, [poleSupport]);
   useEffect(() => { localStorage.setItem('assoc_pilotage_sites', JSON.stringify(pilotageSites)); triggerSaveIndicator(); }, [pilotageSites]);
   useEffect(() => { localStorage.setItem('assoc_direction_position', JSON.stringify(directionPosition)); }, [directionPosition]);
@@ -486,20 +515,62 @@ const BudgetTool = () => {
   useEffect(() => { localStorage.setItem('assoc_enveloppe_formation', JSON.stringify(enveloppeFormation)); triggerSaveIndicator(); }, [enveloppeFormation]);
   useEffect(() => { localStorage.setItem('assoc_reporting_fc', JSON.stringify(reportingFC)); triggerSaveIndicator(); }, [reportingFC]);
   useEffect(() => { localStorage.setItem('assoc_donnees_n1', JSON.stringify(donneesN1)); triggerSaveIndicator(); }, [donneesN1]);
+  useEffect(() => { localStorage.setItem('assoc_active_tab', activeTab); }, [activeTab]);
+
+  // Auto-backup toutes les 10 minutes (protection contre perte de données)
+  useEffect(() => {
+    const doBackup = () => {
+      try {
+        const snapshot = {
+          ts: new Date().toISOString(),
+          globalParams, direction, services, poleSupport, poolRH,
+          enveloppeFormation, reportingFC, donneesN1, planningAbsences
+        };
+        // Rotation sur 3 slots
+        const slot = ((parseInt(localStorage.getItem('assoc_backup_slot') || '0') % 3) + 1);
+        localStorage.setItem(`assoc_backup_${slot}`, JSON.stringify(snapshot));
+        localStorage.setItem('assoc_backup_slot', String(slot));
+        localStorage.setItem('assoc_backup_last', snapshot.ts);
+      } catch { /* ignore si localStorage plein */ }
+    };
+    const id = setInterval(doBackup, 10 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [globalParams, direction, services, poleSupport, poolRH, enveloppeFormation, reportingFC, donneesN1, planningAbsences]);
+
+  // Navigation inter-onglets RH ↔ Budget
+  const [focusedAgentId, setFocusedAgentId] = useState(null);
+  const navigateToBudgetAgent = (agentId) => {
+    setActiveTab('budget');
+    setFocusedAgentId(agentId);
+    setTimeout(() => {
+      const el = document.getElementById(`agent-budget-${agentId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => setFocusedAgentId(null), 2500);
+    }, 200);
+  };
+  const navigateToRHAgent = (agentId) => {
+    setActiveTab('rh');
+    setFocusedAgentId(agentId);
+    setTimeout(() => {
+      const el = document.getElementById(`agent-rh-${agentId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => setFocusedAgentId(null), 2500);
+    }, 200);
+  };
+
+  // Gestion des rôles personnalisés
+  const [showRolesModal, setShowRolesModal] = useState(false);
+  const roles = globalParams.rolesPersonnel || [];
+  const setRoles = (fn) => setGlobalParams(prev => ({ ...prev, rolesPersonnel: typeof fn === 'function' ? fn(prev.rolesPersonnel || []) : fn }));
 
   // Remise à zéro globale
   const [showResetModal, setShowResetModal] = useState(false);
-  const [resetPassword, setResetPassword] = useState('');
-  const [resetError, setResetError] = useState('');
-  const [resetShowPwd, setResetShowPwd] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [pilotageResetKey, setPilotageResetKey] = useState(0);
 
-  const handleGlobalReset = async () => {
-    if (!resetPassword) { setResetError('Veuillez saisir le mot de passe'); return; }
+  const handleGlobalReset = async (resetPassword) => {
     const ok = await checkPassword(resetPassword);
-    if (!ok) { setResetError('Mot de passe incorrect'); setResetPassword(''); return; }
-    // Supprimer toutes les clés localStorage de l'application
+    if (!ok) { return 'Mot de passe incorrect'; }
     ['assoc_globalParams', 'assoc_direction', 'assoc_services', 'assoc_data_version', 'assoc_pilotage_sites', 'assoc_direction_position', 'assoc_pole_support', 'assoc_pole_support_position', 'assoc_darkMode'].forEach(k => localStorage.removeItem(k));
     setDirectionPosition(0);
     setPoleSupportPosition(1);
@@ -512,75 +583,83 @@ const BudgetTool = () => {
     localStorage.removeItem('assoc_planning_absences');
     setPlanningAbsences({});
     setDarkMode(false);
-    // Remettre tous les états à zéro (aucun intitulé, aucun montant)
     setGlobalParams(zeroGlobalParams);
     setDirection(zeroDirection);
     setServices(zeroServices);
     setPoleSupport(defaultPoleSupport);
     setPilotageSites(pilotageZeroSites);
-    setPilotageResetKey(k => k + 1); // force remount PilotageFinancier → zeroSites
-    setShowResetModal(false);
-    setResetPassword('');
-    setResetError('');
+    setPilotageResetKey(k => k + 1);
     setResetSuccess(true);
     setTimeout(() => setResetSuccess(false), 4000);
+    return null;
   };
 
   // Gestion du mot de passe (uniquement en local)
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordMessage, setPasswordMessage] = useState('');
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-  const handleChangePassword = async () => {
-    if (newPassword.length < 4) {
-      setPasswordMessage('Le mot de passe doit contenir au moins 4 caractères');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordMessage('Les mots de passe ne correspondent pas');
-      return;
-    }
-    localStorage.setItem('budget_custom_password_hash', await hashPassword(newPassword));
-    localStorage.removeItem('budget_custom_password');
-    setPasswordMessage('Mot de passe modifié avec succès !');
-    setNewPassword('');
-    setConfirmPassword('');
-    setTimeout(() => {
-      setShowPasswordModal(false);
-      setPasswordMessage('');
-    }, 1500);
-  };
-
-  const handleResetPassword = () => {
-    localStorage.removeItem('budget_custom_password');
-    localStorage.removeItem('budget_custom_password_hash');
-    setPasswordMessage('Mot de passe réinitialisé au défaut : ' + DEFAULT_PASSWORD);
-    setTimeout(() => setPasswordMessage(''), 3000);
-  };
 
   const handleLogout = () => {
     localStorage.removeItem('budget_authenticated');
     setIsAuthenticated(false);
   };
 
-  const getBudgetDirection = () => calculerBudgetDirection(direction);
-  const getBudgetPoleSupport = () => calculerBudgetPoleSupport(poleSupport);
-  const getBudgetService = (service) => calculerBudgetService(service);
-  const getProvisions = () => calculerProvisions(direction, services, globalParams, poleSupport);
-  const getBFR = () => calculerBFR(direction, services, globalParams, poleSupport);
+  const msETP = globalParams.montantSegurETP ?? PRIME_SEGUR;
+  const getBudgetDirection = () => calculerBudgetDirection(direction, planningAbsences, 2026, msETP, poolRH);
+  const getBudgetPoleSupport = () => calculerBudgetPoleSupport(poleSupport, planningAbsences, 2026, msETP, poolRH);
+  const getBudgetService = (service) => calculerBudgetService(service, planningAbsences, 2026, msETP, poolRH);
+  const getProvisions = () => calculerProvisions(direction, services, globalParams, poleSupport, poolRH);
+  const getBFR = () => calculerBFR(direction, services, globalParams, poleSupport, poolRH);
   const getFondRoulement = () => calculerFondRoulement(direction, services, globalParams);
-  const summary3Ans = calculerSynthese3Ans(direction, services, globalParams, poleSupport);
-  const budgetAnnuel = calculerBudgetAnnuelMensuel(direction, services, globalParams, poleSupport);
+  const summary3Ans = calculerSynthese3Ans(direction, services, globalParams, poleSupport, poolRH);
+  const budgetAnnuel = calculerBudgetAnnuelMensuel(direction, services, globalParams, poleSupport, poolRH);
+  const tresorerie = calculerTresorerieMensuelle(direction, services, globalParams, poleSupport, poolRH);
+
+  // Callback wizard setup — applique la configuration initiale à l'état global
+  const handleWizardComplete = (data) => {
+    if (data.globalParams) setGlobalParams(prev => ({ ...prev, ...data.globalParams }));
+    if (data.direction)   setDirection(data.direction);
+    if (data.poleSupport) setPoleSupport(data.poleSupport);
+    if (data.services)    setServices(data.services);
+    if (data.poolRH)      setPoolRH(data.poolRH);
+    setShowWizardSetup(false);
+    setActiveTab('budget');
+  };
 
   const sauvegarderBudget = () => {
-    const data = { version: '2.0', type: 'association', date: new Date().toISOString(), globalParams, direction, services };
+    const data = {
+      version: '2.1', type: 'association', date: new Date().toISOString(),
+      globalParams, direction, services, poleSupport, poolRH,
+      enveloppeFormation, reportingFC, donneesN1, planningAbsences
+    };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `budget_association_${new Date().toISOString().split('T')[0]}.json`;
     link.click();
+  };
+
+  const restaurerBackup = () => {
+    try {
+      const slot = parseInt(localStorage.getItem('assoc_backup_slot') || '0');
+      if (!slot) { alert('Aucun backup automatique disponible.'); return; }
+      const snapshots = [1, 2, 3]
+        .map(i => { try { return JSON.parse(localStorage.getItem(`assoc_backup_${i}`) || 'null'); } catch { return null; } })
+        .filter(Boolean)
+        .sort((a, b) => new Date(b.ts) - new Date(a.ts));
+      if (!snapshots.length) { alert('Aucun backup automatique disponible.'); return; }
+      const snap = snapshots[0];
+      const d = new Date(snap.ts).toLocaleString('fr-FR');
+      if (!confirm(`Restaurer le backup du ${d} ?\n\nCela remplacera les données actuelles.`)) return;
+      if (snap.globalParams) setGlobalParams(snap.globalParams);
+      if (snap.direction)   setDirection(snap.direction);
+      if (snap.services)    setServices(snap.services);
+      if (snap.poleSupport) setPoleSupport(snap.poleSupport);
+      if (snap.enveloppeFormation) setEnveloppeFormation(snap.enveloppeFormation);
+      if (snap.reportingFC) setReportingFC(snap.reportingFC);
+      if (snap.donneesN1)   setDonneesN1(snap.donneesN1);
+      if (snap.planningAbsences) setPlanningAbsences(snap.planningAbsences);
+      alert(`Backup du ${d} restauré avec succès.`);
+    } catch { alert('Erreur lors de la restauration du backup.'); }
   };
 
   const chargerBudget = (e) => {
@@ -638,20 +717,15 @@ const BudgetTool = () => {
     alertes.push({ lvl: 'info', msg: `Taux de couverture faible : ${tauxCouverture.toFixed(1)}% (objectif ≥ 100%)` });
   if (totalProvisions === 0)
     alertes.push({ lvl: 'info', msg: 'Aucune provision constituée — vérifier les taux dans le bloc Provisions' });
+  // Alertes RH (fins de contrat, retraites)
+  calculerAlertesRH(direction, poleSupport, services).forEach(a => alertes.push(a));
+  // Alerte trésorerie négative
+  if (tresorerie.alertesMois.length > 0)
+    alertes.push({ lvl: 'warning', msg: `Tension de trésorerie prévisionnelle : solde cumulé négatif en ${tresorerie.alertesMois.map(i => ['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][i]).join(', ')}` });
 
   return (
     <>
     <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}>
-      {/* Menu latéral de navigation */}
-      <SidebarNav
-        services={services}
-        darkMode={darkMode}
-        isOpen={sidebarOpen}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-      />
-
       {/* Composants globaux */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
@@ -668,6 +742,13 @@ const BudgetTool = () => {
         onConfirm={(data) => setDonneesN1(data)}
         darkMode={darkMode}
       />
+      {showWizardSetup && (
+        <WizardSetup
+          onComplete={handleWizardComplete}
+          onClose={() => setShowWizardSetup(false)}
+          darkMode={darkMode}
+        />
+      )}
       {showWizardBP && (
         <WizardImportBP
           onClose={() => setShowWizardBP(false)}
@@ -682,25 +763,61 @@ const BudgetTool = () => {
       )}
 
       {/* Contenu principal avec marge pour le sidebar */}
-      <div className={`main-content p-4 md:p-8 transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-16'}`}>
+      <div className="main-content p-4 md:p-8">
         <div className="max-w-7xl mx-auto">
 
           {/* ── TABLEAU DE BORD KPI ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
             {[
-              { label: 'Recettes', val: `${Math.round(totalRecettes/1000)}k €`, sub: 'annuelles', color: darkMode ? 'bg-green-900/40 border-green-700' : 'bg-green-50 border-green-200', txt: darkMode ? 'text-green-300' : 'text-green-700', icon: <Banknote size={16}/> },
-              { label: 'Charges', val: `${Math.round(totalCharges/1000)}k €`, sub: 'annuelles', color: darkMode ? 'bg-red-900/30 border-red-800' : 'bg-red-50 border-red-200', txt: darkMode ? 'text-red-300' : 'text-red-700', icon: <TrendingDown size={16}/> },
-              { label: 'Solde', val: `${soldeGlobal >= 0 ? '+' : ''}${Math.round(soldeGlobal/1000)}k €`, sub: 'résultat', color: soldeGlobal >= 0 ? (darkMode ? 'bg-emerald-900/40 border-emerald-700' : 'bg-emerald-50 border-emerald-200') : (darkMode ? 'bg-orange-900/40 border-orange-700' : 'bg-orange-50 border-orange-200'), txt: soldeGlobal >= 0 ? (darkMode ? 'text-emerald-300' : 'text-emerald-700') : (darkMode ? 'text-orange-300' : 'text-orange-700'), icon: soldeGlobal >= 0 ? <CheckCircle size={16}/> : <AlertTriangle size={16}/> },
-              { label: 'Couverture', val: `${tauxCouverture.toFixed(1)}%`, sub: 'recettes/charges', color: tauxCouverture >= 100 ? (darkMode ? 'bg-teal-900/40 border-teal-700' : 'bg-teal-50 border-teal-200') : (darkMode ? 'bg-amber-900/40 border-amber-700' : 'bg-amber-50 border-amber-200'), txt: tauxCouverture >= 100 ? (darkMode ? 'text-teal-300' : 'text-teal-700') : (darkMode ? 'text-amber-300' : 'text-amber-700'), icon: <Target size={16}/> },
-              { label: 'ETP total', val: totalETP.toFixed(1), sub: 'équivalents temps plein', color: darkMode ? 'bg-blue-900/40 border-blue-700' : 'bg-blue-50 border-blue-200', txt: darkMode ? 'text-blue-300' : 'text-blue-700', icon: <Users size={16}/> },
-              { label: 'Coût/étudiant', val: totalEtudiants > 0 ? `${coutParEtudiant.toLocaleString()} €` : '—', sub: `${totalEtudiants} étudiants`, color: darkMode ? 'bg-purple-900/40 border-purple-700' : 'bg-purple-50 border-purple-200', txt: darkMode ? 'text-purple-300' : 'text-purple-700', icon: <GraduationCap size={16}/> },
-            ].map((k, i) => (
-              <div key={i} className={`rounded-2xl border p-3 ${k.color}`}>
-                <div className={`flex items-center gap-1 text-xs font-bold mb-1 ${k.txt}`}>{k.icon} {k.label}</div>
-                <div className={`text-xl font-black ${k.txt}`}>{k.val}</div>
-                <div className={`text-xs mt-0.5 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{k.sub}</div>
-              </div>
-            ))}
+              { label: 'Recettes', val: `${Math.round(totalRecettes/1000)}k`, unit: '€', sub: 'annuelles', color: 'green', icon: <Banknote size={18}/>, help: 'Total des recettes annuelles : subventions Région, droits d\'inscription, produits des formations continues, contributions diverses.' },
+              { label: 'Charges', val: `${Math.round(totalCharges/1000)}k`, unit: '€', sub: 'annuelles', color: 'red', icon: <TrendingDown size={18}/>, help: 'Total des charges annuelles : masse salariale (salaires bruts + charges patronales 42%) + frais d\'exploitation + amortissements.' },
+              { label: 'Solde', val: `${soldeGlobal >= 0 ? '+' : ''}${Math.round(soldeGlobal/1000)}k`, unit: '€', sub: 'résultat', color: soldeGlobal >= 0 ? 'emerald' : 'orange', icon: soldeGlobal >= 0 ? <CheckCircle size={18}/> : <AlertTriangle size={18}/>, help: 'Solde = Recettes − Charges. Un solde positif indique un excédent ; négatif un déficit à combler (par réserves ou réduction de charges).' },
+              { label: 'Couverture', val: `${tauxCouverture.toFixed(1)}`, unit: '%', sub: 'recettes/charges', color: tauxCouverture >= 100 ? 'teal' : 'amber', icon: <Target size={18}/>, help: 'Taux de couverture = Recettes / Charges × 100. Un taux ≥ 100 % signifie l\'équilibre financier. En dessous de 90 % : alerte. Objectif AFERTES : ≥ 100 %.' },
+              { label: 'ETP total', val: totalETP.toFixed(1), unit: '', sub: 'équivalents temps plein', color: 'blue', icon: <Users size={18}/>, help: 'ETP = Équivalent Temps Plein. 1 ETP = 1 poste à temps complet (35h/sem). Un agent à 0,5 ETP travaille à mi-temps. Somme de tous les ETP contractuels (hors absences).' },
+              { label: 'Coût/étudiant', val: totalEtudiants > 0 ? `${coutParEtudiant.toLocaleString()}` : '—', unit: '€', sub: `${totalEtudiants} étudiants`, color: 'purple', icon: <GraduationCap size={18}/>, help: 'Coût par étudiant = Charges totales / Nombre d\'étudiants (effectifs actuels de toutes les promos actives). Indicateur de rentabilité pédagogique.' },
+            ].map((k, i) => {
+              const colors = {
+                green: { bg: 'bg-green-500', border: 'border-green-500/20', text: 'text-green-600', darkText: 'text-green-400', iconBg: 'bg-green-100', darkIconBg: 'bg-green-900/30' },
+                red: { bg: 'bg-red-500', border: 'border-red-500/20', text: 'text-red-600', darkText: 'text-red-400', iconBg: 'bg-red-100', darkIconBg: 'bg-red-900/30' },
+                emerald: { bg: 'bg-emerald-500', border: 'border-emerald-500/20', text: 'text-emerald-600', darkText: 'text-emerald-400', iconBg: 'bg-emerald-100', darkIconBg: 'bg-emerald-900/30' },
+                orange: { bg: 'bg-orange-500', border: 'border-orange-500/20', text: 'text-orange-600', darkText: 'text-orange-400', iconBg: 'bg-orange-100', darkIconBg: 'bg-orange-900/30' },
+                teal: { bg: 'bg-teal-500', border: 'border-teal-500/20', text: 'text-teal-600', darkText: 'text-teal-400', iconBg: 'bg-teal-100', darkIconBg: 'bg-teal-900/30' },
+                amber: { bg: 'bg-amber-500', border: 'border-amber-500/20', text: 'text-amber-600', darkText: 'text-amber-400', iconBg: 'bg-amber-100', darkIconBg: 'bg-amber-900/30' },
+                blue: { bg: 'bg-blue-500', border: 'border-blue-500/20', text: 'text-blue-600', darkText: 'text-blue-400', iconBg: 'bg-blue-100', darkIconBg: 'bg-blue-900/30' },
+                purple: { bg: 'bg-purple-500', border: 'border-purple-500/20', text: 'text-purple-600', darkText: 'text-purple-400', iconBg: 'bg-purple-100', darkIconBg: 'bg-purple-900/30' },
+              };
+              const c = colors[k.color];
+              return (
+                <div key={i} className={`relative group rounded-3xl p-5 transition-all duration-300 shadow-md hover:shadow-xl hover:-translate-y-1 hover:z-50 border
+                  ${darkMode ? 'bg-gray-800/40 border-white/10 backdrop-blur-md' : 'bg-white/80 border-slate-200/60 backdrop-blur-sm'}`}>
+                  
+                  {/* Subtle Gradient Spot */}
+                  <div className={`absolute -top-10 -right-10 w-24 h-24 ${c.bg}/10 blur-3xl group-hover:${c.bg}/20 transition-all duration-500`}></div>
+
+                  <div className="flex flex-col h-full justify-between relative z-10">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className={`p-2 rounded-2xl ${darkMode ? c.darkIconBg : c.iconBg}`}>
+                        <span className={darkMode ? c.darkText : c.text}>{k.icon}</span>
+                      </div>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+                        {k.sub}
+                      </span>
+                    </div>
+                    
+                    <div>
+                      <h3 className={`text-xs font-bold mb-1 flex items-center gap-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                        {k.label}
+                        {k.help && <HelpIcon darkMode={darkMode} content={k.help} position="top" wide />}
+                      </h3>
+                      <div className="flex items-baseline gap-1">
+                        <span className={`text-2xl font-black font-mono-numbers tracking-tight ${darkMode ? 'text-white' : 'text-slate-900'}`}>{k.val}</span>
+                        <span className={`text-sm font-bold ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{k.unit}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* ── ALERTES AUTOMATIQUES ── */}
@@ -725,124 +842,29 @@ const BudgetTool = () => {
             </div>
           )}
 
-          {/* HEADER */}
-          <div id="header" className={`rounded-3xl shadow-lg border p-6 mb-6 no-print ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'}`}>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <img src="/logo.png" alt="AFERTES" className={`h-12 ${darkMode ? 'brightness-200' : ''}`} />
+          {/* HEADER COMPACT */}
+          <div id="header" className={`rounded-2xl border px-5 py-3 mb-6 no-print flex items-center justify-between backdrop-blur-md transition-all duration-300 ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="AFERTES" className={`h-8 ${darkMode ? 'brightness-200' : ''}`} />
               <div>
-                <h1 className={`text-3xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Budget Association</h1>
-                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Gestion budgétaire - Projection sur 3 ans</p>
+                <h1 className={`text-lg font-black leading-tight ${darkMode ? 'text-white' : 'text-slate-800'}`}>Budget Association</h1>
+                <p className={`text-[11px] ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Gestion budgétaire · Projection 3 ans</p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <button onClick={() => setDarkMode(!darkMode)} className={`p-3 rounded-xl ${darkMode ? 'bg-yellow-500 text-gray-900' : 'bg-gray-800 text-white'}`}>
-                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            <div className="flex items-center gap-2">
+              <button onClick={sauvegarderBudget} className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-3 py-2 rounded-xl font-bold flex items-center gap-1.5 text-sm"><Save size={15} /> Sauver</button>
+              <button onClick={() => setDarkMode(!darkMode)} className={`p-2.5 rounded-xl ${darkMode ? 'bg-yellow-500 text-gray-900' : 'bg-gray-800 text-white'}`}>
+                {darkMode ? <Sun size={16} /> : <Moon size={16} />}
               </button>
-              <div className={`px-4 py-2 rounded-xl border ${darkMode ? 'bg-teal-900/30 border-teal-700' : 'bg-teal-50 border-teal-200'}`}>
-                <span className={`text-xs font-bold uppercase ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>Augmentation</span>
-                <div className="flex items-center gap-1">
-                  <input type="number" step="0.1" value={globalParams.augmentationAnnuelle}
-                    onChange={(e) => setGlobalParams({...globalParams, augmentationAnnuelle: validerTaux(e.target.value)})}
-                    className={`bg-transparent font-black text-xl outline-none w-12 ${darkMode ? 'text-teal-300' : 'text-teal-700'}`}
-                  />
-                  <span className={`font-bold ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>%</span>
-                </div>
-              </div>
-              <button onClick={() => { setPresentationMode(true); setSlideIndex(0); }} className="bg-indigo-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Monitor size={18} /> Présentation</button>
-              <button onClick={sauvegarderBudget} className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Save size={18} /> Sauver</button>
-              <button onClick={() => fileInputRef.current.click()} className="bg-slate-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Upload size={18} /> Charger</button>
-              <input type="file" ref={fileInputRef} onChange={chargerBudget} accept=".json" className="hidden" />
-              <button onClick={() => exportToExcel(direction, services, globalParams, poleSupport)} className="bg-green-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><FileSpreadsheet size={18} /> Excel</button>
-              <button onClick={() => exportToPDF(direction, services, globalParams, poleSupport)} className="bg-red-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Download size={18} /> PDF</button>
-              <button onClick={() => setShowImportN1(true)} className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 border-2 transition-colors ${donneesN1 ? (darkMode ? 'border-violet-500 text-violet-300 bg-violet-900/30' : 'border-violet-400 text-violet-700 bg-violet-50') : (darkMode ? 'border-gray-600 text-gray-400 hover:bg-gray-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50')}`} title={donneesN1 ? `Données N-1 chargées (${donneesN1.annee})` : 'Importer données N-1'}><Upload size={18} /> {donneesN1 ? `N-1 (${donneesN1.annee})` : 'Importer N-1'}</button>
-              <button onClick={() => setShowWizardBP(true)} className="bg-amber-500 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Upload size={18} /> Import BP</button>
-              <button onClick={() => window.print()} className="bg-slate-500 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Printer size={18} /></button>
-              {isLocalhost && (
-                <button onClick={() => setShowPasswordModal(true)} className="bg-purple-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Key size={18} /></button>
-              )}
-              <button
-                onClick={() => { setShowResetModal(true); setResetError(''); setResetPassword(''); }}
-                className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 border-2 transition-colors ${darkMode ? 'border-red-700 text-red-400 hover:bg-red-900/30' : 'border-red-300 text-red-600 hover:bg-red-50'}`}
-                title="Remettre à zéro toutes les données"
-              >
-                <RotateCcw size={18} />
+              <button onClick={() => setActiveTab('parametres')} className={`p-2.5 rounded-xl border transition-colors ${darkMode ? 'border-slate-600 text-slate-400 hover:bg-slate-700' : 'border-slate-200 text-slate-500 hover:bg-slate-100'}`} title="Paramètres">
+                <Settings size={16} />
               </button>
-              <button onClick={handleLogout} className="bg-red-500 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><LogOut size={18} /></button>
             </div>
           </div>
-        </div>
 
-        {/* Modal remise à zéro globale */}
-        {showResetModal && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 no-print">
-            <div className={`max-w-md w-full rounded-3xl shadow-2xl p-6 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 rounded-2xl bg-red-100"><RotateCcw className="text-red-600" size={24} /></div>
-                <div>
-                  <h3 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Remise à zéro globale</h3>
-                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Action irréversible</p>
-                </div>
-              </div>
-              <div className={`mb-5 p-4 rounded-2xl border-2 text-sm ${darkMode ? 'bg-red-900/20 border-red-700 text-red-300' : 'bg-red-50 border-red-200 text-red-700'}`}>
-                <div className="flex items-start gap-2">
-                  <AlertTriangle size={18} className="flex-shrink-0 mt-0.5" />
-                  <div>
-                    <strong>Cette action supprimera définitivement :</strong>
-                    <ul className="mt-1 list-disc list-inside space-y-0.5 font-normal">
-                      <li>Tous les budgets (Direction &amp; Services)</li>
-                      <li>Tous les paramètres globaux</li>
-                      <li>Toutes les données du Pilotage Financier</li>
-                      <li>L'historique localStorage de l'application</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-              <label className={`block text-sm font-bold mb-2 ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>
-                <Lock size={14} className="inline mr-1" />
-                Confirmez avec le mot de passe de l'application
-              </label>
-              <div className="relative mb-3">
-                <input
-                  type={resetShowPwd ? 'text' : 'password'}
-                  value={resetPassword}
-                  onChange={e => { setResetPassword(e.target.value); setResetError(''); }}
-                  onKeyDown={e => e.key === 'Enter' && handleGlobalReset()}
-                  autoFocus
-                  className={`w-full px-4 py-3 pr-12 rounded-xl border-2 outline-none transition-all ${
-                    resetError
-                      ? 'border-red-400 bg-red-50'
-                      : darkMode ? 'bg-gray-700 border-gray-600 text-white focus:border-red-500' : 'bg-slate-50 border-slate-200 focus:border-red-400'
-                  }`}
-                  placeholder="Mot de passe…"
-                />
-                <button type="button" onClick={() => setResetShowPwd(!resetShowPwd)}
-                  className={`absolute right-3 top-1/2 -translate-y-1/2 ${darkMode ? 'text-gray-400' : 'text-slate-400'}`}>
-                  {resetShowPwd ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-              {resetError && (
-                <div className="mb-3 p-3 bg-red-100 text-red-700 rounded-xl text-sm font-bold flex items-center gap-2">
-                  <AlertTriangle size={15} /> {resetError}
-                </div>
-              )}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => { setShowResetModal(false); setResetPassword(''); setResetError(''); }}
-                  className={`flex-1 py-3 rounded-xl font-bold ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={handleGlobalReset}
-                  className="flex-1 py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white font-bold rounded-xl hover:shadow-lg flex items-center justify-center gap-2"
-                >
-                  <RotateCcw size={16} /> Réinitialiser tout
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ModalRoles darkMode={darkMode} showRolesModal={showRolesModal} setShowRolesModal={setShowRolesModal} roles={roles} setRoles={setRoles} />
+
+        <ModalReset darkMode={darkMode} showResetModal={showResetModal} setShowResetModal={setShowResetModal} onConfirm={handleGlobalReset} />
 
         {/* Notification remise à zéro */}
         {resetSuccess && (
@@ -854,104 +876,124 @@ const BudgetTool = () => {
           </div>
         )}
 
-        {/* Modal changement de mot de passe */}
-        {showPasswordModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 no-print">
-            <div className={`max-w-md w-full mx-4 p-6 rounded-3xl shadow-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-              <h3 className={`text-xl font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
-                <Key size={24} className="text-purple-500" /> Changer le mot de passe
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className={`block text-sm font-bold mb-1 ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>Nouveau mot de passe</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    className={`w-full px-4 py-2 rounded-xl border-2 outline-none ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-slate-50 border-slate-200'}`}
-                    placeholder="Minimum 4 caractères"
-                  />
-                </div>
-                <div>
-                  <label className={`block text-sm font-bold mb-1 ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>Confirmer le mot de passe</label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className={`w-full px-4 py-2 rounded-xl border-2 outline-none ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-slate-50 border-slate-200'}`}
-                    placeholder="Confirmer"
-                  />
-                </div>
-                {passwordMessage && (
-                  <div className={`p-3 rounded-xl text-sm font-bold ${passwordMessage.includes('succès') ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                    {passwordMessage}
-                  </div>
-                )}
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleChangePassword}
-                    className="flex-1 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-xl"
-                  >
-                    Valider
-                  </button>
-                  <button
-                    onClick={handleResetPassword}
-                    className={`px-4 py-2 rounded-xl font-bold ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-slate-200 text-slate-600'}`}
-                  >
-                    Réinitialiser
-                  </button>
-                  <button
-                    onClick={() => { setShowPasswordModal(false); setPasswordMessage(''); setNewPassword(''); setConfirmPassword(''); }}
-                    className="px-4 py-2 bg-slate-500 text-white font-bold rounded-xl"
-                  >
-                    Fermer
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        <ModalPassword darkMode={darkMode} showPasswordModal={showPasswordModal} setShowPasswordModal={setShowPasswordModal} />
 
-        {/* GRAPHIQUE ANNUEL */}
+        {/* ═══ BARRE D'ONGLETS ═══ */}
+        <div className={`flex gap-2 mb-8 p-1.5 rounded-2xl no-print backdrop-blur-md border transition-all duration-500 ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-slate-100/80 border-slate-200/60'}`}>
+          {[
+            { id: 'dashboard',   label: 'Tableau de bord', icon: <Home size={18}/> },
+            { id: 'budget',      label: 'Budget',           icon: <Building2 size={18}/> },
+            { id: 'analyse',     label: 'Analyse',          icon: <BarChart3 size={18}/> },
+            { id: 'rh',          label: 'RH',               icon: <Users size={18}/> },
+            { id: 'formation',   label: 'Formation',        icon: <GraduationCap size={18}/> },
+            { id: 'vacataires',  label: 'Vacataires',       icon: <Users size={18}/> },
+            { id: 'subvention',  label: 'Subvention',       icon: <Landmark size={18}/> },
+            { id: 'daf',         label: 'DAF',              icon: <Calculator size={18}/> },
+            { id: 'parametres',  label: 'Paramètres',       icon: <Settings size={18}/> },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 transform active:scale-95 ${
+                activeTab === tab.id
+                  ? darkMode ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/20' : 'bg-white text-teal-700 shadow-md'
+                  : darkMode ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50' : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
+              }`}
+            >
+              {tab.icon} <span className="hidden sm:inline">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* ─── CONTENU AVEC TRANSITION ─── */}
+        <div className="animate-in fade-in duration-500">
+        {activeTab === 'dashboard' && <>
+
         {/* BUDGET ANNUEL */}
-        <div id="budget-annuel" className={`rounded-3xl shadow-lg border-2 p-6 mb-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
-          <h2 className={`text-xl font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
-            <Calendar size={24} className="text-teal-500" /> Budget Annuel - Répartition mensuelle
+        <div id="budget-annuel" className={`rounded-3xl shadow-xl border p-8 mb-8 backdrop-blur-md transition-all duration-300 ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+          <h2 className={`text-xl font-black mb-6 flex items-center gap-3 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+            <div className="p-2 rounded-xl bg-teal-500/10 text-teal-500"><Calendar size={22} /></div>
+            Budget Annuel - Répartition mensuelle
           </h2>
-          <div className="grid grid-cols-12 gap-2 mb-4">
+          <div className="grid grid-cols-12 gap-3 mb-8 h-48 items-end">
             {budgetAnnuel.mois.map((m, i) => {
               const maxMois = Math.max(...budgetAnnuel.mois.map(x => x.total));
               const heightPct = maxMois > 0 ? (m.total / maxMois) * 100 : 0;
               return (
-                <div key={i} className="flex flex-col items-center">
-                  <div className="w-full h-32 flex flex-col justify-end">
-                    <div className="w-full bg-gradient-to-t from-teal-500 to-cyan-400 rounded-t-lg" style={{ height: `${heightPct}%` }} title={`${Math.round(m.total).toLocaleString()} €`}></div>
+                <div key={i} className="flex flex-col items-center group h-full justify-end">
+                  <div className="w-full relative group">
+                    <div className="w-full bg-gradient-to-t from-teal-500 to-cyan-400 rounded-t-xl transition-all duration-500 group-hover:brightness-110 group-hover:shadow-lg group-hover:shadow-teal-500/20" 
+                         style={{ height: `${heightPct}%`, minHeight: '4px' }}>
+                    </div>
+                    {/* Tooltip on hover */}
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-20">
+                      {Math.round(m.total).toLocaleString()} €
+                    </div>
                   </div>
-                  <span className={`text-xs font-bold mt-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{nomsMois[i]}</span>
-                  <span className={`text-xs font-black ${darkMode ? 'text-white' : 'text-slate-700'}`}>{Math.round(m.total / 1000)}k</span>
+                  <span className={`text-[10px] font-bold mt-3 uppercase tracking-tighter ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{nomsMois[i]}</span>
+                  <span className={`text-[11px] font-black font-mono-numbers ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>{Math.round(m.total / 1000)}k</span>
                 </div>
               );
             })}
           </div>
-          <div className={`grid grid-cols-4 gap-4 pt-4 border-t ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
-            <div className={`p-3 rounded-xl ${darkMode ? 'bg-blue-900/30' : 'bg-blue-50'}`}>
-              <div className={`text-xs font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Masse salariale</div>
-              <div className={`text-lg font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{Math.round(budgetAnnuel.salaires).toLocaleString()} €</div>
-            </div>
-            <div className={`p-3 rounded-xl ${darkMode ? 'bg-teal-900/30' : 'bg-teal-50'}`}>
-              <div className={`text-xs font-bold ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>Exploitation</div>
-              <div className={`text-lg font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{Math.round(budgetAnnuel.exploitation).toLocaleString()} €</div>
-            </div>
-            <div className={`p-3 rounded-xl ${darkMode ? 'bg-orange-900/30' : 'bg-orange-50'}`}>
-              <div className={`text-xs font-bold ${darkMode ? 'text-orange-400' : 'text-orange-600'}`}>Amortissements</div>
-              <div className={`text-lg font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{Math.round(budgetAnnuel.amortissements).toLocaleString()} €</div>
-            </div>
-            <div className={`p-3 rounded-xl ${darkMode ? 'bg-purple-900/30' : 'bg-purple-50'}`}>
-              <div className={`text-xs font-bold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>Total annuel</div>
-              <div className={`text-lg font-black ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>{Math.round(budgetAnnuel.totalAnnuel).toLocaleString()} €</div>
-            </div>
+          <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 pt-6 border-t ${darkMode ? 'border-white/5' : 'border-slate-100'}`}>
+            {[
+              { label: 'Masse salariale', val: budgetAnnuel.salaires, cls: darkMode ? 'text-blue-400' : 'text-blue-600' },
+              { label: 'Exploitation', val: budgetAnnuel.exploitation, cls: darkMode ? 'text-teal-400' : 'text-teal-600' },
+              { label: 'Amortissements', val: budgetAnnuel.amortissements, cls: darkMode ? 'text-orange-400' : 'text-orange-600' },
+              { label: 'Total annuel', val: budgetAnnuel.totalAnnuel, cls: darkMode ? 'text-purple-400' : 'text-purple-600' }
+            ].map((k, idx) => (
+              <div key={idx} className={`p-4 rounded-2xl transition-all duration-300 ${
+                darkMode ? 'bg-gray-700/30 hover:bg-gray-700/50' : 'bg-slate-50/50 hover:bg-slate-50'
+              }`}>
+                <div className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${k.cls}`}>{k.label}</div>
+                <div className={`text-lg font-black font-mono-numbers ${darkMode ? 'text-white' : 'text-slate-900'}`}>{Math.round(k.val).toLocaleString()} <span className="text-xs font-bold opacity-50 text-slate-500">€</span></div>
+              </div>
+            ))}
           </div>
         </div>
+
+        <TabTresorerie tresorerie={tresorerie} darkMode={darkMode} />
+
+        {/* KPI IMPACT ABSENCES — Planning → Budget */}
+        {(() => {
+          const ANNEE = 2026;
+          const tousAgentsDash = [
+            ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction' })),
+            ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support' })),
+            ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom }))),
+          ];
+          const apDash = calculerPresenceEquipe(tousAgentsDash, planningAbsences, ANNEE);
+          const totalETPc = apDash.reduce((s, a) => s + parseFloat(a.etp), 0);
+          const totalETPr = apDash.reduce((s, a) => s + a.presence.etpReel, 0);
+          const deltaETP = totalETPc - totalETPr;
+          const totalCarence = apDash.reduce((s, a) => s + a.presence.coutCarence, 0);
+          const totalMaladieJ = apDash.reduce((s, a) => s + a.presence.joursMaladiePlanning, 0);
+          const tauxPres = totalETPc > 0 ? (totalETPr / totalETPc) * 100 : 100;
+          const hasAbsences = apDash.some(a => a.presence.absences.total > 0);
+          if (!hasAbsences) return null;
+          return (
+            <div className={`rounded-2xl border-2 px-5 py-3 mb-6 flex flex-wrap items-center gap-4 ${darkMode ? 'bg-gray-800/60 border-amber-800' : 'bg-amber-50 border-amber-200'}`}>
+              <div className="flex items-center gap-2 mr-2">
+                <AlertTriangle size={18} className={darkMode ? 'text-amber-400' : 'text-amber-600'} />
+                <span className={`text-sm font-black ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>Impact absences planning {ANNEE}</span>
+              </div>
+              {[
+                { label: 'ETP contrat', val: totalETPc.toFixed(1), color: darkMode ? 'text-gray-300' : 'text-slate-700' },
+                { label: 'ETP réel (planning)', val: totalETPr.toFixed(1), color: darkMode ? 'text-teal-300' : 'text-teal-700' },
+                { label: 'ETP perdus', val: `-${deltaETP.toFixed(2)}`, color: deltaETP > 0.1 ? (darkMode ? 'text-red-400' : 'text-red-600') : (darkMode ? 'text-emerald-400' : 'text-emerald-600') },
+                { label: 'Taux présence', val: `${tauxPres.toFixed(1)}%`, color: tauxPres < 95 ? (darkMode ? 'text-amber-400' : 'text-amber-700') : (darkMode ? 'text-emerald-400' : 'text-emerald-600') },
+                { label: 'J. maladie', val: `${totalMaladieJ}j`, color: darkMode ? 'text-red-400' : 'text-red-600' },
+                { label: 'Coût carence', val: `${Math.round(totalCarence).toLocaleString()} €`, color: darkMode ? 'text-orange-400' : 'text-orange-700' },
+              ].map((k, i) => (
+                <div key={i} className="text-center">
+                  <div className={`text-xs font-bold opacity-70 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{k.label}</div>
+                  <div className={`text-base font-black ${k.color}`}>{k.val}</div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* SYNTHESE 3 ANS - CARTES */}
         <div id="synthese-3ans" className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -965,7 +1007,7 @@ const BudgetTool = () => {
               <div className={`text-sm space-y-1 ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>
                 <div className="flex justify-between"><span>Amortissements:</span><span className="font-bold">{Math.round(s.amortissements).toLocaleString()} €</span></div>
                 <div className="flex justify-between"><span>Intérêts:</span><span className="font-bold">{Math.round(s.interets).toLocaleString()} €</span></div>
-                <div className="flex justify-between"><span>Direction:</span><span className="font-bold">{Math.round(s.budgetDirection).toLocaleString()} €</span></div>
+                <div className="flex justify-between"><span>Siège:</span><span className="font-bold">{Math.round(s.budgetDirection).toLocaleString()} €</span></div>
               </div>
               <div className={`mt-4 pt-4 border-t ${darkMode ? 'border-gray-700' : 'border-teal-200'}`}>
                 <div className={`text-xs font-black uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-slate-600'}`}>Par service</div>
@@ -991,7 +1033,7 @@ const BudgetTool = () => {
               <BarChart data={summary3Ans.map(s => ({
                 name: `Année ${s.annee}`,
                 Budget: Math.round(s.total),
-                Direction: Math.round(s.budgetDirection),
+                Siège: Math.round(s.budgetDirection),
                 Amortissements: Math.round(s.amortissements)
               }))}>
                 <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#374151' : '#e2e8f0'} />
@@ -1003,7 +1045,7 @@ const BudgetTool = () => {
                 />
                 <Legend />
                 <Bar dataKey="Budget" fill="#14b8a6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Direction" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Siège" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="Amortissements" fill="#f59e0b" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -1018,7 +1060,7 @@ const BudgetTool = () => {
               <PieChart>
                 <Pie
                   data={[
-                    { name: 'Direction', value: Math.round(summary3Ans[0].budgetDirection) },
+                    { name: 'Siège', value: Math.round(summary3Ans[0].budgetDirection) },
                     ...summary3Ans[0].detailsServices.map(s => ({ name: s.nom, value: Math.round(s.budget) }))
                   ]}
                   cx="50%"
@@ -1095,6 +1137,30 @@ const BudgetTool = () => {
             })}
           </div>
         </div>
+        </>}
+
+        {/* ─── ANALYSE FINANCIÈRE ─── */}
+        {activeTab === 'analyse' && <TabAnalyse
+          darkMode={darkMode}
+          direction={direction}
+          poleSupport={poleSupport}
+          services={services}
+          globalParams={globalParams}
+          setGlobalParams={setGlobalParams}
+          donneesN1={donneesN1}
+          setDonneesN1={setDonneesN1}
+          setShowImportN1={setShowImportN1}
+          simCharges={simCharges}
+          setSimCharges={setSimCharges}
+          getBudgetDirection={getBudgetDirection}
+          getBudgetPoleSupport={getBudgetPoleSupport}
+          getBudgetService={getBudgetService}
+          msETP={msETP}
+          planningAbsences={planningAbsences}
+        />}
+
+        {/* ─── ANALYSE FINANCIÈRE (ANCIEN BLOC — SUPPRIMÉ) ─── */}
+        {false && <>
 
         {/* PROVISIONS & BFR & FONDS DE ROULEMENT */}
         <div id="provisions-bfr-fr" className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -1353,6 +1419,10 @@ const BudgetTool = () => {
             </>); })()}
           </div>
         </div>
+        </>}
+
+        {/* ─── BUDGET ─── */}
+        {activeTab === 'budget' && <>
 
         {/* DIRECTION + SERVICES + PÔLE SUPPORT : section unifiée réordonnable */}
         <div id="services-section" className="space-y-8">
@@ -1419,35 +1489,44 @@ const BudgetTool = () => {
                     onDragOver={(e) => { e.preventDefault(); setDragOverId('direction'); }}
                     onDrop={() => handleUnifiedDrop('direction')}
                     onDragEnd={() => { setDragId(null); setDragOverId(null); }}
-                    className={`rounded-3xl shadow-lg border-2 p-8 print-avoid-break transition-all duration-150
-                      ${isDirDragging ? 'opacity-40' : ''}
-                      ${isDirOver ? 'ring-2 ring-teal-400 ring-offset-2' : ''}
-                      ${darkMode ? 'bg-gray-800 border-teal-900' : 'bg-gradient-to-br from-teal-50 to-cyan-50 border-teal-300'}`}
+                    className={`rounded-3xl shadow-xl border p-8 print-avoid-break transition-all duration-300 backdrop-blur-md
+                      ${isDirDragging ? 'opacity-40 scale-95' : 'hover:shadow-2xl'}
+                      ${isDirOver ? 'ring-2 ring-teal-400 ring-offset-4' : ''}
+                      ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}
                   >
-                    <div className="flex justify-between items-center mb-6">
-                      <div className="flex items-center gap-3">
-                        <div className={`cursor-grab active:cursor-grabbing p-1 rounded no-print ${darkMode ? 'text-gray-500 hover:text-gray-300' : 'text-teal-200 hover:text-teal-500'}`} title="Déplacer Direction"><GripVertical size={22} /></div>
+                    <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <div className={`cursor-grab active:cursor-grabbing p-2 rounded-xl no-print transition-colors ${darkMode ? 'bg-white/5 text-gray-500 hover:text-gray-300' : 'bg-slate-100 text-slate-300 hover:text-slate-500'}`} title="Déplacer Siège"><GripVertical size={20} /></div>
                         <div className="flex flex-col gap-0.5 no-print">
-                          <button disabled={pos === 0} onClick={() => setDirectionPosition(p => Math.max(0, p-1))} className={`p-0.5 rounded ${pos===0?'opacity-20 cursor-not-allowed':'hover:bg-teal-100'}`}><ChevronUp size={14}/></button>
-                          <button disabled={pos === orderedItems.length - 1} onClick={() => setDirectionPosition(p => Math.min(services.length + 1, p+1))} className={`p-0.5 rounded ${pos===orderedItems.length-1?'opacity-20 cursor-not-allowed':'hover:bg-teal-100'}`}><ChevronDown size={14}/></button>
+                          <button disabled={pos === 0} onClick={() => setDirectionPosition(p => Math.max(0, p-1))} className={`p-1 rounded-lg transition-colors ${pos===0?'opacity-20 cursor-not-allowed':'hover:bg-teal-500/10 text-teal-500'}`}><ChevronUp size={14}/></button>
+                          <button disabled={pos === orderedItems.length - 1} onClick={() => setDirectionPosition(p => Math.min(services.length + 1, p+1))} className={`p-1 rounded-lg transition-colors ${pos===orderedItems.length-1?'opacity-20 cursor-not-allowed':'hover:bg-teal-500/10 text-teal-500'}`}><ChevronDown size={14}/></button>
                         </div>
-                        <Building2 className="text-teal-600" size={32} />
+                        <div className="p-3 rounded-2xl bg-teal-500/10 text-teal-600 shadow-inner">
+                          <Building2 size={32} />
+                        </div>
                         <div>
-                          <h2 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Direction & Siège</h2>
-                          <span className="text-sm text-teal-600 font-bold">{direction.personnel.reduce((s, p) => s + p.etp, 0).toFixed(1)} ETP</span>
+                          <h2 className={`text-2xl font-black tracking-tight ${darkMode ? 'text-white' : 'text-slate-800'}`}>Siège</h2>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-600 font-bold">{direction.personnel.reduce((s, p) => s + p.etp, 0).toFixed(1)} ETP</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Siège administratif</span>
+                          </div>
                         </div>
                       </div>
-                      <span className={`text-2xl font-black ${darkMode ? 'text-teal-400' : 'text-teal-700'}`}>{Math.round(getBudgetDirection().total).toLocaleString()} €</span>
+                      <div className="text-right">
+                        <div className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Budget annuel estimé</div>
+                        <span className={`text-3xl font-black font-mono-numbers ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>{Math.round(getBudgetDirection().total).toLocaleString()} <span className="text-lg opacity-50 font-sans">€</span></span>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div className={`p-6 rounded-2xl shadow-lg ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className={`font-black flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-700'}`}><Users size={20} className="text-teal-500" /> Personnel</h3>
-                          <button onClick={() => setDirection({...direction, personnel: [...direction.personnel, { id: Date.now(), titre: 'Nouveau', etp: 1, salaire: 2500, segur: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' }]})} className="bg-teal-500 text-white p-2 rounded-lg no-print"><Plus size={18} /></button>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div className={`p-6 rounded-2xl border transition-all duration-300 ${darkMode ? 'bg-white/5 border-white/5 shadow-inner' : 'bg-slate-50 border-slate-100'}`}>
+                        <div className="flex justify-between items-center mb-6">
+                          <h3 className={`font-black flex items-center gap-2 text-sm tracking-wide ${darkMode ? 'text-white' : 'text-slate-700'}`}><Users size={18} className="text-teal-500" /> ÉQUIPE DIRECTION</h3>
+                          <button onClick={() => setDirection({...direction, personnel: [...direction.personnel, { id: Date.now(), titre: 'Nouveau', etp: 1, salaire: 2500, segur: false, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' }]})} 
+                                  className="bg-teal-500 hover:bg-teal-600 text-white p-2 rounded-xl transition-all shadow-lg shadow-teal-500/20 active:scale-95 no-print"><Plus size={18} /></button>
                         </div>
                         <div className="space-y-3 max-h-[350px] overflow-y-auto">
                           {direction.personnel.map((p, pIdx) => (
-                            <div key={p.id} className={`p-3 rounded-xl border group relative ${darkMode ? 'bg-gray-600 border-gray-500' : 'bg-slate-50 border-slate-200'}`}>
+                            <div key={p.id} id={`agent-budget-${p.id}`} className={`p-3 rounded-xl border group relative transition-all duration-700 ${focusedAgentId === p.id ? (darkMode ? 'ring-2 ring-yellow-400 bg-yellow-900/30' : 'ring-2 ring-yellow-400 bg-yellow-50') : (darkMode ? 'bg-gray-600 border-gray-500' : 'bg-slate-50 border-slate-200')}`}>
                               <button onClick={() => setDirection({...direction, personnel: direction.personnel.filter(x => x.id !== p.id)})} className="absolute -top-2.5 -right-2.5 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 no-print"><Trash2 size={14} /></button>
                               <div className="flex items-center gap-1 mb-2">
                                 <div className="flex flex-col gap-0 no-print">
@@ -1455,26 +1534,20 @@ const BudgetTool = () => {
                                   <button disabled={pIdx===direction.personnel.length-1} onClick={() => { const a=[...direction.personnel]; a.splice(pIdx+1,0,a.splice(pIdx,1)[0]); setDirection({...direction,personnel:a}); }} className={`p-0.5 rounded ${pIdx===direction.personnel.length-1?'opacity-20':'hover:bg-teal-100'}`}><ChevronDown size={10}/></button>
                                 </div>
                                 <input className={`font-bold text-sm flex-1 outline-none bg-transparent ${darkMode ? 'text-white' : ''}`} value={p.titre} onChange={(e) => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, titre: e.target.value} : x)})} />
+                                <button onClick={() => navigateToRHAgent(p.id)} className={`no-print p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${darkMode ? 'hover:bg-gray-500 text-teal-400' : 'hover:bg-teal-50 text-teal-600'}`} title="Voir dans RH"><ExternalLink size={12} /></button>
                               </div>
                               <div className="grid grid-cols-2 gap-2 text-xs mb-1">
-                                <div><label className={darkMode ? 'text-gray-400' : 'text-slate-500'}>ETP</label><input type="number" step="0.1" className={`w-full rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white'}`} value={p.etp} onChange={(e) => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, etp: validerETP(e.target.value)} : x)})} /></div>
-                                <div><label className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Salaire</label><input type="number" className={`w-full rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white'}`} value={p.salaire} onChange={(e) => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, salaire: validerSalaire(e.target.value)} : x)})} /></div>
+                                <div><InfoTooltip content="ETP = Équivalent Temps Plein. 1 = temps complet, 0.5 = mi-temps. Impacte directement le coût employeur." darkMode={darkMode} position="top"><label className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>ETP</label></InfoTooltip><input type="number" step="0.1" className={`w-full rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white'}`} value={p.etp} onChange={(e) => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, etp: validerETP(e.target.value)} : x)})} /></div>
+                                <div><InfoTooltip content="Salaire brut mensuel en euros (hors charges patronales et hors prime Ségur). Coût employeur = salaire × 12 × ETP × 1,42." darkMode={darkMode} position="top"><label className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Salaire brut/mois</label></InfoTooltip><input type="number" className={`w-full rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white'}`} value={p.salaire} onChange={(e) => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, salaire: validerSalaire(e.target.value)} : x)})} /></div>
                               </div>
                               <div className="flex items-center gap-3 text-xs flex-wrap">
                                 <select className={`rounded px-2 py-1 text-xs ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={p.role || 'administratif'} onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, role: e.target.value} : x)})}>
-                                  <option value="direction">Direction</option>
-                                  <option value="directeur_adjoint">Directeur adjoint</option>
-                                  <option value="administratif">Administratif</option>
-                                  <option value="technique">Technique</option>
-                                  <option value="documentation">Documentation</option>
-                                  <option value="communication">Communication</option>
-                                  <option value="formateur">Formateur</option>
-                                  <option value="responsable">Resp. secteur</option>
+                                  {roles.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
                                 </select>
-                                <label className="flex items-center gap-1"><input type="checkbox" checked={p.rqth || false} onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, rqth: e.target.checked} : x)})} /><span className={p.rqth ? 'text-amber-500 font-black' : (darkMode ? 'text-gray-400' : 'text-slate-500')}>RQTH</span></label>
-                                <div className="flex items-center gap-1"><span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Ségur</span><input type="number" min="0" step="1" className={`w-16 text-xs text-right rounded px-1 py-0.5 ${darkMode ? 'bg-gray-600 text-white' : 'bg-slate-50 border'}`} value={p.segur === true ? 238 : (p.segur || 0)} onChange={(e) => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, segur: parseInt(e.target.value) || 0} : x)})} /><span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€/m</span></div>
+                                <InfoTooltip content="RQTH = Reconnaissance en Qualité de Travailleur Handicapé. Permet à l'employeur de comptabiliser ce poste dans l'obligation OETH (6% de l'effectif)." darkMode={darkMode} position="top"><label className="flex items-center gap-1 cursor-help"><input type="checkbox" checked={p.rqth || false} onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, rqth: e.target.checked} : x)})} /><span className={p.rqth ? 'text-amber-500 font-black' : (darkMode ? 'text-gray-400' : 'text-slate-500')}>RQTH</span></label></InfoTooltip>
+                                <InfoTooltip content="Prime Ségur Médico-Social : supplément brut mensuel ajouté au salaire, soumis aux charges patronales. Montant configurable dans les paramètres globaux." darkMode={darkMode} position="top"><label className="flex items-center gap-1 cursor-help"><input type="checkbox" checked={!!p.segur} onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, segur: e.target.checked} : x)})} /><span className={`text-xs ${p.segur ? (darkMode ? 'text-blue-400 font-bold' : 'text-blue-600 font-bold') : (darkMode ? 'text-gray-400' : 'text-slate-500')}`}>Ségur {p.segur ? `(+${p.segur === true ? (globalParams.montantSegurETP ?? 238) : (parseFloat(p.segur) || 0)} €/m)` : ''}</span></label></InfoTooltip>
                                 <div className="flex items-center gap-1">
-                                  <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Né(e) en</span>
+                                  <InfoTooltip content="Année de naissance — utilisée pour la pyramide des âges et les alertes départs en retraite." darkMode={darkMode} position="top"><span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Né(e) en</span></InfoTooltip>
                                   <input type="number" min="1940" max="2005" placeholder="1980"
                                     className={`w-16 rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`}
                                     value={p.anneeNaissance || ''}
@@ -1491,7 +1564,16 @@ const BudgetTool = () => {
                                   <option value="Vacataire">Vacataire</option>
                                   <option value="Autre">Autre</option>
                                 </select>
-                                <label className="flex items-center gap-1"><input type="checkbox" checked={p.rtt || false} onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, rtt: e.target.checked} : x)})} /><span className={p.rtt ? 'text-blue-500 font-black' : (darkMode ? 'text-gray-400' : 'text-slate-500')}>RTT</span></label>
+                                <div className="flex items-center gap-1">
+                                  <InfoTooltip content="RTT = Réduction du Temps de Travail. Jours de repos accordés en compensation des heures supplémentaires liées à l'annualisation du temps de travail." darkMode={darkMode} position="top"><span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>RTT</span></InfoTooltip>
+                                  <input type="number" min="0" max="30" step="0.5" className={`w-12 text-center rounded px-1 py-0.5 text-xs font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50 border'}`} value={p.nbJoursRTT ?? 0} onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, nbJoursRTT: parseFloat(e.target.value) || 0} : x)})} />
+                                  <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>j</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <InfoTooltip content="CP = Congés Payés annuels. Minimum légal : 25 jours (5 semaines). Utilisé pour calculer le taux de présence effectif de l'agent." darkMode={darkMode} position="top"><span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>CP</span></InfoTooltip>
+                                  <input type="number" min="0" max="50" className={`w-12 text-center rounded px-1 py-0.5 text-xs font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50 border'}`} value={p.joursConges ?? 25} onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, joursConges: parseInt(e.target.value) || 25} : x)})} />
+                                  <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>j</span>
+                                </div>
                                 {(p.typeContrat && p.typeContrat !== 'CDI') && (
                                   <div className="flex items-center gap-1">
                                     <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Fin contrat</span>
@@ -1525,6 +1607,16 @@ const BudgetTool = () => {
                                   </button>
                                 </div>
                               </details>
+                              {(() => {
+                                const pr = calculerPresenceAgent(p, 'Direction', planningAbsences, 2026);
+                                if (pr.absences.total === 0) return null;
+                                const delta = parseFloat(p.etp) - pr.etpReel;
+                                return (
+                                  <div className={`mt-1.5 flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg ${darkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-50 text-amber-700 border border-amber-200'}`} title={`${pr.absences.total}j d'absence dans le planning`}>
+                                    <UserMinus size={11} /> ETP réel {pr.etpReel.toFixed(2)} <span className="opacity-60">(-{delta.toFixed(2)})</span>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           ))}
                         </div>
@@ -1579,55 +1671,63 @@ const BudgetTool = () => {
                     onDragOver={(e) => { e.preventDefault(); setDragOverId('pole-support'); }}
                     onDrop={() => handleUnifiedDrop('pole-support')}
                     onDragEnd={() => { setDragId(null); setDragOverId(null); }}
-                    className={`rounded-3xl shadow-lg border-2 p-8 print-avoid-break transition-all duration-150
-                      ${isPSDragging ? 'opacity-40' : ''}
-                      ${isPSOver ? 'ring-2 ring-cyan-400 ring-offset-2' : ''}
-                      ${darkMode ? 'bg-gray-800 border-cyan-900' : 'bg-gradient-to-br from-cyan-50 to-sky-50 border-cyan-300'}`}
+                    className={`rounded-3xl shadow-xl border p-8 print-avoid-break transition-all duration-300 backdrop-blur-md
+                      ${isPSDragging ? 'opacity-40 scale-95' : 'hover:shadow-2xl'}
+                      ${isPSOver ? 'ring-2 ring-cyan-400 ring-offset-4' : ''}
+                      ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}
                   >
-                    <div className="flex justify-between items-center mb-6">
-                      <div className="flex items-center gap-3">
-                        <div className={`cursor-grab active:cursor-grabbing p-1 rounded no-print ${darkMode ? 'text-gray-500 hover:text-gray-300' : 'text-cyan-200 hover:text-cyan-500'}`} title="Déplacer Pôle Support"><GripVertical size={22} /></div>
+                    <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <div className={`cursor-grab active:cursor-grabbing p-2 rounded-xl no-print transition-colors ${darkMode ? 'bg-white/5 text-gray-500 hover:text-gray-300' : 'bg-slate-100 text-slate-300 hover:text-slate-500'}`} title="Déplacer Pôle Ressource"><GripVertical size={20} /></div>
                         <div className="flex flex-col gap-0.5 no-print">
-                          <button disabled={pos === 0} onClick={() => setPoleSupportPosition(p => Math.max(0, p-1))} className={`p-0.5 rounded ${pos===0?'opacity-20 cursor-not-allowed':'hover:bg-cyan-100'}`}><ChevronUp size={14}/></button>
-                          <button disabled={pos === orderedItems.length - 1} onClick={() => setPoleSupportPosition(p => Math.min(services.length + 1, p+1))} className={`p-0.5 rounded ${pos===orderedItems.length-1?'opacity-20 cursor-not-allowed':'hover:bg-cyan-100'}`}><ChevronDown size={14}/></button>
+                          <button disabled={pos === 0} onClick={() => setPoleSupportPosition(p => Math.max(0, p-1))} className={`p-1 rounded-lg transition-colors ${pos===0?'opacity-20 cursor-not-allowed':'hover:bg-cyan-500/10 text-cyan-500'}`}><ChevronUp size={14}/></button>
+                          <button disabled={pos === orderedItems.length - 1} onClick={() => setPoleSupportPosition(p => Math.min(services.length + 1, p+1))} className={`p-1 rounded-lg transition-colors ${pos===orderedItems.length-1?'opacity-20 cursor-not-allowed':'hover:bg-cyan-500/10 text-cyan-500'}`}><ChevronDown size={14}/></button>
                         </div>
-                        <Building className="text-cyan-600" size={32} />
+                        <div className="p-3 rounded-2xl bg-cyan-500/10 text-cyan-600 shadow-inner">
+                          <Building size={32} />
+                        </div>
                         <div>
-                          <h2 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Pôle Support</h2>
-                          <span className="text-sm text-cyan-600 font-bold">{poleSupport.personnel.reduce((s, p) => s + p.etp, 0).toFixed(1)} ETP · Ressources transversales</span>
+                          <h2 className={`text-2xl font-black tracking-tight ${darkMode ? 'text-white' : 'text-slate-800'}`}>Pôle Ressource</h2>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 font-bold">{poleSupport.personnel.reduce((s, p) => s + p.etp, 0).toFixed(1)} ETP</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Ressources transversales</span>
+                          </div>
                         </div>
                       </div>
-                      <span className={`text-2xl font-black ${darkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>{Math.round(getBudgetPoleSupport().total).toLocaleString()} €</span>
+                      <div className="text-right">
+                        <div className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Budget annuel estimé</div>
+                        <span className={`text-3xl font-black font-mono-numbers ${darkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{Math.round(getBudgetPoleSupport().total).toLocaleString()} <span className="text-lg opacity-50 font-sans">€</span></span>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                       {/* Personnel */}
-                      <div className={`p-6 rounded-2xl shadow-lg ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className={`font-black flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-700'}`}><Users size={20} className="text-cyan-500" /> Personnel</h3>
-                          <button onClick={() => setPoleSupport({...poleSupport, personnel: [...poleSupport.personnel, { id: Date.now(), titre: 'Nouveau', etp: 1, salaire: 2500, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' }]})} className="bg-cyan-500 text-white p-2 rounded-lg no-print"><Plus size={18} /></button>
+                      <div className={`p-6 rounded-2xl border transition-all duration-300 ${darkMode ? 'bg-white/5 border-white/5 shadow-inner' : 'bg-slate-50 border-slate-100'}`}>
+                        <div className="flex justify-between items-center mb-6">
+                          <h3 className={`font-black flex items-center gap-2 text-sm tracking-wide ${darkMode ? 'text-white' : 'text-slate-700'}`}><Users size={18} className="text-cyan-500" /> PERSONNEL PÔLE</h3>
+                          <button onClick={() => setPoleSupport({...poleSupport, personnel: [...poleSupport.personnel, { id: Date.now(), titre: 'Nouveau', etp: 1, salaire: 2500, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' }]})} 
+                                  className="bg-cyan-500 hover:bg-cyan-600 text-white p-2 rounded-xl transition-all shadow-lg shadow-cyan-500/20 active:scale-95 no-print"><Plus size={18} /></button>
                         </div>
                         <div className="space-y-3 max-h-[350px] overflow-y-auto">
                           {poleSupport.personnel.map((p) => (
-                            <div key={p.id} className={`p-3 rounded-xl border group relative ${darkMode ? 'bg-gray-600 border-gray-500' : 'bg-slate-50 border-slate-200'}`}>
+                            <div key={p.id} id={`agent-budget-${p.id}`} className={`p-3 rounded-xl border group relative transition-all duration-700 ${focusedAgentId === p.id ? (darkMode ? 'ring-2 ring-yellow-400 bg-yellow-900/30' : 'ring-2 ring-yellow-400 bg-yellow-50') : (darkMode ? 'bg-gray-600 border-gray-500' : 'bg-slate-50 border-slate-200')}`}>
                               <button onClick={() => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.filter(x => x.id !== p.id)})} className="absolute -top-2.5 -right-2.5 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 no-print"><Trash2 size={14} /></button>
-                              <input className={`font-bold text-sm w-full outline-none bg-transparent mb-2 ${darkMode ? 'text-white' : ''}`} value={p.titre} onChange={(e) => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, titre: e.target.value} : x)})} />
+                              <div className="flex items-center gap-1 mb-2">
+                                <input className={`font-bold text-sm flex-1 outline-none bg-transparent ${darkMode ? 'text-white' : ''}`} value={p.titre} onChange={(e) => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, titre: e.target.value} : x)})} />
+                                <button onClick={() => navigateToRHAgent(p.id)} className={`no-print p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${darkMode ? 'hover:bg-gray-500 text-cyan-400' : 'hover:bg-cyan-50 text-cyan-600'}`} title="Voir dans RH"><ExternalLink size={12} /></button>
+                              </div>
                               <div className="grid grid-cols-2 gap-2 text-xs mb-1">
-                                <div><label className={darkMode ? 'text-gray-400' : 'text-slate-500'}>ETP</label><input type="number" step="0.1" className={`w-full rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white'}`} value={p.etp} onChange={(e) => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, etp: validerETP(e.target.value)} : x)})} /></div>
-                                <div><label className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Salaire</label><input type="number" className={`w-full rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white'}`} value={p.salaire} onChange={(e) => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, salaire: validerSalaire(e.target.value)} : x)})} /></div>
+                                <div><InfoTooltip content="ETP = Équivalent Temps Plein. 1 = temps complet, 0.5 = mi-temps. Impacte directement le coût employeur." darkMode={darkMode} position="top"><label className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>ETP</label></InfoTooltip><input type="number" step="0.1" className={`w-full rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white'}`} value={p.etp} onChange={(e) => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, etp: validerETP(e.target.value)} : x)})} /></div>
+                                <div><InfoTooltip content="Salaire brut mensuel en euros (hors charges patronales et hors prime Ségur). Coût employeur = salaire × 12 × ETP × 1,42." darkMode={darkMode} position="top"><label className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Salaire</label></InfoTooltip><input type="number" className={`w-full rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white'}`} value={p.salaire} onChange={(e) => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, salaire: validerSalaire(e.target.value)} : x)})} /></div>
                               </div>
                               <div className="flex items-center gap-3 text-xs flex-wrap">
                                 <select className={`rounded px-2 py-1 text-xs ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={p.role || 'administratif'} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, role: e.target.value} : x)})}>
-                                  <option value="direction">Direction</option>
-                                  <option value="administratif">Administratif</option>
-                                  <option value="technique">Technique</option>
-                                  <option value="documentation">Documentation</option>
-                                  <option value="formateur">Formateur</option>
+                                  {roles.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
                                 </select>
                                 <label className="flex items-center gap-1"><input type="checkbox" checked={p.rqth || false} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, rqth: e.target.checked} : x)})} /><span className={p.rqth ? 'text-amber-500 font-black' : (darkMode ? 'text-gray-400' : 'text-slate-500')}>RQTH</span></label>
-                                <div className="flex items-center gap-1"><span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Ségur</span><input type="number" min="0" step="1" className={`w-16 text-xs text-right rounded px-1 py-0.5 ${darkMode ? 'bg-gray-600 text-white' : 'bg-slate-50 border'}`} value={p.segur === true ? 238 : (p.segur || 0)} onChange={(e) => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, segur: parseInt(e.target.value) || 0} : x)})} /><span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€/m</span></div>
+                                <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" checked={!!p.segur} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, segur: e.target.checked} : x)})} /><span className={`text-xs ${p.segur ? (darkMode ? 'text-blue-400 font-bold' : 'text-blue-600 font-bold') : (darkMode ? 'text-gray-400' : 'text-slate-500')}`}>Ségur {p.segur ? `(+${p.segur === true ? (globalParams.montantSegurETP ?? 238) : (parseFloat(p.segur) || 0)} €/m)` : ''}</span></label>
                                 <div className="flex items-center gap-1">
-                                  <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Né(e) en</span>
+                                  <InfoTooltip content="Année de naissance — utilisée pour la pyramide des âges et les alertes départs en retraite." darkMode={darkMode} position="top"><span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Né(e) en</span></InfoTooltip>
                                   <input type="number" min="1940" max="2005" placeholder="1980" className={`w-16 rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={p.anneeNaissance || ''} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, anneeNaissance: parseInt(e.target.value) || 0} : x)})} />
                                 </div>
                               </div>
@@ -1640,7 +1740,16 @@ const BudgetTool = () => {
                                   <option value="Vacataire">Vacataire</option>
                                   <option value="Autre">Autre</option>
                                 </select>
-                                <label className="flex items-center gap-1"><input type="checkbox" checked={p.rtt || false} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, rtt: e.target.checked} : x)})} /><span className={p.rtt ? 'text-blue-500 font-black' : (darkMode ? 'text-gray-400' : 'text-slate-500')}>RTT</span></label>
+                                <div className="flex items-center gap-1">
+                                  <InfoTooltip content="RTT = Réduction du Temps de Travail. Jours de repos accordés en compensation des heures supplémentaires liées à l'annualisation du temps de travail." darkMode={darkMode} position="top"><span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>RTT</span></InfoTooltip>
+                                  <input type="number" min="0" max="30" step="0.5" className={`w-12 text-center rounded px-1 py-0.5 text-xs font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-cyan-50 border'}`} value={p.nbJoursRTT ?? 0} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, nbJoursRTT: parseFloat(e.target.value) || 0} : x)})} />
+                                  <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>j</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <InfoTooltip content="CP = Congés Payés annuels. Minimum légal : 25 jours (5 semaines). Utilisé pour calculer le taux de présence effectif de l'agent." darkMode={darkMode} position="top"><span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>CP</span></InfoTooltip>
+                                  <input type="number" min="0" max="50" className={`w-12 text-center rounded px-1 py-0.5 text-xs font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-cyan-50 border'}`} value={p.joursConges ?? 25} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, joursConges: parseInt(e.target.value) || 25} : x)})} />
+                                  <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>j</span>
+                                </div>
                                 {(p.typeContrat && p.typeContrat !== 'CDI') && (
                                   <div className="flex items-center gap-1">
                                     <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Fin contrat</span>
@@ -1674,6 +1783,16 @@ const BudgetTool = () => {
                                   </button>
                                 </div>
                               </details>
+                              {(() => {
+                                const pr = calculerPresenceAgent(p, 'Pôle Support', planningAbsences, 2026);
+                                if (pr.absences.total === 0) return null;
+                                const delta = parseFloat(p.etp) - pr.etpReel;
+                                return (
+                                  <div className={`mt-1.5 flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg ${darkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-50 text-amber-700 border border-amber-200'}`} title={`${pr.absences.total}j d'absence dans le planning`}>
+                                    <UserMinus size={11} /> ETP réel {pr.etpReel.toFixed(2)} <span className="opacity-60">(-{delta.toFixed(2)})</span>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           ))}
                         </div>
@@ -1802,16 +1921,18 @@ const BudgetTool = () => {
                 onDragOver={(e) => { e.preventDefault(); setDragOverId(service.id); }}
                 onDrop={() => handleUnifiedDrop(service.id)}
                 onDragEnd={() => { setDragId(null); setDragOverId(null); }}
-                className={`rounded-3xl shadow-lg border-2 p-8 print-avoid-break transition-all duration-150
-                  ${isDragging ? 'opacity-40 scale-98' : ''}
-                  ${isDragOver && !isDragging ? 'ring-2 ring-teal-400 ring-offset-2' : ''}
-                  ${!accueilPublic ? (darkMode ? 'bg-gray-800 border-amber-700' : 'bg-amber-50 border-amber-300') : (darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-100')}`}
+                className={`rounded-3xl shadow-xl border p-8 print-avoid-break transition-all duration-300 backdrop-blur-md
+                  ${isDragging ? 'opacity-40 scale-95' : 'hover:shadow-2xl'}
+                  ${isDragOver && !isDragging ? 'ring-2 ring-teal-400 ring-offset-4' : ''}
+                  ${!accueilPublic 
+                    ? (darkMode ? 'bg-amber-900/10 border-amber-500/20' : 'bg-amber-50/50 border-amber-200/60') 
+                    : (darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60')}`}
               >
-                <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+                <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
                   <div className="flex items-center gap-4 flex-wrap">
                     {/* Poignée de déplacement */}
-                    <div className={`cursor-grab active:cursor-grabbing p-1 rounded ${darkMode ? 'text-gray-500 hover:text-gray-300' : 'text-slate-300 hover:text-slate-500'} no-print`} title="Déplacer ce service">
-                      <GripVertical size={22} />
+                    <div className={`cursor-grab active:cursor-grabbing p-2 rounded-xl no-print transition-colors ${darkMode ? 'bg-white/5 text-gray-500 hover:text-gray-300' : 'bg-slate-100 text-slate-300 hover:text-slate-500'}`} title="Déplacer ce service">
+                      <GripVertical size={20} />
                     </div>
                     {/* Boutons haut/bas */}
                     <div className="flex flex-col gap-0.5 no-print">
@@ -1821,7 +1942,7 @@ const BudgetTool = () => {
                           const arr = [...services]; arr.splice(serviceIndex - 1, 0, arr.splice(serviceIndex, 1)[0]);
                           setServices(arr);
                         }}
-                        className={`p-0.5 rounded ${serviceIndex === 0 ? 'opacity-20 cursor-not-allowed' : 'hover:bg-slate-100'}`}
+                        className={`p-1 rounded-lg transition-colors ${serviceIndex === 0 ? 'opacity-20 cursor-not-allowed' : 'hover:bg-slate-100 text-slate-500'}`}
                       ><ChevronUp size={14} /></button>
                       <button
                         disabled={serviceIndex === services.length - 1}
@@ -1829,32 +1950,72 @@ const BudgetTool = () => {
                           const arr = [...services]; arr.splice(serviceIndex + 1, 0, arr.splice(serviceIndex, 1)[0]);
                           setServices(arr);
                         }}
-                        className={`p-0.5 rounded ${serviceIndex === services.length - 1 ? 'opacity-20 cursor-not-allowed' : 'hover:bg-slate-100'}`}
+                        className={`p-1 rounded-lg transition-colors ${serviceIndex === services.length - 1 ? 'opacity-20 cursor-not-allowed' : 'hover:bg-slate-100 text-slate-500'}`}
                       ><ChevronDown size={14} /></button>
                     </div>
-                    {isPrestation ? <Calendar className="text-orange-500" size={28} /> : hasPromos ? <GraduationCap className="text-purple-500" size={28} /> : <Settings className="text-teal-500" size={28} />}
-                    <input className={`text-2xl font-black outline-none border-b-2 border-transparent focus:border-teal-500 bg-transparent ${darkMode ? 'text-white' : 'text-slate-800'}`} value={service.nom} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, nom: e.target.value} : s))} />
-                    {isPrestation && <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold uppercase">Prestation</span>}
-                    {/* Badge accueil public */}
-                    <button
-                      onClick={() => setServices(services.map(s => s.id === service.id ? {...s, accueilPublic: !accueilPublic} : s))}
-                      className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 transition-colors no-print ${accueilPublic ? 'bg-teal-100 text-teal-700 hover:bg-teal-200' : 'bg-amber-100 text-amber-700 hover:bg-amber-200'}`}
-                      title={accueilPublic ? "Cliquer pour marquer sans accueil public" : "Cliquer pour marquer avec accueil public"}
-                    >
-                      {accueilPublic ? <UserCheck size={14} /> : <UserX size={14} />}
-                      {accueilPublic ? 'Accueil public' : 'Sans accueil public'}
-                    </button>
-                    <span className="bg-red-100 text-red-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-1">
-                      <TrendingDown size={16} /> {Math.round(bs.total).toLocaleString()} €
+                    <div className={`p-3 rounded-2xl shadow-inner ${
+                      isPrestation ? 'bg-orange-500/10 text-orange-500' : 
+                      hasPromos ? 'bg-purple-500/10 text-purple-500' : 
+                      'bg-teal-500/10 text-teal-500'
+                    }`}>
+                      {isPrestation ? <Calendar size={32} /> : hasPromos ? <GraduationCap size={32} /> : <Cog size={32} className="text-red-500" />}
+                    </div>
+                    <div className="flex flex-col">
+                      <input className={`text-2xl font-black outline-none border-b-2 border-transparent focus:border-teal-500 bg-transparent transition-all ${darkMode ? 'text-white' : 'text-slate-800'}`} 
+                             value={service.nom} 
+                             onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, nom: e.target.value} : s))} />
+                      <div className="flex items-center gap-2 mt-1">
+                        {isPrestation && <span className="bg-orange-500/10 text-orange-600 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">Prestation</span>}
+                        <button
+                          onClick={() => setServices(services.map(s => s.id === service.id ? {...s, accueilPublic: !accueilPublic} : s))}
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 transition-all no-print border ${
+                            accueilPublic 
+                              ? 'bg-teal-500/10 text-teal-600 border-teal-500/20 hover:bg-teal-500/20' 
+                              : 'bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20'
+                          }`}
+                        >
+                          {accueilPublic ? <UserCheck size={12} /> : <UserX size={12} />}
+                          {accueilPublic ? 'Accueil public' : 'Sans accueil public'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-col items-end">
+                      <div className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Total charges</div>
+                      <span className={`text-xl font-black font-mono-numbers text-red-500`}>
+                        {Math.round(bs.total).toLocaleString()} <span className="text-sm opacity-50 font-sans">€</span>
+                      </span>
+                    </div>
+                    <div className="w-px h-10 bg-slate-200/50 mx-1"></div>
+                    <div className="flex flex-col items-end">
+                      <div className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Total recettes</div>
+                      <span className={`text-xl font-black font-mono-numbers text-green-500`}>
+                        {Math.round(bs.recettes).toLocaleString()} <span className="text-sm opacity-50 font-sans">€</span>
+                      </span>
+                    </div>
+                    <div className="w-px h-10 bg-slate-200/50 mx-1"></div>
+                    <div className="flex flex-col items-end">
+                      <div className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Solde</div>
+                      <span className={`text-xl font-black font-mono-numbers ${bs.solde >= 0 ? 'text-emerald-500' : 'text-orange-500'}`}>
+                        {bs.solde >= 0 ? '+' : ''}{Math.round(bs.solde).toLocaleString()} <span className="text-sm opacity-50 font-sans">€</span>
+                      </span>
+                    </div>
+                    <span className={`px-3 py-2 rounded-xl text-xs font-bold ${darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700'}`}>
+                      {service.personnel.reduce((s, p) => s + p.etp, 0).toFixed(1)} ETP
+                      {bs.etpReel !== undefined && Math.abs(bs.etpReel - bs.etpContractuel) > 0.01 && (
+                        <span className={`ml-1 ${darkMode ? 'text-amber-300' : 'text-amber-600'}`} title="ETP réel après absences">
+                          → {bs.etpReel.toFixed(2)} réel
+                        </span>
+                      )}
                     </span>
-                    <span className="bg-green-100 text-green-700 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-1">
-                      <Banknote size={16} /> {Math.round(bs.recettes).toLocaleString()} €
-                    </span>
-                    <span className={`px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-1 ${bs.solde >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'}`}>
-                      {bs.solde >= 0 ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
-                      Solde: {bs.solde >= 0 ? '+' : ''}{Math.round(bs.solde).toLocaleString()} €
-                    </span>
-                    <span className="bg-blue-100 text-blue-700 px-3 py-2 rounded-xl text-xs font-bold">{service.personnel.reduce((s, p) => s + p.etp, 0).toFixed(1)} ETP</span>
+                    {bs.coutCarenceMaladie > 0 && (
+                      <span className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 ${darkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700'}`}
+                        title="Coût des jours de carence maladie à charge de l'employeur (non remboursés par la SS)">
+                        🤒 Carence: +{Math.round(bs.coutCarenceMaladie).toLocaleString()} €
+                      </span>
+                    )}
                     {bs.salairesAllouesFI > 0 && (
                       <span className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 ${darkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>
                         <Zap size={12} /> dont -{Math.round(bs.salairesAllouesFI).toLocaleString()} € → FI
@@ -1870,10 +2031,10 @@ const BudgetTool = () => {
                       const cout = Math.round(bs.total / stats.effectifActuel);
                       // Avec allocation direction (prorata ETP)
                       const etpTotal = [
-                        ...direction.personnel.map(p => p.etp),
-                        ...services.flatMap(s => s.personnel.map(p => p.etp))
+                        ...(direction?.personnel || []).map(p => p.etp),
+                        ...services.flatMap(s => (s.personnel || []).map(p => p.etp))
                       ].reduce((a, b) => a + b, 0);
-                      const etpService = service.personnel.reduce((s, p) => s + p.etp, 0);
+                      const etpService = (service.personnel || []).reduce((s, p) => s + p.etp, 0);
                       const bdDir = getBudgetDirection();
                       const allocDir = etpTotal > 0 ? bdDir.total * (etpService / etpTotal) : 0;
                       const coutAvecDir = Math.round((bs.total + allocDir) / stats.effectifActuel);
@@ -1912,12 +2073,13 @@ const BudgetTool = () => {
                           onChange={e => {
                             if (!e.target.value) return;
                             const newSite = e.target.value;
+                            const ts = Date.now();
+                            const newSiteContent = service.useFiliere
+                              ? [{ id: `fil-${newSite}-${ts}`, nom: 'Nouvelle filière', promos: [{ id: `${newSite}-${ts}`, nom: 'Nouvelle promo', effectifInitial: 20, abandons: makeAbandons() }] }]
+                              : [{ id: `${newSite}-${ts}`, nom: 'Nouvelle promo', effectifInitial: 20, abandons: makeAbandons() }];
                             setServices(services.map(s => s.id === service.id ? {
                               ...s,
-                              promos: {
-                                ...s.promos,
-                                [newSite]: [{ id: `${newSite}-${Date.now()}`, nom: 'Nouvelle promo', effectifInitial: 20, abandons: makeAbandons() }]
-                              }
+                              promos: { ...s.promos, [newSite]: newSiteContent }
                             } : s));
                             e.target.value = '';
                           }}
@@ -1930,21 +2092,271 @@ const BudgetTool = () => {
                       )}
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {Object.entries(service.promos).map(([site, promos]) => (
+                      {Object.entries(service.promos).map(([site, items]) => {
+                        // Helper pour mettre à jour une promo dans la structure (avec ou sans filières)
+                        const updatePromo = (filiereId, promoId, updater) => {
+                          setServices(services.map(s => {
+                            if (s.id !== service.id) return s;
+                            return {
+                              ...s,
+                              promos: {
+                                ...s.promos,
+                                [site]: s.useFiliere
+                                  ? s.promos[site].map(fil => fil.id !== filiereId ? fil : {
+                                      ...fil, promos: fil.promos.map(p => p.id !== promoId ? p : updater(p))
+                                    })
+                                  : s.promos[site].map(p => p.id !== promoId ? p : updater(p))
+                              }
+                            };
+                          }));
+                        };
+                        const deletePromo = (filiereId, promoId) => {
+                          setServices(services.map(s => {
+                            if (s.id !== service.id) return s;
+                            return {
+                              ...s,
+                              promos: {
+                                ...s.promos,
+                                [site]: s.useFiliere
+                                  ? s.promos[site].map(fil => fil.id !== filiereId ? fil : {
+                                      ...fil, promos: fil.promos.filter(p => p.id !== promoId)
+                                    })
+                                  : s.promos[site].filter(p => p.id !== promoId)
+                              }
+                            };
+                          }));
+                        };
+
+                        // Construit la liste des promos à afficher (avec filière context si useFiliere)
+                        const promosList = service.useFiliere
+                          ? null // handled separately below
+                          : items;
+
+                        const renderPromoCard = (promo, filiereId) => {
+                          const effectifActuel = calculerEffectifActuel(promo);
+                          const totalAbandons = Object.values(promo.abandons).reduce((sum, v) => sum + v, 0);
+                          return (
+                            <div key={promo.id} className={`p-3 rounded-lg border group/promo ${darkMode ? 'bg-gray-600 border-gray-500' : 'bg-slate-50 border-slate-200'}`}>
+                              <div className="flex justify-between items-center mb-2">
+                                {/* Nom éditable */}
+                                <input
+                                  className={`font-bold text-sm bg-transparent outline-none border-b border-transparent focus:border-purple-400 w-28 ${darkMode ? 'text-white' : 'text-slate-700'}`}
+                                  value={promo.nom}
+                                  onChange={e => updatePromo(filiereId, promo.id, p => ({...p, nom: e.target.value}))}
+                                />
+                                <div className="flex items-center gap-2">
+                                  {/* Type de promo */}
+                                  <select
+                                    value={promo.type || 'standard'}
+                                    onChange={e => {
+                                      const newType = e.target.value;
+                                      const ventilInit = newType === 'contrat_pro' && !promo.ventilationMensuelle
+                                        ? Object.fromEntries(moisKeysFI.map(m => [m, {fc:100, fi:0}]))
+                                        : promo.ventilationMensuelle;
+                                      updatePromo(filiereId, promo.id, p => ({...p, type: newType, ...(newType === 'contrat_pro' ? {ventilationMensuelle: ventilInit} : {})}));
+                                    }}
+                                    className={`text-xs rounded px-1 py-0.5 ${darkMode ? 'bg-gray-500 text-white border-gray-400' : 'bg-white border border-slate-300 text-slate-700'} no-print`}
+                                  >
+                                    <option value="standard">Standard</option>
+                                    <option value="apprentissage">Apprentissage</option>
+                                    <option value="contrat_pro">Contrat pro</option>
+                                  </select>
+                                  <span className={`text-xs px-2 py-0.5 rounded font-medium print-only ${
+                                    (promo.type || 'standard') === 'apprentissage'
+                                      ? (darkMode ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-700')
+                                      : (promo.type || 'standard') === 'contrat_pro'
+                                        ? (darkMode ? 'bg-amber-900 text-amber-300' : 'bg-amber-100 text-amber-700')
+                                        : (darkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')
+                                  }`}>
+                                    {(promo.type || 'standard') === 'apprentissage' ? 'Apprentissage' : (promo.type || 'standard') === 'contrat_pro' ? 'Contrat pro' : 'Standard'}
+                                  </span>
+                                  {/* Bouton supprimer promo */}
+                                  <button
+                                    onClick={() => deletePromo(filiereId, promo.id)}
+                                    className={`opacity-0 group-hover/promo:opacity-100 transition-opacity p-1 rounded ${darkMode ? 'text-red-400 hover:bg-red-900/30' : 'text-red-400 hover:bg-red-50'} no-print`}
+                                    title="Supprimer cette promo"
+                                  ><Trash2 size={12} /></button>
+                                  <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-green-900 text-green-300' : 'bg-green-100 text-green-700'}`}>
+                                    Initial: {promo.effectifInitial}
+                                  </span>
+                                  <span className={`text-xs px-2 py-1 rounded font-bold ${effectifActuel < promo.effectifInitial ? (darkMode ? 'bg-orange-900 text-orange-300' : 'bg-orange-100 text-orange-700') : (darkMode ? 'bg-teal-900 text-teal-300' : 'bg-teal-100 text-teal-700')}`}>
+                                    Actuel: {effectifActuel}
+                                  </span>
+                                  {totalAbandons > 0 && (
+                                    <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-700'}`}>
+                                      <UserMinus size={12} className="inline mr-1" />{totalAbandons}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {/* Dates de formation */}
+                              <div className="flex items-center gap-3 mb-2 flex-wrap">
+                                <div className="flex items-center gap-1">
+                                  <label className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Début:</label>
+                                  <input
+                                    type="date"
+                                    className={`text-xs rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`}
+                                    value={promo.dateDebut || ''}
+                                    onChange={e => updatePromo(filiereId, promo.id, p => ({...p, dateDebut: e.target.value}))}
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <label className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Fin:</label>
+                                  <input
+                                    type="date"
+                                    className={`text-xs rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`}
+                                    value={promo.dateFin || ''}
+                                    onChange={e => updatePromo(filiereId, promo.id, p => ({...p, dateFin: e.target.value}))}
+                                  />
+                                </div>
+                                {promo.dateDebut && promo.dateFin && (() => {
+                                  const d1 = new Date(promo.dateDebut), d2 = new Date(promo.dateFin);
+                                  if (d2 > d1) {
+                                    const mois = Math.round((d2 - d1) / (1000*60*60*24*30.44));
+                                    return <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${darkMode ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>{mois} mois</span>;
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+                              {/* Effectif initial éditable */}
+                              <div className="flex items-center gap-2 mb-2">
+                                <label className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Effectif initial:</label>
+                                <input
+                                  type="number"
+                                  className={`w-16 text-xs rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`}
+                                  value={promo.effectifInitial}
+                                  onChange={e => updatePromo(filiereId, promo.id, p => ({...p, effectifInitial: Math.max(0, parseInt(e.target.value) || 0)}))}
+                                />
+                              </div>
+                              {/* Abandons par mois */}
+                              <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                                <div className="flex items-center gap-1 mb-1">
+                                  <UserMinus size={12} /> Abandons par mois:
+                                </div>
+                                <div className="grid grid-cols-4 sm:grid-cols-6 gap-1">
+                                  {Object.entries(promo.abandons).map(([mois, val]) => (
+                                    <div key={mois} className="text-center">
+                                      <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+                                        {mois.substring(0, 3)}
+                                      </div>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        className={`w-full text-center text-xs rounded px-1 py-0.5 ${val > 0 ? (darkMode ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-700') : (darkMode ? 'bg-gray-500 text-white' : 'bg-white border')}`}
+                                        value={val}
+                                        onChange={e => updatePromo(filiereId, promo.id, p => ({...p, abandons: {...p.abandons, [mois]: Math.max(0, parseInt(e.target.value) || 0)}}))}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                              {/* Ventilation FC / FI — contrat pro uniquement */}
+                              {(promo.type === 'contrat_pro') && (() => {
+                                const ventil = promo.ventilationMensuelle || Object.fromEntries(moisKeysFI.map(m => [m, {fc:100, fi:0}]));
+                                return (
+                                  <div className={`mt-3 p-3 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-blue-50 border-blue-200'}`}>
+                                    <div className={`text-xs font-black mb-2 flex items-center gap-1 ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+                                      Ventilation FC / FI (%)
+                                      <HelpIcon darkMode={darkMode} position="right" content="FC = Formation Continue (financement OPCO, entreprises). FI = Formation Initiale (financement Région, étudiants). Pour les contrats pro, les coûts sont répartis entre ces deux lignes de financement chaque mois. FC + FI = 100% chaque mois." />
+                                    </div>
+                                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-12 gap-1">
+                                      {moisKeysFI.map((mois, i) => {
+                                        const v = ventil[mois] || {fc:100, fi:0};
+                                        return (
+                                          <div key={mois} className="text-center">
+                                            <div className={`text-xs mb-0.5 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{moisLabelsFI[i]}</div>
+                                            <div className="flex flex-col gap-0.5">
+                                              <div className="flex items-center gap-0.5">
+                                                <span className={`text-xs font-bold ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>FC</span>
+                                                <input
+                                                  type="number"
+                                                  min="0" max="100"
+                                                  className={`w-full text-center text-xs rounded px-1 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-white border'}`}
+                                                  value={v.fc}
+                                                  onChange={e => {
+                                                    const fcVal = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
+                                                    const newVentil = {...ventil, [mois]: {fc: fcVal, fi: 100-fcVal}};
+                                                    updatePromo(filiereId, promo.id, p => ({...p, ventilationMensuelle: newVentil}));
+                                                  }}
+                                                />
+                                              </div>
+                                              <div className={`text-xs text-center font-bold ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>FI:{100-v.fc}%</div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                    {(() => {
+                                      const vals = moisKeysFI.map(m => (ventil[m] || {fc:100,fi:0}).fc);
+                                      const moyFC = vals.reduce((a,b) => a+b, 0) / 12;
+                                      return (
+                                        <div className={`mt-2 flex justify-between text-xs font-bold ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                                          <span className={darkMode ? 'text-teal-400' : 'text-teal-700'}>Moy. FC : {moyFC.toFixed(1)}%</span>
+                                          <span className={darkMode ? 'text-amber-300' : 'text-amber-700'}>Moy. FI : {(100-moyFC).toFixed(1)}%</span>
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                );
+                              })()}
+                              {/* Courbe d'attrition */}
+                              {totalAbandons > 0 && (() => {
+                                const moisKeys = ['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];
+                                const moisLbl  = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+                                let cumulAbandons = 0;
+                                const attrData = moisKeys.map((m, i) => {
+                                  cumulAbandons += (promo.abandons[m] || 0);
+                                  return { mois: moisLbl[i], effectif: Math.max(0, promo.effectifInitial - cumulAbandons) };
+                                });
+                                const tauxRet = (attrData[11].effectif / promo.effectifInitial * 100).toFixed(0);
+                                return (
+                                  <div className="mt-3">
+                                    <div className={`flex justify-between text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                                      <span className="flex items-center gap-1"><TrendingDown size={11}/> Courbe d'attrition</span>
+                                      <span className={parseInt(tauxRet) >= 90 ? 'text-green-500 font-bold' : parseInt(tauxRet) >= 75 ? 'text-amber-500 font-bold' : 'text-red-500 font-bold'}>Rétention : {tauxRet}%</span>
+                                    </div>
+                                    <ResponsiveContainer width="100%" height={60}>
+                                      <AreaChart data={attrData} margin={{ top: 2, right: 2, bottom: 0, left: 0 }}>
+                                        <defs><linearGradient id={`attr-${promo.id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4}/><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/></linearGradient></defs>
+                                        <XAxis dataKey="mois" tick={{ fontSize: 8, fill: darkMode ? '#6b7280' : '#94a3b8' }} axisLine={false} tickLine={false} />
+                                        <Tooltip contentStyle={{ backgroundColor: darkMode ? '#1f2937':'#fff', border:'none', borderRadius:'8px', fontSize:10 }} formatter={v => [`${v} étudiants`]} />
+                                        <Area type="monotone" dataKey="effectif" stroke="#8b5cf6" fill={`url(#attr-${promo.id})`} strokeWidth={2} dot={false} />
+                                      </AreaChart>
+                                    </ResponsiveContainer>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          );
+                        };
+
+                        return (
                         <div key={site} className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
                           <div className="flex items-center justify-between mb-3">
                             <h4 className={`font-black flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                               <MapPin size={18} className="text-purple-500" /> {site}
                             </h4>
                             <div className="flex items-center gap-2 no-print">
-                              {/* Bouton ajouter promo */}
-                              <button
-                                onClick={() => setServices(services.map(s => s.id === service.id ? {
-                                  ...s,
-                                  promos: { ...s.promos, [site]: [...s.promos[site], { id: `${site}-${Date.now()}`, nom: 'Nouvelle promo', effectifInitial: 20, abandons: makeAbandons(), type: 'standard' }] }
-                                } : s))}
-                                className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg ${darkMode ? 'bg-purple-800 text-purple-200 hover:bg-purple-700' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}
-                              ><Plus size={12} /> Promo</button>
+                              {/* Bouton ajouter filière (mode filière) ou promo (mode plat) */}
+                              {service.useFiliere ? (
+                                <button
+                                  onClick={() => {
+                                    const ts = Date.now();
+                                    setServices(services.map(s => s.id !== service.id ? s : {
+                                      ...s, promos: { ...s.promos, [site]: [...s.promos[site], { id: `fil-${site}-${ts}`, nom: 'Nouvelle filière', promos: [{ id: `${site}-${ts}`, nom: 'Nouvelle promo', effectifInitial: 20, abandons: makeAbandons(), type: 'standard' }] }] }
+                                    }));
+                                  }}
+                                  className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg ${darkMode ? 'bg-purple-800 text-purple-200 hover:bg-purple-700' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}
+                                ><Plus size={12} /> Filière</button>
+                              ) : (
+                                <button
+                                  onClick={() => setServices(services.map(s => s.id === service.id ? {
+                                    ...s,
+                                    promos: { ...s.promos, [site]: [...s.promos[site], { id: `${site}-${Date.now()}`, nom: 'Nouvelle promo', effectifInitial: 20, abandons: makeAbandons(), type: 'standard' }] }
+                                  } : s))}
+                                  className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg ${darkMode ? 'bg-purple-800 text-purple-200 hover:bg-purple-700' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}
+                                ><Plus size={12} /> Promo</button>
+                              )}
                               {/* Bouton supprimer ce site */}
                               <button
                                 onClick={() => {
@@ -1957,264 +2369,103 @@ const BudgetTool = () => {
                               ><Trash2 size={12} /></button>
                             </div>
                           </div>
-                          <div className="space-y-3">
-                            {promos.map(promo => {
-                              const effectifActuel = calculerEffectifActuel(promo);
-                              const totalAbandons = Object.values(promo.abandons).reduce((sum, v) => sum + v, 0);
-                              return (
-                                <div key={promo.id} className={`p-3 rounded-lg border group/promo ${darkMode ? 'bg-gray-600 border-gray-500' : 'bg-slate-50 border-slate-200'}`}>
-                                  <div className="flex justify-between items-center mb-2">
-                                    {/* Nom éditable */}
-                                    <input
-                                      className={`font-bold text-sm bg-transparent outline-none border-b border-transparent focus:border-purple-400 w-28 ${darkMode ? 'text-white' : 'text-slate-700'}`}
-                                      value={promo.nom}
-                                      onChange={e => setServices(services.map(s => s.id !== service.id ? s : {
-                                        ...s, promos: { ...s.promos, [site]: s.promos[site].map(p => p.id === promo.id ? {...p, nom: e.target.value} : p) }
-                                      }))}
-                                    />
-                                    <div className="flex items-center gap-2">
-                                      {/* Type de promo */}
-                                      <select
-                                        value={promo.type || 'standard'}
-                                        onChange={e => {
-                                          const newType = e.target.value;
-                                          const ventilInit = newType === 'contrat_pro' && !promo.ventilationMensuelle
-                                            ? Object.fromEntries(moisKeysFI.map(m => [m, {fc:100, fi:0}]))
-                                            : promo.ventilationMensuelle;
-                                          setServices(services.map(s => s.id !== service.id ? s : {
-                                            ...s, promos: { ...s.promos, [site]: s.promos[site].map(p => p.id === promo.id ? {...p, type: newType, ...(newType === 'contrat_pro' ? {ventilationMensuelle: ventilInit} : {})} : p) }
-                                          }));
-                                        }}
-                                        className={`text-xs rounded px-1 py-0.5 ${darkMode ? 'bg-gray-500 text-white border-gray-400' : 'bg-white border border-slate-300 text-slate-700'} no-print`}
-                                      >
-                                        <option value="standard">Standard</option>
-                                        <option value="apprentissage">Apprentissage</option>
-                                        <option value="contrat_pro">Contrat pro</option>
-                                      </select>
-                                      <span className={`text-xs px-2 py-0.5 rounded font-medium print-only ${
-                                        (promo.type || 'standard') === 'apprentissage'
-                                          ? (darkMode ? 'bg-blue-900 text-blue-300' : 'bg-blue-100 text-blue-700')
-                                          : (promo.type || 'standard') === 'contrat_pro'
-                                            ? (darkMode ? 'bg-amber-900 text-amber-300' : 'bg-amber-100 text-amber-700')
-                                            : (darkMode ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-600')
-                                      }`}>
-                                        {(promo.type || 'standard') === 'apprentissage' ? 'Apprentissage' : (promo.type || 'standard') === 'contrat_pro' ? 'Contrat pro' : 'Standard'}
-                                      </span>
-                                      {/* Bouton supprimer promo */}
-                                      <button
-                                        onClick={() => setServices(services.map(s => s.id !== service.id ? s : {
-                                          ...s, promos: { ...s.promos, [site]: s.promos[site].filter(p => p.id !== promo.id) }
+
+                          {service.useFiliere ? (
+                            /* Rendu avec filières */
+                            <div className="space-y-4">
+                              {items.map(filiere => {
+                                const filiereEffectif = filiere.promos.reduce((sum, p) => sum + calculerEffectifActuel(p), 0);
+                                return (
+                                  <div key={filiere.id} className={`rounded-xl border-2 ${darkMode ? 'border-purple-800 bg-gray-800/50' : 'border-purple-200 bg-purple-50/50'}`}>
+                                    {/* En-tête filière */}
+                                    <div className={`flex items-center justify-between px-3 py-2 rounded-t-xl ${darkMode ? 'bg-purple-900/40' : 'bg-purple-100'}`}>
+                                      <input
+                                        className={`font-black text-sm bg-transparent outline-none border-b border-transparent focus:border-purple-400 flex-1 ${darkMode ? 'text-purple-200' : 'text-purple-800'}`}
+                                        value={filiere.nom}
+                                        onChange={e => setServices(services.map(s => s.id !== service.id ? s : {
+                                          ...s, promos: { ...s.promos, [site]: s.promos[site].map(fil => fil.id !== filiere.id ? fil : { ...fil, nom: e.target.value }) }
                                         }))}
-                                        className={`opacity-0 group-hover/promo:opacity-100 transition-opacity p-1 rounded ${darkMode ? 'text-red-400 hover:bg-red-900/30' : 'text-red-400 hover:bg-red-50'} no-print`}
-                                        title="Supprimer cette promo"
-                                      ><Trash2 size={12} /></button>
-                                      <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-green-900 text-green-300' : 'bg-green-100 text-green-700'}`}>
-                                        Initial: {promo.effectifInitial}
-                                      </span>
-                                      <span className={`text-xs px-2 py-1 rounded font-bold ${effectifActuel < promo.effectifInitial ? (darkMode ? 'bg-orange-900 text-orange-300' : 'bg-orange-100 text-orange-700') : (darkMode ? 'bg-teal-900 text-teal-300' : 'bg-teal-100 text-teal-700')}`}>
-                                        Actuel: {effectifActuel}
-                                      </span>
-                                      {totalAbandons > 0 && (
-                                        <span className={`text-xs px-2 py-1 rounded ${darkMode ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-700'}`}>
-                                          <UserMinus size={12} className="inline mr-1" />{totalAbandons}
+                                        title="Nom de la filière"
+                                      />
+                                      <div className="flex items-center gap-2 no-print">
+                                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${darkMode ? 'bg-purple-800 text-purple-200' : 'bg-purple-200 text-purple-700'}`}>
+                                          {filiereEffectif} étud.
                                         </span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  {/* Dates de formation */}
-                                  <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                    <div className="flex items-center gap-1">
-                                      <label className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Début:</label>
-                                      <input
-                                        type="date"
-                                        className={`text-xs rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`}
-                                        value={promo.dateDebut || ''}
-                                        onChange={e => setServices(services.map(s => s.id !== service.id ? s : {
-                                          ...s, promos: { ...s.promos, [site]: s.promos[site].map(p => p.id === promo.id ? {...p, dateDebut: e.target.value} : p) }
-                                        }))}
-                                      />
-                                    </div>
-                                    <div className="flex items-center gap-1">
-                                      <label className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Fin:</label>
-                                      <input
-                                        type="date"
-                                        className={`text-xs rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`}
-                                        value={promo.dateFin || ''}
-                                        onChange={e => setServices(services.map(s => s.id !== service.id ? s : {
-                                          ...s, promos: { ...s.promos, [site]: s.promos[site].map(p => p.id === promo.id ? {...p, dateFin: e.target.value} : p) }
-                                        }))}
-                                      />
-                                    </div>
-                                    {promo.dateDebut && promo.dateFin && (() => {
-                                      const d1 = new Date(promo.dateDebut), d2 = new Date(promo.dateFin);
-                                      if (d2 > d1) {
-                                        const mois = Math.round((d2 - d1) / (1000*60*60*24*30.44));
-                                        return <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${darkMode ? 'bg-indigo-900 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>{mois} mois</span>;
-                                      }
-                                      return null;
-                                    })()}
-                                  </div>
-                                  {/* Effectif initial éditable */}
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <label className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Effectif initial:</label>
-                                    <input
-                                      type="number"
-                                      className={`w-16 text-xs rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`}
-                                      value={promo.effectifInitial}
-                                      onChange={(e) => {
-                                        const newEffectif = Math.max(0, parseInt(e.target.value) || 0);
-                                        setServices(services.map(s => {
-                                          if (s.id !== service.id) return s;
-                                          return {
-                                            ...s,
-                                            promos: {
-                                              ...s.promos,
-                                              [site]: s.promos[site].map(p =>
-                                                p.id === promo.id ? {...p, effectifInitial: newEffectif} : p
-                                              )
-                                            }
-                                          };
-                                        }));
-                                      }}
-                                    />
-                                  </div>
-                                  {/* Abandons par mois */}
-                                  <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
-                                    <div className="flex items-center gap-1 mb-1">
-                                      <UserMinus size={12} /> Abandons par mois:
-                                    </div>
-                                    <div className="grid grid-cols-6 gap-1">
-                                      {Object.entries(promo.abandons).map(([mois, val]) => (
-                                        <div key={mois} className="text-center">
-                                          <div className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
-                                            {mois.substring(0, 3)}
-                                          </div>
-                                          <input
-                                            type="number"
-                                            min="0"
-                                            className={`w-full text-center text-xs rounded px-1 py-0.5 ${val > 0 ? (darkMode ? 'bg-red-900 text-red-300' : 'bg-red-100 text-red-700') : (darkMode ? 'bg-gray-500 text-white' : 'bg-white border')}`}
-                                            value={val}
-                                            onChange={(e) => {
-                                              const newVal = Math.max(0, parseInt(e.target.value) || 0);
-                                              setServices(services.map(s => {
-                                                if (s.id !== service.id) return s;
-                                                return {
-                                                  ...s,
-                                                  promos: {
-                                                    ...s.promos,
-                                                    [site]: s.promos[site].map(p =>
-                                                      p.id === promo.id ? {...p, abandons: {...p.abandons, [mois]: newVal}} : p
-                                                    )
-                                                  }
-                                                };
-                                              }));
-                                            }}
-                                          />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                  {/* Ventilation FC / FI — contrat pro uniquement */}
-                                  {(promo.type === 'contrat_pro') && (() => {
-                                    const ventil = promo.ventilationMensuelle || Object.fromEntries(moisKeysFI.map(m => [m, {fc:100, fi:0}]));
-                                    return (
-                                      <div className={`mt-3 p-3 rounded-lg border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-blue-50 border-blue-200'}`}>
-                                        <div className={`text-xs font-black mb-2 ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>Ventilation FC / FI (%)</div>
-                                        <div className="grid grid-cols-6 gap-1">
-                                          {moisKeysFI.map((mois, i) => {
-                                            const v = ventil[mois] || {fc:100, fi:0};
-                                            return (
-                                              <div key={mois} className="text-center">
-                                                <div className={`text-[10px] mb-0.5 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{moisLabelsFI[i]}</div>
-                                                <div className="flex flex-col gap-0.5">
-                                                  <div className="flex items-center gap-0.5">
-                                                    <span className={`text-[9px] ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>FC</span>
-                                                    <input
-                                                      type="number"
-                                                      min="0" max="100"
-                                                      className={`w-full text-center text-[10px] rounded px-0.5 py-0.5 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-white border'}`}
-                                                      value={v.fc}
-                                                      onChange={e => {
-                                                        const fcVal = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                                                        const newVentil = {...ventil, [mois]: {fc: fcVal, fi: 100-fcVal}};
-                                                        setServices(services.map(s => s.id !== service.id ? s : {
-                                                          ...s, promos: {...s.promos, [site]: s.promos[site].map(p => p.id !== promo.id ? p : {...p, ventilationMensuelle: newVentil})}
-                                                        }));
-                                                      }}
-                                                    />
-                                                  </div>
-                                                  <div className={`text-[10px] text-center font-bold ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>FI:{100-v.fc}%</div>
-                                                </div>
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                        {(() => {
-                                          const vals = moisKeysFI.map(m => (ventil[m] || {fc:100,fi:0}).fc);
-                                          const moyFC = vals.reduce((a,b) => a+b, 0) / 12;
-                                          return (
-                                            <div className={`mt-2 flex justify-between text-xs font-bold ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
-                                              <span className={darkMode ? 'text-teal-400' : 'text-teal-700'}>Moy. FC : {moyFC.toFixed(1)}%</span>
-                                              <span className={darkMode ? 'text-amber-300' : 'text-amber-700'}>Moy. FI : {(100-moyFC).toFixed(1)}%</span>
-                                            </div>
-                                          );
-                                        })()}
+                                        <button
+                                          onClick={() => {
+                                            const ts = Date.now();
+                                            setServices(services.map(s => s.id !== service.id ? s : {
+                                              ...s, promos: { ...s.promos, [site]: s.promos[site].map(fil => fil.id !== filiere.id ? fil : {
+                                                ...fil, promos: [...fil.promos, { id: `${site}-${ts}`, nom: 'Nouvelle promo', effectifInitial: 20, abandons: makeAbandons(), type: 'standard' }]
+                                              }) }
+                                            }));
+                                          }}
+                                          className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg ${darkMode ? 'bg-gray-700 text-purple-300 hover:bg-gray-600' : 'bg-white text-purple-600 hover:bg-purple-50'}`}
+                                        ><Plus size={11} /> Promo</button>
+                                        <button
+                                          onClick={() => setServices(services.map(s => s.id !== service.id ? s : {
+                                            ...s, promos: { ...s.promos, [site]: s.promos[site].filter(fil => fil.id !== filiere.id) }
+                                          }))}
+                                          className={`text-xs p-1 rounded ${darkMode ? 'text-red-400 hover:bg-red-900/30' : 'text-red-400 hover:bg-red-50'}`}
+                                          title="Supprimer cette filière"
+                                        ><Trash2 size={12} /></button>
                                       </div>
-                                    );
-                                  })()}
-                                  {/* Courbe d'attrition */}
-                                  {totalAbandons > 0 && (() => {
-                                    const moisKeys = ['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];
-                                    const moisLbl  = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-                                    let cumulAbandons = 0;
-                                    const attrData = moisKeys.map((m, i) => {
-                                      cumulAbandons += (promo.abandons[m] || 0);
-                                      return { mois: moisLbl[i], effectif: Math.max(0, promo.effectifInitial - cumulAbandons) };
-                                    });
-                                    const tauxRet = (attrData[11].effectif / promo.effectifInitial * 100).toFixed(0);
-                                    return (
-                                      <div className="mt-3">
-                                        <div className={`flex justify-between text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
-                                          <span className="flex items-center gap-1"><TrendingDown size={11}/> Courbe d'attrition</span>
-                                          <span className={parseInt(tauxRet) >= 90 ? 'text-green-500 font-bold' : parseInt(tauxRet) >= 75 ? 'text-amber-500 font-bold' : 'text-red-500 font-bold'}>Rétention : {tauxRet}%</span>
-                                        </div>
-                                        <ResponsiveContainer width="100%" height={60}>
-                                          <AreaChart data={attrData} margin={{ top: 2, right: 2, bottom: 0, left: 0 }}>
-                                            <defs><linearGradient id={`attr-${promo.id}`} x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4}/><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/></linearGradient></defs>
-                                            <XAxis dataKey="mois" tick={{ fontSize: 8, fill: darkMode ? '#6b7280' : '#94a3b8' }} axisLine={false} tickLine={false} />
-                                            <Tooltip contentStyle={{ backgroundColor: darkMode ? '#1f2937':'#fff', border:'none', borderRadius:'8px', fontSize:10 }} formatter={v => [`${v} étudiants`]} />
-                                            <Area type="monotone" dataKey="effectif" stroke="#8b5cf6" fill={`url(#attr-${promo.id})`} strokeWidth={2} dot={false} />
-                                          </AreaChart>
-                                        </ResponsiveContainer>
-                                      </div>
-                                    );
-                                  })()}
-                                </div>
-                              );
-                            })}
-                          </div>
-                          {/* Total par site + bouton ajouter promo bas */}
-                          <button
-                            onClick={() => setServices(services.map(s => s.id === service.id ? {
-                              ...s,
-                              promos: { ...s.promos, [site]: [...s.promos[site], { id: `${site}-${Date.now()}`, nom: 'Nouvelle promo', effectifInitial: 20, abandons: makeAbandons() }] }
-                            } : s))}
-                            className={`w-full mt-2 py-1.5 border-dashed border-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 no-print ${darkMode ? 'border-purple-700 text-purple-400 hover:bg-purple-900/20' : 'border-purple-200 text-purple-500 hover:bg-purple-50'}`}
-                          ><Plus size={12} /> Ajouter une promo</button>
+                                    </div>
+                                    {/* Promos de la filière */}
+                                    <div className="p-3 space-y-3">
+                                      {filiere.promos.map(promo => renderPromoCard(promo, filiere.id))}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {/* Bouton ajouter filière bas */}
+                              <button
+                                onClick={() => {
+                                  const ts = Date.now();
+                                  setServices(services.map(s => s.id !== service.id ? s : {
+                                    ...s, promos: { ...s.promos, [site]: [...s.promos[site], { id: `fil-${site}-${ts}`, nom: 'Nouvelle filière', promos: [{ id: `${site}-${ts}`, nom: 'Nouvelle promo', effectifInitial: 20, abandons: makeAbandons() }] }] }
+                                  }));
+                                }}
+                                className={`w-full py-1.5 border-dashed border-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 no-print ${darkMode ? 'border-purple-700 text-purple-400 hover:bg-purple-900/20' : 'border-purple-200 text-purple-500 hover:bg-purple-50'}`}
+                              ><Plus size={12} /> Ajouter une filière</button>
+                            </div>
+                          ) : (
+                            /* Rendu plat (sans filières) */
+                            <div className="space-y-3">
+                              {promosList.map(promo => renderPromoCard(promo, null))}
+                              <button
+                                onClick={() => setServices(services.map(s => s.id === service.id ? {
+                                  ...s,
+                                  promos: { ...s.promos, [site]: [...s.promos[site], { id: `${site}-${Date.now()}`, nom: 'Nouvelle promo', effectifInitial: 20, abandons: makeAbandons() }] }
+                                } : s))}
+                                className={`w-full mt-2 py-1.5 border-dashed border-2 rounded-lg text-xs font-bold flex items-center justify-center gap-1 no-print ${darkMode ? 'border-purple-700 text-purple-400 hover:bg-purple-900/20' : 'border-purple-200 text-purple-500 hover:bg-purple-50'}`}
+                              ><Plus size={12} /> Ajouter une promo</button>
+                            </div>
+                          )}
+
+                          {/* Total par site */}
                           <div className={`mt-3 pt-3 border-t ${darkMode ? 'border-gray-600' : 'border-slate-200'} flex justify-between text-sm font-bold`}>
                             <span className={darkMode ? 'text-purple-400' : 'text-purple-600'}>Total {site}:</span>
                             <span className={darkMode ? 'text-white' : 'text-slate-800'}>
-                              {promos.reduce((sum, p) => sum + calculerEffectifActuel(p), 0)} étudiants
+                              {service.useFiliere
+                                ? items.reduce((sum, fil) => sum + fil.promos.reduce((s2, p) => s2 + calculerEffectifActuel(p), 0), 0)
+                                : items.reduce((sum, p) => sum + calculerEffectifActuel(p), 0)
+                              } étudiants
                             </span>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     {/* Synthèse par site */}
                     {Object.keys(service.promos).length > 1 && (() => {
-                      const siteTotals = Object.entries(service.promos).map(([site, promos]) => {
-                        const effectif = promos.reduce((sum, p) => sum + calculerEffectifActuel(p), 0);
-                        const nbPromos = promos.length;
+                      const siteTotals = Object.entries(service.promos).map(([site, items]) => {
+                        const effectif = service.useFiliere
+                          ? items.reduce((sum, fil) => sum + fil.promos.reduce((s2, p) => s2 + calculerEffectifActuel(p), 0), 0)
+                          : items.reduce((sum, p) => sum + calculerEffectifActuel(p), 0);
+                        const nbPromos = service.useFiliere
+                          ? items.reduce((sum, fil) => sum + fil.promos.length, 0)
+                          : items.length;
                         return { site, effectif, nbPromos };
                       });
                       const totalEff = siteTotals.reduce((s, t) => s + t.effectif, 0);
@@ -2236,7 +2487,7 @@ const BudgetTool = () => {
                             <div className={`flex-1 min-w-[120px] p-2 rounded-lg text-center ${darkMode ? 'bg-purple-900/40' : 'bg-purple-100'}`}>
                               <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-purple-400' : 'text-purple-700'}`}>TOTAL</div>
                               <div className={`text-lg font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{totalEff}</div>
-                              <div className={`text-[10px] ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{Object.values(service.promos).flat().length} promos</div>
+                              <div className={`text-[10px] ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{siteTotals.reduce((s, t) => s + t.nbPromos, 0)} promos</div>
                             </div>
                           </div>
                         </div>
@@ -2354,7 +2605,7 @@ const BudgetTool = () => {
                   {/* Exploitation */}
                   <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-teal-50 border-teal-200'}`}>
                     <div className="flex justify-between items-center mb-4">
-                      <h3 className={`text-sm font-black uppercase flex items-center gap-2 ${darkMode ? 'text-teal-400' : 'text-teal-700'}`}><Settings size={18} /> Exploitation</h3>
+                      <h3 className={`text-sm font-black uppercase flex items-center gap-2 ${darkMode ? 'text-teal-400' : 'text-teal-700'}`}><Cog size={18} className="text-red-500" /> Exploitation</h3>
                       <button onClick={() => setServices(services.map(s => s.id === service.id ? {...s, exploitation: [...s.exploitation, { id: Date.now(), nom: 'Nouveau', montant: 0 }]} : s))} className="bg-teal-600 text-white p-1.5 rounded-lg no-print"><Plus size={16} /></button>
                     </div>
                     <div className="space-y-2 max-h-[350px] overflow-y-auto">
@@ -2368,12 +2619,17 @@ const BudgetTool = () => {
                           <input className={`flex-1 text-xs font-bold bg-transparent outline-none ${darkMode ? 'text-white' : ''}`} value={item.nom} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, exploitation: s.exploitation.map(exp => exp.id === item.id ? {...exp, nom: e.target.value} : exp)} : s))} />
                           <input type="number" className={`w-20 text-right text-xs font-black rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50'}`} value={item.montant} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, exploitation: s.exploitation.map(exp => exp.id === item.id ? {...exp, montant: validerMontant(e.target.value)} : exp)} : s))} />
                           <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-400'}`}>€/m</span>
+                          <input type="number" placeholder="réel" title="Montant réalisé (€/mois)" className={`w-16 text-right text-xs rounded px-2 py-1 border ${item.realise != null ? (darkMode ? 'bg-blue-900/40 border-blue-600 text-blue-200' : 'bg-blue-50 border-blue-300 text-blue-800') : (darkMode ? 'bg-gray-700 border-gray-600 text-gray-500' : 'bg-white border-slate-200 text-slate-400')}`} value={item.realise ?? ''} onChange={(e) => { const v = e.target.value === '' ? null : validerMontant(e.target.value); setServices(services.map(s => s.id === service.id ? {...s, exploitation: s.exploitation.map(exp => exp.id === item.id ? {...exp, realise: v} : exp)} : s)); }} />
+                          {item.realise != null && (() => { const ecart = (item.realise - item.montant); return <span className={`text-[10px] font-bold ${ecart > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{ecart > 0 ? '+' : ''}{Math.round(ecart).toLocaleString()}€</span>; })()}
                         </div>
                       ))}
                     </div>
                     <div className={`mt-4 pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-teal-200'} flex justify-between font-bold`}>
                       <span className={darkMode ? 'text-teal-400' : 'text-teal-700'}>Total/an:</span>
-                      <span className={darkMode ? 'text-white' : 'text-teal-800'}>{Math.round(bs.exploitation).toLocaleString()} €</span>
+                      <div className="text-right">
+                        <div className={darkMode ? 'text-white' : 'text-teal-800'}>{Math.round(bs.exploitation).toLocaleString()} €</div>
+                        {bs.exploitationRealisee > 0 && <div className={`text-xs ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Réalisé: {Math.round(bs.exploitationRealisee).toLocaleString()} €</div>}
+                      </div>
                     </div>
                   </div>
 
@@ -2381,11 +2637,11 @@ const BudgetTool = () => {
                   <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-slate-50 border-teal-200'}`}>
                     <div className="flex justify-between items-center mb-4">
                       <h3 className={`text-sm font-black uppercase flex items-center gap-2 ${darkMode ? 'text-gray-300' : 'text-slate-700'}`}><Users size={18} /> Équipe</h3>
-                      <button onClick={() => setServices(services.map(s => s.id === service.id ? {...s, personnel: [...s.personnel, { id: Date.now(), titre: 'Nouveau', etp: 1, salaire: 2500, segur: 0, typeContrat: 'CDI', rtt: false, dateFinContrat: '' }]} : s))} className="bg-slate-700 text-white p-1.5 rounded-lg no-print"><Plus size={16} /></button>
+                      <button onClick={() => setServices(services.map(s => s.id === service.id ? {...s, personnel: [...s.personnel, { id: Date.now(), titre: 'Nouveau', etp: 1, salaire: 2500, segur: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' }]} : s))} className="bg-slate-700 text-white p-1.5 rounded-lg no-print"><Plus size={16} /></button>
                     </div>
                     <div className="space-y-2 max-h-[350px] overflow-y-auto">
                       {service.personnel.map((p, pIdx) => (
-                        <div key={p.id} className={`p-3 rounded-xl group relative ${darkMode ? 'bg-gray-600' : 'bg-white'} border ${darkMode ? 'border-gray-500' : 'border-teal-100'}`}>
+                        <div key={p.id} id={`agent-budget-${p.id}`} className={`p-3 rounded-xl group relative transition-all duration-700 border ${focusedAgentId === p.id ? (darkMode ? 'ring-2 ring-yellow-400 bg-yellow-900/30' : 'ring-2 ring-yellow-400 bg-yellow-50') : (darkMode ? 'bg-gray-600 border-gray-500' : 'bg-white border-teal-100')}`}>
                           <button onClick={() => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.filter(x => x.id !== p.id)} : s))} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 no-print"><Trash2 size={14} /></button>
                           <div className="flex items-center gap-1 mb-2">
                             <div className="flex flex-col gap-0 no-print">
@@ -2393,25 +2649,20 @@ const BudgetTool = () => {
                               <button disabled={pIdx===service.personnel.length-1} onClick={() => { const a=[...service.personnel]; a.splice(pIdx+1,0,a.splice(pIdx,1)[0]); setServices(services.map(s=>s.id===service.id?{...s,personnel:a}:s)); }} className={`p-0.5 rounded ${pIdx===service.personnel.length-1?'opacity-20':'hover:bg-slate-100'}`}><ChevronDown size={10}/></button>
                             </div>
                             <input className={`font-bold text-sm flex-1 outline-none bg-transparent ${darkMode ? 'text-white' : ''}`} value={p.titre} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, titre: e.target.value} : x)} : s))} />
+                            <button onClick={() => navigateToRHAgent(p.id)} className={`no-print p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${darkMode ? 'hover:bg-gray-500 text-teal-400' : 'hover:bg-teal-50 text-teal-600'}`} title="Voir dans RH"><ExternalLink size={12} /></button>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs mb-1">
-                            <div><label className={darkMode ? 'text-gray-400' : 'text-slate-500'}>ETP</label><input type="number" step="0.1" className={`w-full rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50'}`} value={p.etp} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, etp: validerETP(e.target.value)} : x)} : s))} /></div>
-                            <div><label className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Salaire</label><input type="number" className={`w-full rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50'}`} value={p.salaire} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, salaire: validerSalaire(e.target.value)} : x)} : s))} /></div>
+                            <div><InfoTooltip content="ETP = Équivalent Temps Plein. 1 = temps complet, 0.5 = mi-temps. Impacte directement le coût employeur." darkMode={darkMode} position="top"><label className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>ETP</label></InfoTooltip><input type="number" step="0.1" className={`w-full rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50'}`} value={p.etp} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, etp: validerETP(e.target.value)} : x)} : s))} /></div>
+                            <div><InfoTooltip content="Salaire brut mensuel en euros (hors charges patronales et hors prime Ségur). Coût employeur = salaire × 12 × ETP × 1,42." darkMode={darkMode} position="top"><label className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Salaire</label></InfoTooltip><input type="number" className={`w-full rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50'}`} value={p.salaire} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, salaire: validerSalaire(e.target.value)} : x)} : s))} /></div>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap text-xs mt-1">
                             <select className={`rounded px-2 py-1 text-xs ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50 border'}`} value={p.role || 'formateur'} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, role: e.target.value} : x)} : s))}>
-                              <option value="formateur">Formateur</option>
-                              <option value="responsable">Resp. secteur</option>
-                              <option value="directeur_adjoint">Directeur adjoint</option>
-                              <option value="administratif">Administratif</option>
-                              <option value="technique">Technique</option>
-                              <option value="documentation">Documentation</option>
-                              <option value="vacataire">Vacataire</option>
+                              {roles.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
                             </select>
                             <label className="flex items-center gap-1"><input type="checkbox" checked={p.rqth || false} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, rqth: e.target.checked} : x)} : s))} /><span className={p.rqth ? 'text-amber-500 font-black' : (darkMode ? 'text-gray-400' : 'text-slate-500')}>RQTH</span></label>
-                            <div className="flex items-center gap-1"><span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Ségur</span><input type="number" min="0" step="1" className={`w-16 text-xs text-right rounded px-1 py-0.5 ${darkMode ? 'bg-gray-600 text-white' : 'bg-slate-50 border'}`} value={p.segur === true ? 238 : (p.segur || 0)} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, segur: parseInt(e.target.value) || 0} : x)} : s))} /><span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€/m</span></div>
+                            <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" checked={!!p.segur} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, segur: e.target.checked} : x)} : s))} /><span className={`text-xs ${p.segur ? (darkMode ? 'text-blue-400 font-bold' : 'text-blue-600 font-bold') : (darkMode ? 'text-gray-400' : 'text-slate-500')}`}>Ségur {p.segur ? `(+${p.segur === true ? (globalParams.montantSegurETP ?? 238) : (parseFloat(p.segur) || 0)} €/m)` : ''}</span></label>
                             <div className="flex items-center gap-1">
-                              <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Né(e) en</span>
+                              <InfoTooltip content="Année de naissance — utilisée pour la pyramide des âges et les alertes départs en retraite." darkMode={darkMode} position="top"><span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Né(e) en</span></InfoTooltip>
                               <input type="number" min="1940" max="2005" placeholder="1980"
                                 className={`w-16 rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50 border'}`}
                                 value={p.anneeNaissance || ''}
@@ -2426,7 +2677,26 @@ const BudgetTool = () => {
                               <option value="Vacataire">Vacataire</option>
                               <option value="Autre">Autre</option>
                             </select>
-                            <label className="flex items-center gap-1"><input type="checkbox" checked={p.rtt || false} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, rtt: e.target.checked} : x)} : s))} /><span className={p.rtt ? 'text-blue-500 font-black' : (darkMode ? 'text-gray-400' : 'text-slate-500')}>RTT</span></label>
+                            {(p.typeContrat && p.typeContrat !== 'CDI') && (
+                              <div className="flex items-center gap-1">
+                                <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Fin</span>
+                                <input type="date" title="Date de fin de contrat — génère une alerte automatique"
+                                  className={`rounded px-1 py-0.5 text-xs font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-amber-50 border border-amber-300'}`}
+                                  value={p.dateFinContrat || ''}
+                                  onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, dateFinContrat: e.target.value} : x)} : s))}
+                                />
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1">
+                              <InfoTooltip content="RTT = Réduction du Temps de Travail. Jours de repos accordés en compensation des heures supplémentaires liées à l'annualisation du temps de travail." darkMode={darkMode} position="top"><span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>RTT</span></InfoTooltip>
+                              <input type="number" min="0" max="30" step="0.5" className={`w-12 text-center rounded px-1 py-0.5 text-xs font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50 border'}`} value={p.nbJoursRTT ?? 0} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, nbJoursRTT: parseFloat(e.target.value) || 0} : x)} : s))} />
+                              <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>j</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <InfoTooltip content="CP = Congés Payés annuels. Minimum légal : 25 jours (5 semaines). Utilisé pour calculer le taux de présence effectif de l'agent." darkMode={darkMode} position="top"><span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>CP</span></InfoTooltip>
+                              <input type="number" min="0" max="50" className={`w-12 text-center rounded px-1 py-0.5 text-xs font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50 border'}`} value={p.joursConges ?? 25} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, joursConges: parseInt(e.target.value) || 25} : x)} : s))} />
+                              <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>j</span>
+                            </div>
                             {(p.typeContrat && p.typeContrat !== 'CDI') && (
                               <div className="flex items-center gap-1">
                                 <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Fin contrat</span>
@@ -2461,67 +2731,220 @@ const BudgetTool = () => {
                             </div>
                           </details>
                           <div className="flex items-center gap-2 flex-wrap text-xs mt-1">
-                            {/* Bouton toggle FI% */}
-                            <button
-                              onClick={() => {
-                                const key = `${service.id}-${p.id}`;
-                                const next = new Set(fiPanelsOuverts);
-                                if (next.has(key)) next.delete(key); else next.add(key);
-                                setFiPanelsOuverts(next);
-                              }}
-                              className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-bold no-print transition-colors ${fiPanelsOuverts.has(`${service.id}-${p.id}`) ? (darkMode ? 'bg-amber-700 text-amber-100' : 'bg-amber-200 text-amber-800') : (darkMode ? 'bg-gray-600 text-gray-300 hover:bg-amber-800/50 hover:text-amber-200' : 'bg-slate-100 text-slate-500 hover:bg-amber-100 hover:text-amber-700')}`}
-                              title="Répartition mensuelle du salaire en Formation Initiale (FI%)"
-                            >
-                              <Zap size={11} /> FI%
-                            </button>
+                            {/* Bouton ouvre modal FI% */}
+                            {(() => {
+                              const rfi = p.repartitionFI || makeRepartitionFI();
+                              const pctMoyen = moisKeysFI.reduce((s, m) => s + (rfi[m] || 0), 0) / 12;
+                              const hasData = pctMoyen > 0;
+                              return (
+                                <button
+                                  onClick={() => setFiDialog({ serviceId: service.id, agentId: p.id })}
+                                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold no-print transition-colors ${hasData ? (darkMode ? 'bg-amber-700 text-amber-100' : 'bg-amber-200 text-amber-800') : (darkMode ? 'bg-gray-600 text-gray-300 hover:bg-amber-800/50 hover:text-amber-200' : 'bg-slate-100 text-slate-500 hover:bg-amber-100 hover:text-amber-700')}`}
+                                  title="Répartition mensuelle du salaire en Formation Initiale (FI%)"
+                                >
+                                  <Zap size={12} /> FI% {hasData && <span className="opacity-75">{pctMoyen.toFixed(0)}% moy.</span>}
+                                </button>
+                              );
+                            })()}
+                            {(() => {
+                              const pr = calculerPresenceAgent(p, service.nom, planningAbsences, 2026);
+                              if (pr.absences.total === 0) return null;
+                              const delta = parseFloat(p.etp) - pr.etpReel;
+                              return (
+                                <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${darkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-50 text-amber-700 border border-amber-200'}`} title={`${pr.absences.total}j d'absence · ETP effectif selon planning`}>
+                                  <UserMinus size={11} /> ETP réel {pr.etpReel.toFixed(2)} <span className="opacity-60">(-{delta.toFixed(2)})</span>
+                                </span>
+                              );
+                            })()}
                           </div>
-                          {/* Panel répartition FI mensuelle */}
-                          {fiPanelsOuverts.has(`${service.id}-${p.id}`) && (() => {
-                            const rfi = p.repartitionFI || makeRepartitionFI();
-                            const pctMoyen = moisKeysFI.reduce((s, m) => s + (rfi[m] || 0), 0) / 12;
-                            const sal = calculerSalaireAnnuel(p.salaire, p.etp, p.segur);
-                            const montantFI = Math.round(sal.total * pctMoyen / 100);
-                            return (
-                              <div className={`mt-2 p-3 rounded-lg border no-print ${darkMode ? 'bg-amber-900/20 border-amber-700' : 'bg-amber-50 border-amber-200'}`}>
-                                <div className={`text-xs font-black mb-2 ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>Répartition mensuelle en FI (%)</div>
-                                <div className="grid grid-cols-6 gap-1 mb-2">
-                                  {moisKeysFI.map((mois, i) => (
-                                    <div key={mois} className="text-center">
-                                      <div className={`text-[10px] mb-0.5 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{moisLabelsFI[i]}</div>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        className={`w-full text-center text-xs rounded px-0.5 py-0.5 font-bold ${(rfi[mois] || 0) > 0 ? (darkMode ? 'bg-amber-800 text-amber-100' : 'bg-amber-100 text-amber-800') : (darkMode ? 'bg-gray-600 text-white' : 'bg-white border')}`}
-                                        value={rfi[mois] || 0}
-                                        onChange={e => {
-                                          const val = Math.min(100, Math.max(0, parseInt(e.target.value) || 0));
-                                          setServices(services.map(s => s.id !== service.id ? s : {
-                                            ...s,
-                                            personnel: s.personnel.map(p2 => p2.id !== p.id ? p2 : {
-                                              ...p2,
-                                              repartitionFI: { ...(p2.repartitionFI || makeRepartitionFI()), [mois]: val }
-                                            })
-                                          }));
-                                        }}
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                                <div className={`flex justify-between text-xs ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>
-                                  <span>Moy. annuelle : <strong>{pctMoyen.toFixed(1)}%</strong></span>
-                                  <span>Montant alloué FI : <strong>{montantFI.toLocaleString()} €/an</strong></span>
-                                </div>
-                              </div>
-                            );
-                          })()}
                         </div>
                       ))}
                     </div>
+                    {/* Vacataires pédagogiques */}
+                    {(() => {
+                      const MOIS_VAC_COURTS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+                      const MOIS_VAC_KEYS   = ['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
+                      const updV = (vid, patch) => setServices(services.map(s => s.id === service.id ? {...s, vacataires: (s.vacataires||[]).map(x => x.id === vid ? {...x, ...patch} : x)} : s));
+                      const today = new Date();
+                      return (
+                        <div className={`mt-4 pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-teal-200'}`}>
+                          {/* En-tête + enveloppe budgétaire */}
+                          <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+                            <h4 className={`text-xs font-black uppercase flex items-center gap-1.5 ${darkMode ? 'text-purple-400' : 'text-purple-700'}`}>
+                              <GraduationCap size={14} /> Vacataires FC / FI
+                            </h4>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Enveloppe :</span>
+                              <input type="number" min="0" step="100" placeholder="0 €"
+                                className={`w-24 rounded px-2 py-0.5 text-xs font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-white border'} ${bs.alerteEnveloppe ? 'border-red-500' : ''}`}
+                                value={service.budgetVacataires || ''}
+                                onChange={e => setServices(services.map(s => s.id === service.id ? {...s, budgetVacataires: parseFloat(e.target.value) || 0} : s))}
+                              />
+                              <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€/an</span>
+                              <button onClick={() => setServices(services.map(s => s.id === service.id ? {
+                                ...s, vacataires: [...(s.vacataires||[]), { id: Date.now(), nom: 'Intervenant', type: 'fi', tauxHoraire: 50, tauxCharges: CHARGES_VACATAIRE, pctFI: 100, planningMensuel: { jan:0,fev:0,mar:0,avr:0,mai:0,jun:0,jul:0,aou:0,sep:0,oct:0,nov:0,dec:0 }, typeContrat: 'convention', siret: '', dateDebut: '', dateFin: '' }]
+                              } : s))}
+                                className={`text-xs flex items-center gap-1 px-2 py-1 rounded-lg no-print ${darkMode ? 'bg-purple-800 text-purple-200 hover:bg-purple-700' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}
+                              ><Plus size={12} /> Ajouter</button>
+                            </div>
+                          </div>
+
+                          {/* Alertes enveloppe */}
+                          {bs.alerteEnveloppe && (
+                            <div className={`mb-2 flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg ${darkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-50 border border-red-300 text-red-700'}`}>
+                              <AlertTriangle size={12} /> Enveloppe dépassée : {Math.round(bs.coutVacataires).toLocaleString()} € / {Math.round(bs.enveloppeVacataires).toLocaleString()} €
+                            </div>
+                          )}
+                          {bs.alerteRatioVacataires && (
+                            <div className={`mb-2 flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg ${darkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-50 border border-amber-300 text-amber-700'}`}>
+                              <AlertTriangle size={12} /> Ratio vacataires élevé : {bs.ratioVacataires.toFixed(0)}% de la masse salariale (seuil {SEUIL_RATIO_VACATAIRE}%)
+                            </div>
+                          )}
+
+                          <div className="space-y-3">
+                            {(service.vacataires || []).map((v) => {
+                              const MOIS_VAC_K = ['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
+                              const heuresMois = MOIS_VAC_K.map(m => parseFloat(v.planningMensuel?.[m]) || 0);
+                              const hTotal = heuresMois.reduce((s,h) => s+h, 0) || 0;
+                              const tauxH = parseFloat(v.tauxHoraire) || 0;
+                              const charges = parseFloat(v.tauxCharges ?? CHARGES_VACATAIRE) / 100;
+                              const coutCharge = hTotal * tauxH * (1 + charges);
+                              const depasse = hTotal > SEUIL_HEURES_VACATAIRE;
+                              const contratExpire = v.dateFin && new Date(v.dateFin) < today;
+                              const contratManquant = !v.dateFin;
+                              return (
+                                <div key={v.id} className={`p-3 rounded-xl border group relative ${darkMode ? 'bg-gray-600 border-purple-900' : 'bg-purple-50 border-purple-200'} ${(depasse||contratExpire) ? 'border-red-400' : ''}`}>
+                                  <button onClick={() => setServices(services.map(s => s.id === service.id ? {...s, vacataires: (s.vacataires||[]).filter(x => x.id !== v.id)} : s))} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 no-print"><Trash2 size={12} /></button>
+
+                                  {/* Ligne 1 : nom + type pédago + type contrat */}
+                                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                                    <input className={`font-bold text-xs flex-1 min-w-0 outline-none bg-transparent ${darkMode ? 'text-white' : 'text-slate-800'}`} value={v.nom} onChange={e => updV(v.id, {nom: e.target.value})} />
+                                    <select className={`rounded px-1.5 py-0.5 text-xs font-black ${darkMode ? 'bg-purple-900 text-purple-200' : 'bg-purple-100 text-purple-800 border border-purple-300'}`} value={v.type} onChange={e => updV(v.id, {type: e.target.value, pctFI: e.target.value==='fi'?100:e.target.value==='fc'?0:v.pctFI})}>
+                                      <option value="fi">FI</option>
+                                      <option value="fc">FC</option>
+                                      <option value="mixte">Mixte</option>
+                                    </select>
+                                    <select className={`rounded px-1.5 py-0.5 text-xs ${darkMode ? 'bg-gray-500 text-gray-200' : 'bg-white border text-slate-600'}`} value={v.typeContrat || 'convention'} onChange={e => updV(v.id, {typeContrat: e.target.value})}>
+                                      <option value="convention">Convention</option>
+                                      <option value="intervention">Contrat d'intervention</option>
+                                      <option value="auto_entrepreneur">Auto-entrepreneur</option>
+                                      <option value="autre">Autre</option>
+                                    </select>
+                                  </div>
+
+                                  {/* Ligne 2 : taux horaire + charges + % FI */}
+                                  <div className="flex flex-wrap items-center gap-3 text-xs mb-2">
+                                    <div className="flex items-center gap-1">
+                                      <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Taux</span>
+                                      <input type="number" min="0" step="1" className={`w-16 rounded px-1.5 py-0.5 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={v.tauxHoraire} onChange={e => updV(v.id, {tauxHoraire: parseFloat(e.target.value)||0})} />
+                                      <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>€/h</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Ch.</span>
+                                      <input type="number" min="0" max="100" step="1" className={`w-12 rounded px-1.5 py-0.5 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={v.tauxCharges ?? CHARGES_VACATAIRE} onChange={e => updV(v.id, {tauxCharges: parseFloat(e.target.value)||0})} />
+                                      <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>%</span>
+                                    </div>
+                                    {v.type === 'mixte' && (
+                                      <div className="flex items-center gap-1">
+                                        <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>%FI</span>
+                                        <input type="number" min="0" max="100" step="5" className={`w-12 rounded px-1.5 py-0.5 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={v.pctFI ?? 50} onChange={e => updV(v.id, {pctFI: parseFloat(e.target.value)||0})} />
+                                        <span className={darkMode ? 'text-gray-400' : 'text-slate-400'}>FC:{100-(v.pctFI??50)}%</span>
+                                      </div>
+                                    )}
+                                    {v.typeContrat === 'auto_entrepreneur' && (
+                                      <div className="flex items-center gap-1">
+                                        <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>SIRET</span>
+                                        <input type="text" maxLength={14} placeholder="14 chiffres" className={`w-32 rounded px-1.5 py-0.5 text-xs font-mono ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={v.siret || ''} onChange={e => updV(v.id, {siret: e.target.value})} />
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Ligne 3 : dates contrat */}
+                                  <div className="flex flex-wrap items-center gap-3 text-xs mb-2">
+                                    <div className="flex items-center gap-1">
+                                      <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Début</span>
+                                      <input type="date" className={`rounded px-1.5 py-0.5 text-xs ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={v.dateDebut || ''} onChange={e => updV(v.id, {dateDebut: e.target.value})} />
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <span className={`${darkMode ? 'text-gray-400' : 'text-slate-500'} ${contratExpire ? 'text-red-500 font-black' : ''}`}>Fin</span>
+                                      <input type="date" className={`rounded px-1.5 py-0.5 text-xs ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'} ${contratExpire ? 'border-red-500' : ''}`} value={v.dateFin || ''} onChange={e => updV(v.id, {dateFin: e.target.value})} />
+                                    </div>
+                                    {contratExpire && <span className="text-red-500 font-black text-xs flex items-center gap-1"><AlertTriangle size={11} /> Expiré</span>}
+                                    {contratManquant && <span className={`text-xs ${darkMode ? 'text-amber-400' : 'text-amber-600'} flex items-center gap-1`}><AlertCircle size={11} /> Fin manquante</span>}
+                                  </div>
+
+                                  {/* Planning mensuel 12 mois */}
+                                  <div className={`rounded-lg p-2 ${darkMode ? 'bg-gray-700' : 'bg-white border border-purple-100'}`}>
+                                    <div className="flex justify-between items-center mb-1">
+                                      <span className={`text-xs font-bold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>Planning mensuel (h)</span>
+                                      <div className="flex gap-1">
+                                        <button onClick={() => {
+                                          const eq = Math.round(hTotal / 12);
+                                          const plan = {};
+                                          MOIS_VAC_K.forEach(m => { plan[m] = eq; });
+                                          updV(v.id, {planningMensuel: plan});
+                                        }} className={`text-xs px-1.5 py-0.5 rounded no-print ${darkMode ? 'bg-gray-600 text-gray-300 hover:bg-gray-500' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`} title="Répartir uniformément">= Égal</button>
+                                        <button onClick={() => updV(v.id, {planningMensuel: { jan:0,fev:0,mar:0,avr:0,mai:0,jun:0,jul:0,aou:0,sep:0,oct:0,nov:0,dec:0 }})} className={`text-xs px-1.5 py-0.5 rounded no-print ${darkMode ? 'bg-gray-600 text-gray-300' : 'bg-slate-100 text-slate-500'}`} title="Tout vider">RAZ</button>
+                                      </div>
+                                    </div>
+                                    <div className="grid grid-cols-6 gap-1">
+                                      {MOIS_VAC_KEYS.map((m, i) => (
+                                        <div key={m} className="text-center">
+                                          <div className={`text-xs mb-0.5 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{MOIS_VAC_COURTS[i]}</div>
+                                          <input type="number" min="0" step="1"
+                                            className={`w-full text-center rounded px-0.5 py-0.5 text-xs font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-purple-50 border border-purple-200'} ${heuresMois[i] > 0 ? (darkMode ? 'bg-purple-900/40' : 'bg-purple-100') : ''}`}
+                                            value={v.planningMensuel?.[m] ?? 0}
+                                            onChange={e => updV(v.id, {planningMensuel: {...(v.planningMensuel||{}), [m]: parseFloat(e.target.value)||0}})}
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* Récapitulatif + alertes */}
+                                  <div className={`mt-2 pt-2 border-t text-xs font-bold flex flex-wrap justify-between gap-1 ${darkMode ? 'border-gray-500' : 'border-purple-200'}`}>
+                                    <span className={darkMode ? 'text-purple-300' : 'text-purple-700'}>
+                                      {hTotal}h × {tauxH}€/h + {v.tauxCharges ?? CHARGES_VACATAIRE}% = {Math.round(coutCharge).toLocaleString()} €/an
+                                    </span>
+                                    {depasse && <span className="flex items-center gap-1 text-red-500"><AlertTriangle size={11} /> Seuil {SEUIL_HEURES_VACATAIRE}h dépassé</span>}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {(service.vacataires || []).length === 0 && (
+                              <p className={`text-xs text-center py-2 ${darkMode ? 'text-gray-600' : 'text-slate-300'}`}>Aucun vacataire — cliquer "+ Ajouter"</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     <div className={`mt-4 pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-teal-200'} flex justify-between font-bold`}>
                       <span className={darkMode ? 'text-gray-300' : 'text-slate-700'}>Masse salariale:</span>
                       <span className={darkMode ? 'text-white' : 'text-slate-800'}>{Math.round(bs.salaires).toLocaleString()} €</span>
                     </div>
+                    {bs.coutVacataires > 0 && (
+                      <div className={`mt-1 flex justify-between text-xs font-bold ${darkMode ? 'text-purple-400' : 'text-purple-700'}`}>
+                        <span className="flex items-center gap-1"><GraduationCap size={11} /> dont vacataires ({(service.vacataires||[]).length}) · ratio {bs.ratioVacataires.toFixed(0)}% :</span>
+                        <span>{Math.round(bs.coutVacataires).toLocaleString()} €</span>
+                      </div>
+                    )}
+                    {bs.coutVacatairesFI > 0 && (
+                      <div className={`mt-0.5 flex justify-between text-xs ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>
+                        <span className="pl-4">dont FI :</span><span>{Math.round(bs.coutVacatairesFI).toLocaleString()} €</span>
+                      </div>
+                    )}
+                    {bs.coutVacatairesFC > 0 && (
+                      <div className={`mt-0.5 flex justify-between text-xs ${darkMode ? 'text-blue-400' : 'text-blue-700'}`}>
+                        <span className="pl-4">dont FC :</span><span>{Math.round(bs.coutVacatairesFC).toLocaleString()} €</span>
+                      </div>
+                    )}
+                    {bs.coutParEtudiant && (
+                      <div className={`mt-1 flex justify-between text-xs font-bold ${darkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>
+                        <span>Coût total / étudiant ({bs.coutParEtudiant.effectif}) :</span>
+                        <span>{Math.round(bs.coutParEtudiant.coutParEtudiant).toLocaleString()} €</span>
+                      </div>
+                    )}
                     {bs.salairesAllouesFI > 0 && (
                       <div className={`mt-1 flex justify-between text-xs font-bold ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>
                         <span className="flex items-center gap-1"><Zap size={11} /> dont alloué FI:</span>
@@ -2547,13 +2970,33 @@ const BudgetTool = () => {
                           <input className={`flex-1 text-xs font-bold bg-transparent outline-none ${darkMode ? 'text-white' : ''}`} value={item.nom} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, recettes: s.recettes.map(rec => rec.id === item.id ? {...rec, nom: e.target.value} : rec)} : s))} />
                           <input type="number" className={`w-20 text-right text-xs font-black rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-green-50'}`} value={item.montant} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, recettes: s.recettes.map(rec => rec.id === item.id ? {...rec, montant: validerMontant(e.target.value)} : rec)} : s))} />
                           <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-400'}`}>€/m</span>
+                          <input type="number" placeholder="réel" title="Montant réalisé (€/mois)" className={`w-16 text-right text-xs rounded px-2 py-1 border ${item.realise != null ? (darkMode ? 'bg-blue-900/40 border-blue-600 text-blue-200' : 'bg-blue-50 border-blue-300 text-blue-800') : (darkMode ? 'bg-gray-700 border-gray-600 text-gray-500' : 'bg-white border-slate-200 text-slate-400')}`} value={item.realise ?? ''} onChange={(e) => { const v = e.target.value === '' ? null : validerMontant(e.target.value); setServices(services.map(s => s.id === service.id ? {...s, recettes: s.recettes.map(rec => rec.id === item.id ? {...rec, realise: v} : rec)} : s)); }} />
+                          {item.realise != null && (() => { const ecart = (item.realise - item.montant); return <span className={`text-[10px] font-bold ${ecart >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{ecart >= 0 ? '+' : ''}{Math.round(ecart).toLocaleString()}€</span>; })()}
+                          <button
+                            onClick={() => setSaisonnaliteDialog({ type: 'service', entityId: service.id, recetteId: item.id })}
+                            title={item.saisonnalite ? 'Saisonnalité configurée — modifier' : 'Configurer la saisonnalité mensuelle'}
+                            className={`no-print p-1 rounded-lg transition-colors ${item.saisonnalite ? (darkMode ? 'bg-cyan-800/60 text-cyan-300' : 'bg-cyan-100 text-cyan-700') : (darkMode ? 'text-gray-500 hover:text-cyan-400' : 'text-slate-300 hover:text-cyan-500')}`}
+                          ><Calendar size={13} /></button>
                         </div>
                       ))}
                     </div>
                     <div className={`mt-4 pt-4 border-t ${darkMode ? 'border-gray-600' : 'border-green-200'} flex justify-between font-bold`}>
                       <span className={darkMode ? 'text-green-400' : 'text-green-700'}>Total/an:</span>
-                      <span className={darkMode ? 'text-white' : 'text-green-800'}>{Math.round(bs.recettes).toLocaleString()} €</span>
+                      <div className="text-right">
+                        <div className={darkMode ? 'text-white' : 'text-green-800'}>{Math.round(bs.recettes).toLocaleString()} €</div>
+                        {bs.recettesRealisees > 0 && <div className={`text-xs ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Réalisé: {Math.round(bs.recettesRealisees).toLocaleString()} €</div>}
+                      </div>
                     </div>
+                    {bs.hasRealise && (() => {
+                      const ecartRec = bs.recettesRealisees - bs.recettes;
+                      const ecartExp = bs.exploitationRealisee - bs.exploitation;
+                      return (
+                        <div className={`mt-2 p-2 rounded-xl text-xs font-bold flex gap-3 ${darkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>
+                          <span>Écart recettes: <span className={ecartRec >= 0 ? 'text-emerald-500' : 'text-red-500'}>{ecartRec >= 0 ? '+' : ''}{Math.round(ecartRec).toLocaleString()} €</span></span>
+                          {bs.exploitationRealisee > 0 && <span>Écart charges: <span className={ecartExp > 0 ? 'text-red-500' : 'text-emerald-500'}>{ecartExp > 0 ? '+' : ''}{Math.round(ecartExp).toLocaleString()} €</span></span>}
+                        </div>
+                      );
+                    })()}
                     {/* Indicateur de solde */}
                     <div className={`mt-3 p-3 rounded-xl ${bs.solde >= 0 ? (darkMode ? 'bg-emerald-900/50' : 'bg-emerald-100') : (darkMode ? 'bg-orange-900/50' : 'bg-orange-100')}`}>
                       <div className="flex items-center justify-between">
@@ -2831,30 +3274,49 @@ const BudgetTool = () => {
             return items;
           })()}
         </div>
+        </>}
+
+        {/* ─── RESSOURCES HUMAINES ─── */}
+        {activeTab === 'rh' && <>
 
         {/* ═══════════════════════════════════════════════════════
             PILOTAGE MASSE SALARIALE — TOUS SALARIÉS
             ═══════════════════════════════════════════════════════ */}
         {(() => {
           const tousP = [
-            ...direction.personnel.map(p => ({ ...p, source: 'Direction', couleur: 'slate' })),
-            ...poleSupport.personnel.map(p => ({ ...p, source: 'Pôle Support', couleur: 'cyan' })),
-            ...services.flatMap(s => s.personnel.map(p => ({ ...p, source: s.nom, couleur: 'teal' }))),
+            ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction', couleur: 'slate' })),
+            ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support', couleur: 'cyan' })),
+            ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom, couleur: 'teal' }))),
           ];
+          const agentsMS = calculerPresenceEquipe(tousP, planningAbsences, 2026);
           const total = tousP.reduce((acc, p) => {
-            const s = calculerSalaireAnnuel(p.salaire, p.etp, p.segur);
+            const segurResolu = p.segur === true ? msETP : (parseFloat(p.segur) || 0);
+            const s = calculerSalaireAnnuel(p.salaire, p.etp, segurResolu);
             return acc + s.total;
           }, 0);
+          const totalETPReelMS = agentsMS.reduce((s, a) => s + a.presence.etpReel, 0);
+          // Vacataires de tous les services
+          const MOIS_VAC_RH = ['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
+          const tousVacataires = services.flatMap(s => (s.vacataires || []).map(v => {
+            const planMois = v.planningMensuel;
+            const heuresMensuelles = MOIS_VAC_RH.map(m => parseFloat(planMois?.[m]) || 0);
+            const heures = heuresMensuelles.reduce((s, h) => s + h, 0) || (parseFloat(v.heuresAnnuelles) || 0);
+            const tauxH = parseFloat(v.tauxHoraire) || 0;
+            const charges = parseFloat(v.tauxCharges ?? CHARGES_VACATAIRE) / 100;
+            return { ...v, serviceNom: s.nom, coutCharge: heures * tauxH * (1 + charges) };
+          })).filter(v => v.coutCharge > 0);
+          const totalVacataires = tousVacataires.reduce((s, v) => s + v.coutCharge, 0);
           const ROLES_COLOR = {
             direction: 'violet', formateur: 'teal', administratif: 'blue',
             technique: 'orange', documentation: 'amber', autre: 'slate',
           };
-          const roleLabel = { direction: 'Direction', formateur: 'Formateur', administratif: 'Administratif', technique: 'Technique', documentation: 'Documentation', autre: 'Autre' };
+          const roleLabel = { direction: 'Siège', formateur: 'Formateur', administratif: 'Administratif', technique: 'Technique', documentation: 'Documentation', autre: 'Autre' };
           // Regroupement par rôle pour mini-graphe
           const parRole = {};
           tousP.forEach(p => {
             const r = p.role || 'autre';
-            const s = calculerSalaireAnnuel(p.salaire, p.etp, p.segur);
+            const segurResolu = p.segur === true ? msETP : (parseFloat(p.segur) || 0);
+            const s = calculerSalaireAnnuel(p.salaire, p.etp, segurResolu);
             parRole[r] = (parRole[r] || 0) + s.total;
           });
 
@@ -2868,9 +3330,26 @@ const BudgetTool = () => {
                     <span className={`text-xs font-bold ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>{tousP.length} agents · {tousP.reduce((s, p) => s + p.etp, 0).toFixed(1)} ETP total</span>
                   </div>
                 </div>
-                <div className={`text-right`}>
-                  <div className={`text-xs font-bold mb-0.5 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Masse salariale totale</div>
-                  <div className={`text-2xl font-black ${darkMode ? 'text-teal-300' : 'text-teal-700'}`}>{Math.round(total).toLocaleString()} €/an</div>
+                <div className="flex items-end gap-4">
+                  {(() => {
+                    const nbSegur = tousP.filter(p => !!p.segur).length;
+                    const totalSegurAnnuel = tousP.reduce((s, p) => {
+                      if (!p.segur) return s;
+                      const montant = p.segur === true ? msETP : (parseFloat(p.segur) || 0);
+                      return s + montant * 12 * (parseFloat(p.etp) || 0) * (1 + CHARGES_PATRONALES);
+                    }, 0);
+                    return nbSegur > 0 ? (
+                      <div className={`text-right`}>
+                        <div className={`text-xs font-bold mb-0.5 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Prime Ségur ({nbSegur} agents)</div>
+                        <div className={`text-lg font-black ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>{Math.round(totalSegurAnnuel).toLocaleString()} €/an</div>
+                        <div className={`text-xs ${darkMode ? 'text-blue-500' : 'text-blue-400'}`}>{msETP} €/ETP/mois · coût employeur</div>
+                      </div>
+                    ) : null;
+                  })()}
+                  <div className={`text-right`}>
+                    <div className={`text-xs font-bold mb-0.5 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Masse salariale totale</div>
+                    <div className={`text-2xl font-black ${darkMode ? 'text-teal-300' : 'text-teal-700'}`}>{Math.round(total).toLocaleString()} €/an</div>
+                  </div>
                 </div>
               </div>
 
@@ -2878,9 +3357,17 @@ const BudgetTool = () => {
               <div className="flex flex-wrap gap-2 mb-4">
                 {Object.entries(parRole).sort((a, b) => b[1] - a[1]).map(([role, montant]) => {
                   const pct = total > 0 ? Math.round(montant / total * 100) : 0;
-                  const c = ROLES_COLOR[role] || 'slate';
+                  const ROLE_BADGE = {
+                    direction:    darkMode ? 'bg-violet-900/40 text-violet-300' : 'bg-violet-100 text-violet-700',
+                    formateur:    darkMode ? 'bg-teal-900/40 text-teal-300'     : 'bg-teal-100 text-teal-700',
+                    administratif:darkMode ? 'bg-blue-900/40 text-blue-300'     : 'bg-blue-100 text-blue-700',
+                    technique:    darkMode ? 'bg-orange-900/40 text-orange-300' : 'bg-orange-100 text-orange-700',
+                    documentation:darkMode ? 'bg-amber-900/40 text-amber-300'   : 'bg-amber-100 text-amber-700',
+                    responsable:  darkMode ? 'bg-cyan-900/40 text-cyan-300'     : 'bg-cyan-100 text-cyan-700',
+                  };
+                  const badgeCls = ROLE_BADGE[role] || (darkMode ? 'bg-slate-900/40 text-slate-300' : 'bg-slate-100 text-slate-700');
                   return (
-                    <div key={role} className={`px-3 py-1.5 rounded-xl text-xs font-bold ${darkMode ? `bg-${c}-900/40 text-${c}-300` : `bg-${c}-100 text-${c}-700`}`}>
+                    <div key={role} className={`px-3 py-1.5 rounded-xl text-xs font-bold ${badgeCls}`}>
                       {roleLabel[role] || role} · {pct}% · {Math.round(montant/1000)}k€
                     </div>
                   );
@@ -2905,6 +3392,7 @@ const BudgetTool = () => {
                       <th className="text-left pb-2">Service</th>
                       <th className="text-left pb-2">Rôle</th>
                       <th className="text-right pb-2">ETP</th>
+                      <th className="text-right pb-2 text-teal-500" title="ETP réel calculé depuis le planning absences">ETP réel</th>
                       <th className="text-right pb-2">Sal. brut/mois</th>
                       <th className="text-right pb-2">Ségur</th>
                       <th className="text-right pb-2">Charges</th>
@@ -2912,23 +3400,35 @@ const BudgetTool = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {tousP.map((p, idx) => {
-                      const s = calculerSalaireAnnuel(p.salaire, p.etp, p.segur);
+                    {agentsMS.map((p, idx) => {
+                      const segurResolu = p.segur === true ? msETP : (parseFloat(p.segur) || 0);
+                      const s = calculerSalaireAnnuel(p.salaire, p.etp, segurResolu);
                       const isDir = p.source === 'Direction';
+                      const etpReel = p.presence.etpReel;
+                      const etpDelta = parseFloat(p.etp) - etpReel;
                       return (
-                        <tr key={idx} className={`border-t ${darkMode ? 'border-gray-700' : 'border-slate-100'} ${isDir ? (darkMode ? 'bg-violet-900/10' : 'bg-violet-50/50') : ''}`}>
-                          <td className={`py-1.5 pl-1 font-bold ${darkMode ? 'text-white' : 'text-slate-800'} max-w-[180px] truncate`} title={p.titre}>{p.titre}</td>
+                        <tr key={idx} id={`agent-rh-${p.id}`} className={`border-t transition-all duration-700 ${focusedAgentId === p.id ? (darkMode ? 'bg-yellow-900/40' : 'bg-yellow-50') : (darkMode ? 'border-gray-700' : 'border-slate-100')} ${isDir ? (darkMode ? 'bg-violet-900/10' : 'bg-violet-50/50') : ''}`}>
+                          <td className={`py-1.5 pl-1 font-bold max-w-[180px]`}>
+                            <button onClick={() => navigateToBudgetAgent(p.id)} className={`group/link flex items-center gap-1 text-left font-bold truncate max-w-full ${darkMode ? 'text-white hover:text-teal-300' : 'text-slate-800 hover:text-teal-600'} transition-colors`} title={`Voir ${p.titre} dans Budget`}>
+                              <span className="truncate">{p.titre}</span>
+                              <ExternalLink size={10} className="opacity-0 group-hover/link:opacity-100 shrink-0 transition-opacity" />
+                            </button>
+                          </td>
                           <td className={`py-1.5 text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'} max-w-[120px] truncate`} title={p.source}>{p.source}</td>
                           <td className="py-1.5">
-                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-slate-100 text-slate-600'}`}>
+                            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-slate-100 text-slate-600'}`}>
                               {roleLabel[p.role] || p.role || '—'}
                             </span>
-                            {p.rqth && <span className={`ml-1 px-1 py-0.5 rounded text-[10px] font-bold ${darkMode ? 'bg-orange-900/50 text-orange-400' : 'bg-orange-100 text-orange-700'}`}>RQTH</span>}
+                            {p.rqth && <span className={`ml-1 px-1.5 py-0.5 rounded text-xs font-bold ${darkMode ? 'bg-orange-900/50 text-orange-400' : 'bg-orange-100 text-orange-700'}`}>RQTH</span>}
                           </td>
                           <td className={`py-1.5 text-right ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{p.etp}</td>
+                          <td className={`py-1.5 text-right font-bold ${etpDelta > 0.05 ? (darkMode ? 'text-amber-400' : 'text-amber-600') : (darkMode ? 'text-teal-400' : 'text-teal-600')}`} title={etpDelta > 0.05 ? `Absences : -${etpDelta.toFixed(2)} ETP` : 'Présence nominale'}>
+                            {etpReel.toFixed(2)}
+                            {etpDelta > 0.05 && <span className="ml-1 text-xs opacity-70">(-{etpDelta.toFixed(2)})</span>}
+                          </td>
                           <td className={`py-1.5 text-right ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{p.salaire.toLocaleString()} €</td>
-                          <td className={`py-1.5 text-right ${s.segur > 0 ? (darkMode ? 'text-blue-400' : 'text-blue-600') : (darkMode ? 'text-gray-600' : 'text-slate-300')}`}>
-                            {s.segur > 0 ? `+${Math.round(s.segur/12).toLocaleString()} €/m` : '—'}
+                          <td className={`py-1.5 text-right ${p.segur ? (darkMode ? 'text-blue-400' : 'text-blue-600') : (darkMode ? 'text-gray-600' : 'text-slate-300')}`}>
+                            {(() => { const m = p.segur === true ? (globalParams.montantSegurETP ?? PRIME_SEGUR) : (parseFloat(p.segur) || 0); return m > 0 ? `+${m.toLocaleString()} €/m` : '—'; })()}
                           </td>
                           <td className={`py-1.5 text-right ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{Math.round(s.charges).toLocaleString()} €</td>
                           <td className={`py-1.5 text-right pr-1 font-black ${darkMode ? 'text-teal-300' : 'text-teal-700'}`}>{Math.round(s.total).toLocaleString()} €</td>
@@ -2936,12 +3436,39 @@ const BudgetTool = () => {
                       );
                     })}
                   </tbody>
+                  {tousVacataires.length > 0 && (
+                    <tbody>
+                      <tr className={`border-t-2 ${darkMode ? 'border-purple-800' : 'border-purple-200'}`}>
+                        <td colSpan={9} className={`py-1.5 pl-1 text-xs font-black uppercase ${darkMode ? 'text-purple-400' : 'text-purple-700'}`}>
+                          <GraduationCap size={12} className="inline mr-1" /> Vacataires pédagogiques
+                        </td>
+                      </tr>
+                      {tousVacataires.map((v, idx) => (
+                        <tr key={idx} className={`border-t ${darkMode ? 'border-gray-700 bg-purple-900/10' : 'border-purple-100 bg-purple-50/40'}`}>
+                          <td className={`py-1.5 pl-1 font-bold ${darkMode ? 'text-purple-200' : 'text-purple-800'} max-w-[180px] truncate`} title={v.nom}>{v.nom}</td>
+                          <td className={`py-1.5 text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'} max-w-[120px] truncate`}>{v.serviceNom}</td>
+                          <td className="py-1.5">
+                            <span className={`px-1.5 py-0.5 rounded text-xs font-black ${v.type === 'fi' ? (darkMode ? 'bg-amber-900/50 text-amber-400' : 'bg-amber-100 text-amber-700') : v.type === 'fc' ? (darkMode ? 'bg-blue-900/50 text-blue-400' : 'bg-blue-100 text-blue-700') : (darkMode ? 'bg-purple-900/50 text-purple-400' : 'bg-purple-100 text-purple-700')}`}>
+                              {v.type === 'fi' ? 'FI' : v.type === 'fc' ? 'FC' : `Mixte ${v.pctFI}%FI`}
+                            </span>
+                          </td>
+                          <td className={`py-1.5 text-right text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{parseFloat(v.heuresAnnuelles) || 0}h</td>
+                          <td className={`py-1.5 text-right text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>—</td>
+                          <td className={`py-1.5 text-right text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{parseFloat(v.tauxHoraire) || 0} €/h</td>
+                          <td className={`py-1.5 text-right text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>+{v.tauxCharges ?? CHARGES_VACATAIRE}%</td>
+                          <td className={`py-1.5 text-right text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>—</td>
+                          <td className={`py-1.5 text-right pr-1 font-black ${darkMode ? 'text-purple-300' : 'text-purple-700'}`}>{Math.round(v.coutCharge).toLocaleString()} €</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  )}
                   <tfoot>
                     <tr className={`border-t-2 font-black ${darkMode ? 'border-teal-700 bg-teal-900/20' : 'border-teal-300 bg-teal-50'}`}>
                       <td colSpan={3} className={`py-2 pl-1 text-sm ${darkMode ? 'text-white' : 'text-slate-800'}`}>TOTAL</td>
                       <td className={`py-2 text-right text-sm ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{tousP.reduce((s, p) => s + p.etp, 0).toFixed(1)}</td>
+                      <td className={`py-2 text-right text-sm font-black ${darkMode ? 'text-teal-300' : 'text-teal-700'}`}>{totalETPReelMS.toFixed(1)}</td>
                       <td colSpan={3} />
-                      <td className={`py-2 text-right pr-1 text-base ${darkMode ? 'text-teal-200' : 'text-teal-800'}`}>{Math.round(total).toLocaleString()} €</td>
+                      <td className={`py-2 text-right pr-1 text-base ${darkMode ? 'text-teal-200' : 'text-teal-800'}`}>{Math.round(total + totalVacataires).toLocaleString()} €</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -2949,6 +3476,319 @@ const BudgetTool = () => {
             </div>
           );
         })()}
+
+        {/* ═══ TABLEAU TRANSVERSAL PRÉSENCE / ABSENCES ═══ */}
+        {(() => {
+          const ANNEE = 2026;
+          const tousAgents = [
+            ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction' })),
+            ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support' })),
+            ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom }))),
+          ];
+          const agentsAvecPresence = calculerPresenceEquipe(tousAgents, planningAbsences, ANNEE);
+          const totalETPContrat = agentsAvecPresence.reduce((s, a) => s + parseFloat(a.etp), 0);
+          const totalETPReel    = agentsAvecPresence.reduce((s, a) => s + a.presence.etpReel, 0);
+          const totalMaladie    = agentsAvecPresence.reduce((s, a) => s + a.presence.joursMaladiePlanning, 0);
+          const totalCongesP    = agentsAvecPresence.reduce((s, a) => s + a.presence.joursCongesPlanning, 0);
+          const totalRTTP       = agentsAvecPresence.reduce((s, a) => s + a.presence.joursRTTPlanning, 0);
+          const totalFormationP = agentsAvecPresence.reduce((s, a) => s + a.presence.joursFormationPlanning, 0);
+          const tauxPresenceMoyen = totalETPContrat > 0 ? (totalETPReel / totalETPContrat) * 100 : 100;
+
+          return (
+            <div className={`rounded-3xl shadow-lg border-2 p-6 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-teal-900' : 'bg-gradient-to-br from-teal-50 to-cyan-50 border-teal-200'}`}>
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+                <div className="flex items-center gap-3">
+                  <Calendar className={darkMode ? 'text-teal-400' : 'text-teal-600'} size={28} />
+                  <div>
+                    <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Synthèse Présence / Absences</h2>
+                    <span className={`text-xs font-bold ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>
+                      Transversalité RH ↔ Budget · Année {ANNEE} · Base {JOURS_OUVRES_AN} jours ouvrés
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {[
+                    { label: 'ETP contrat', val: totalETPContrat.toFixed(1), color: darkMode ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-100 text-blue-700' },
+                    { label: 'ETP réel', val: totalETPReel.toFixed(1), color: darkMode ? 'bg-teal-900/40 text-teal-300' : 'bg-teal-100 text-teal-700' },
+                    { label: 'Taux présence', val: `${tauxPresenceMoyen.toFixed(1)}%`, color: tauxPresenceMoyen >= 95 ? (darkMode ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700') : (darkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700') },
+                    { label: 'J. maladie (plan.)', val: totalMaladie, color: darkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700' },
+                  ].map((k, i) => (
+                    <div key={i} className={`px-3 py-2 rounded-2xl text-center ${k.color}`}>
+                      <div className="text-xs font-bold opacity-75">{k.label}</div>
+                      <div className="text-xl font-black">{k.val}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className={`${darkMode ? 'text-gray-400' : 'text-slate-500'} uppercase font-black text-[11px]`}>
+                      <th className="text-left pb-2 pl-1">Agent</th>
+                      <th className="text-left pb-2">Service</th>
+                      <th className="text-right pb-2">ETP contrat</th>
+                      <th className="text-right pb-2" title="Congés payés configurés">CP prévu</th>
+                      <th className="text-right pb-2" title="RTT configurés">RTT prévu</th>
+                      <th className="text-right pb-2 text-blue-500" title="Congés pris dans le planning">CP réel</th>
+                      <th className="text-right pb-2 text-purple-500" title="RTT pris dans le planning">RTT réel</th>
+                      <th className="text-right pb-2 text-red-500" title="Maladie/Arrêt dans le planning">Maladie</th>
+                      <th className="text-right pb-2 text-green-500" title="Formation dans le planning">Formation</th>
+                      <th className="text-right pb-2">Présence eff.</th>
+                      <th className="text-right pb-2">ETP réel</th>
+                      <th className="text-right pb-2 pr-1 text-red-500" title="Coût carence maladie à charge employeur (j1-j3 non remboursés SS)">Coût carence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {agentsAvecPresence.map((a, idx) => {
+                      const pr = a.presence;
+                      const ecartCP   = pr.joursCongesPlanning - pr.joursConges;
+                      const ecartRTT  = pr.joursRTTPlanning - pr.nbJoursRTT;
+                      const alertCP   = Math.abs(ecartCP) > 2;
+                      const alertMal  = pr.joursMaladiePlanning > 10;
+                      return (
+                        <tr key={idx} className={`border-t ${darkMode ? 'border-gray-700' : 'border-slate-100'} ${idx % 2 === 0 ? '' : darkMode ? 'bg-gray-700/20' : 'bg-slate-50/50'}`}>
+                          <td className={`py-1.5 pl-1 font-bold ${darkMode ? 'text-white' : 'text-slate-800'} max-w-[160px] truncate`} title={a.titre}>{a.titre}</td>
+                          <td className={`py-1.5 text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'} max-w-[120px] truncate`}>{a.source}</td>
+                          <td className={`py-1.5 text-right font-bold ${darkMode ? 'text-gray-300' : 'text-slate-700'}`}>{parseFloat(a.etp).toFixed(2)}</td>
+                          <td className={`py-1.5 text-right ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{pr.joursConges}j</td>
+                          <td className={`py-1.5 text-right ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{pr.nbJoursRTT > 0 ? `${pr.nbJoursRTT}j` : '—'}</td>
+                          <td className={`py-1.5 text-right font-bold ${alertCP ? 'text-amber-500' : (darkMode ? 'text-blue-400' : 'text-blue-600')}`}>
+                            {pr.joursCongesPlanning > 0 ? `${pr.joursCongesPlanning}j` : '—'}
+                            {alertCP && <span className="ml-1 text-amber-400" title={`Écart: ${ecartCP > 0 ? '+' : ''}${ecartCP}j`}>⚠</span>}
+                          </td>
+                          <td className={`py-1.5 text-right font-bold ${ecartRTT > 2 ? 'text-amber-500' : (darkMode ? 'text-purple-400' : 'text-purple-600')}`}>
+                            {pr.joursRTTPlanning > 0 ? `${pr.joursRTTPlanning}j` : '—'}
+                          </td>
+                          <td className={`py-1.5 text-right font-bold ${alertMal ? 'text-red-500' : (pr.joursMaladiePlanning > 0 ? (darkMode ? 'text-red-400' : 'text-red-600') : (darkMode ? 'text-gray-600' : 'text-slate-300'))}`}>
+                            {pr.joursMaladiePlanning > 0 ? `${pr.joursMaladiePlanning}j` : '—'}
+                            {alertMal && <span className="ml-1" title="Absentéisme élevé (>10j)">⚠</span>}
+                          </td>
+                          <td className={`py-1.5 text-right ${pr.joursFormationPlanning > 0 ? (darkMode ? 'text-green-400' : 'text-green-600') : (darkMode ? 'text-gray-600' : 'text-slate-300')}`}>
+                            {pr.joursFormationPlanning > 0 ? `${pr.joursFormationPlanning}j` : '—'}
+                          </td>
+                          <td className={`py-1.5 text-right font-bold ${pr.tauxPresence < 0.9 ? 'text-amber-500' : (darkMode ? 'text-teal-300' : 'text-teal-700')}`}>
+                            {pr.joursPresence}j <span className="text-xs opacity-60">({(pr.tauxPresence*100).toFixed(0)}%)</span>
+                          </td>
+                          <td className={`py-1.5 text-right font-black ${pr.etpReel < parseFloat(a.etp) * 0.9 ? 'text-amber-500' : (darkMode ? 'text-teal-200' : 'text-teal-800')}`}>
+                            {pr.etpReel.toFixed(2)}
+                          </td>
+                          <td className={`py-1.5 text-right pr-1 font-bold ${pr.coutCarence > 0 ? 'text-red-500' : (darkMode ? 'text-gray-600' : 'text-slate-300')}`}>
+                            {pr.coutCarence > 0 ? `${Math.round(pr.coutCarence).toLocaleString()} €` : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    {(() => {
+                      const totalCarence = agentsAvecPresence.reduce((s, a) => s + a.presence.coutCarence, 0);
+                      return (
+                        <tr className={`border-t-2 font-black ${darkMode ? 'border-teal-700 bg-teal-900/20' : 'border-teal-300 bg-teal-50'}`}>
+                          <td colSpan={2} className={`py-2 pl-1 text-sm ${darkMode ? 'text-white' : 'text-slate-800'}`}>TOTAL</td>
+                          <td className={`py-2 text-right text-sm ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{totalETPContrat.toFixed(1)}</td>
+                          <td colSpan={2} />
+                          <td className={`py-2 text-right ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>{totalCongesP > 0 ? `${totalCongesP}j` : '—'}</td>
+                          <td className={`py-2 text-right ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>{totalRTTP > 0 ? `${totalRTTP}j` : '—'}</td>
+                          <td className={`py-2 text-right ${darkMode ? 'text-red-400' : 'text-red-600'}`}>{totalMaladie > 0 ? `${totalMaladie}j` : '—'}</td>
+                          <td className={`py-2 text-right ${darkMode ? 'text-green-400' : 'text-green-600'}`}>{totalFormationP > 0 ? `${totalFormationP}j` : '—'}</td>
+                          <td className={`py-2 text-right ${darkMode ? 'text-teal-300' : 'text-teal-700'}`}>{tauxPresenceMoyen.toFixed(1)}%</td>
+                          <td className={`py-2 text-right text-base ${darkMode ? 'text-teal-200' : 'text-teal-800'}`}>{totalETPReel.toFixed(1)}</td>
+                          <td className={`py-2 text-right pr-1 text-base font-black ${totalCarence > 0 ? 'text-red-500' : (darkMode ? 'text-gray-600' : 'text-slate-300')}`}>
+                            {totalCarence > 0 ? `${Math.round(totalCarence).toLocaleString()} €` : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })()}
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* Synthèse impact budgétaire des absences */}
+              {(() => {
+                const totalCarence = agentsAvecPresence.reduce((s, a) => s + a.presence.coutCarence, 0);
+                const totalJoursAbs = totalMaladie + totalCongesP + totalRTTP;
+                const impactETP = totalETPContrat - totalETPReel;
+                if (totalJoursAbs === 0 && totalCarence === 0) return null;
+                return (
+                  <div className={`mt-4 p-4 rounded-2xl border ${darkMode ? 'bg-red-900/20 border-red-800' : 'bg-red-50 border-red-200'}`}>
+                    <div className={`text-xs font-black uppercase mb-3 flex items-center gap-2 ${darkMode ? 'text-red-300' : 'text-red-700'}`}>
+                      🔗 Impact budgétaire des absences (synchronisé dans Budget & Subvention)
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { label: 'Coût carence maladie', val: `${Math.round(totalCarence).toLocaleString()} €`, sub: 'Ajouté au budget employeur', bg: darkMode ? 'bg-red-900/30' : 'bg-red-50', txt: darkMode ? 'text-red-400' : 'text-red-700' },
+                        { label: 'Perte ETP effective', val: `-${impactETP.toFixed(2)} ETP`, sub: 'vs ETP contractuel', bg: darkMode ? 'bg-amber-900/30' : 'bg-amber-50', txt: darkMode ? 'text-amber-400' : 'text-amber-700' },
+                        { label: 'J. maladie/arrêt', val: `${totalMaladie} j`, sub: 'Saisis dans Planning', bg: darkMode ? 'bg-orange-900/30' : 'bg-orange-50', txt: darkMode ? 'text-orange-400' : 'text-orange-700' },
+                        { label: 'Taux présence moyen', val: `${tauxPresenceMoyen.toFixed(1)}%`, sub: impactETP > 0.5 ? '⚠ Sous 95% recommandé' : '✓ Nominal', bg: tauxPresenceMoyen >= 95 ? (darkMode ? 'bg-emerald-900/30' : 'bg-emerald-50') : (darkMode ? 'bg-amber-900/30' : 'bg-amber-50'), txt: tauxPresenceMoyen >= 95 ? (darkMode ? 'text-emerald-400' : 'text-emerald-700') : (darkMode ? 'text-amber-400' : 'text-amber-700') },
+                      ].map(k => (
+                        <div key={k.label} className={`p-3 rounded-xl text-center ${k.bg}`}>
+                          <div className={`text-[10px] font-bold uppercase mb-1 ${k.txt}`}>{k.label}</div>
+                          <div className={`text-base font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{k.val}</div>
+                          <div className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{k.sub}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Légende */}
+              <div className={`mt-4 text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+                <span className="font-bold">Légende : </span>
+                CP prévu/réel = congés payés configurés vs. saisis dans le planning ·
+                RTT prévu/réel = idem pour RTT ·
+                Présence eff. = {JOURS_OUVRES_AN}j - CP configurés - RTT configurés - Maladie (planning) ·
+                ETP réel = ETP contrat × taux présence · Coût carence = j1-j3 maladie à charge employeur ·
+                <span className="text-amber-500"> ⚠</span> = écart &gt; 2j ou maladie &gt; 10j
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ═══ TABLEAU DE BORD VACATAIRES ═══ */}
+        {(() => {
+          const stats = calculerStatsVacataires(services, msETP);
+          if (stats.totalVacataires === 0) return null;
+          const totalMassePerm = services.reduce((s, srv) => {
+            const b = getBudgetService(srv);
+            return s + b.salairesPersonnelPermanent;
+          }, 0);
+          const ratioGlobal = (totalMassePerm + stats.totalCout) > 0 ? stats.totalCout / (totalMassePerm + stats.totalCout) * 100 : 0;
+          const coutHoraireGlobal = stats.totalHeures > 0 ? stats.totalCout / stats.totalHeures : 0;
+
+          return (
+            <div className={`rounded-3xl shadow-lg border-2 p-6 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-gradient-to-br from-purple-50 to-violet-50 border-purple-200'}`}>
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+                <div className="flex items-center gap-3">
+                  <GraduationCap className={darkMode ? 'text-purple-400' : 'text-purple-600'} size={28} />
+                  <div>
+                    <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Tableau de bord Vacataires</h2>
+                    <span className={`text-xs font-bold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>{stats.totalVacataires} intervenant{stats.totalVacataires > 1 ? 's' : ''} · Analyse FC / FI · Contrôle budgétaire</span>
+                  </div>
+                </div>
+                {/* KPIs globaux */}
+                <div className="flex flex-wrap gap-3">
+                  {[
+                    { label: 'Coût total', val: `${Math.round(stats.totalCout).toLocaleString()} €`, color: darkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-100 text-purple-700' },
+                    { label: 'Part FI', val: `${Math.round(stats.totalFI).toLocaleString()} €`, color: darkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700' },
+                    { label: 'Part FC', val: `${Math.round(stats.totalFC).toLocaleString()} €`, color: darkMode ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-100 text-blue-700' },
+                    { label: 'Heures/an', val: `${Math.round(stats.totalHeures)} h`, color: darkMode ? 'bg-gray-700 text-gray-300' : 'bg-slate-100 text-slate-700' },
+                    { label: 'Ratio / MS', val: `${ratioGlobal.toFixed(1)}%`, color: ratioGlobal > SEUIL_RATIO_VACATAIRE ? (darkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700') : (darkMode ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700') },
+                    { label: '€/heure moy.', val: `${Math.round(coutHoraireGlobal)} €`, color: darkMode ? 'bg-gray-700 text-gray-300' : 'bg-slate-100 text-slate-700' },
+                  ].map((k, i) => (
+                    <div key={i} className={`px-3 py-2 rounded-2xl text-center ${k.color}`}>
+                      <div className="text-xs font-bold opacity-75">{k.label}</div>
+                      <div className="text-lg font-black">{k.val}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Alertes */}
+              {stats.alertes.length > 0 && (
+                <div className="mb-4 space-y-1">
+                  {stats.alertes.map((a, i) => (
+                    <div key={i} className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-bold ${a.type === 'contrat' ? (darkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-50 border border-red-200 text-red-700') : a.type === 'heures' ? (darkMode ? 'bg-orange-900/40 text-orange-300' : 'bg-orange-50 border border-orange-200 text-orange-700') : (darkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-50 border border-amber-200 text-amber-700')}`}>
+                      <AlertTriangle size={12} />
+                      <span className="font-black">{a.service}{a.nom ? ` · ${a.nom}` : ''} :</span> {a.msg}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Planning mensuel coût global */}
+              <div className={`mb-5 p-3 rounded-2xl ${darkMode ? 'bg-gray-700/50' : 'bg-white/70 border border-purple-100'}`}>
+                <div className={`text-xs font-black uppercase mb-2 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>Coût mensuel global vacataires</div>
+                <div className="flex gap-1 h-12 items-end">
+                  {stats.coutMensuelTotal.map((c, i) => {
+                    const max = Math.max(...stats.coutMensuelTotal, 1);
+                    const pct = (c / max) * 100;
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                        <div className={`w-full rounded-t ${darkMode ? 'bg-purple-600' : 'bg-purple-400'}`} style={{ height: `${pct}%`, minHeight: c > 0 ? '2px' : '0' }} title={`${stats.moisCourts[i]} : ${Math.round(c).toLocaleString()} €`} />
+                        <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{stats.moisCourts[i]}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Tableau par service */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className={`${darkMode ? 'text-gray-400' : 'text-slate-500'} uppercase font-black text-[11px]`}>
+                      <th className="text-left pb-2 pl-1">Service</th>
+                      <th className="text-left pb-2">Intervenant</th>
+                      <th className="text-left pb-2">Contrat</th>
+                      <th className="text-right pb-2">Heures</th>
+                      <th className="text-right pb-2">€/h</th>
+                      <th className="text-right pb-2">Coût chargé</th>
+                      <th className="text-right pb-2 text-amber-500">FI (€)</th>
+                      <th className="text-right pb-2 text-blue-500">FC (€)</th>
+                      <th className="text-right pb-2">Ratio</th>
+                      <th className="text-right pb-2 pr-1">Alerte</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.parService.map(ps => ps.vacataires.map((v, vi) => (
+                      <tr key={`${ps.service}-${vi}`} className={`border-t ${darkMode ? 'border-gray-700' : 'border-slate-100'}`}>
+                        <td className={`py-1.5 pl-1 font-bold max-w-[120px] truncate ${darkMode ? 'text-white' : 'text-slate-800'}`}>{vi === 0 ? ps.service : ''}</td>
+                        <td className={`py-1.5 font-bold ${darkMode ? 'text-purple-300' : 'text-purple-700'}`}>{v.nom}</td>
+                        <td className={`py-1.5 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                          <span className={`px-1.5 py-0.5 rounded text-xs ${v.type === 'fi' ? (darkMode ? 'bg-amber-900/50 text-amber-400' : 'bg-amber-100 text-amber-700') : v.type === 'fc' ? (darkMode ? 'bg-blue-900/50 text-blue-400' : 'bg-blue-100 text-blue-700') : (darkMode ? 'bg-purple-900/50 text-purple-400' : 'bg-purple-100 text-purple-700')}`}>{v.type.toUpperCase()}</span>
+                          {' '}
+                          <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{v.typeContrat === 'auto_entrepreneur' ? 'AE' : v.typeContrat === 'convention' ? 'Conv.' : v.typeContrat === 'intervention' ? 'Interv.' : '?'}</span>
+                        </td>
+                        <td className={`py-1.5 text-right font-bold ${v.depasse ? 'text-red-500' : (darkMode ? 'text-gray-300' : 'text-slate-700')}`}>{v.heures}h</td>
+                        <td className={`py-1.5 text-right ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{v.tauxHoraire}€</td>
+                        <td className={`py-1.5 text-right font-bold ${darkMode ? 'text-purple-300' : 'text-purple-700'}`}>{Math.round(v.coutCharge).toLocaleString()} €</td>
+                        <td className={`py-1.5 text-right ${v.coutFI > 0 ? (darkMode ? 'text-amber-400' : 'text-amber-700') : (darkMode ? 'text-gray-600' : 'text-slate-300')}`}>{v.coutFI > 0 ? `${Math.round(v.coutFI).toLocaleString()} €` : '—'}</td>
+                        <td className={`py-1.5 text-right ${v.coutFC > 0 ? (darkMode ? 'text-blue-400' : 'text-blue-700') : (darkMode ? 'text-gray-600' : 'text-slate-300')}`}>{v.coutFC > 0 ? `${Math.round(v.coutFC).toLocaleString()} €` : '—'}</td>
+                        <td className={`py-1.5 text-right text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{vi === 0 ? `${ps.ratioVacataires.toFixed(0)}%` : ''}</td>
+                        <td className="py-1.5 text-right pr-1">
+                          {v.depasse && <span className="text-red-500 font-black">⚠h</span>}
+                          {v.contratExpire && <span className="text-red-500 font-black ml-1">⚠exp.</span>}
+                          {!v.dateFin && <span className={`text-amber-500 ml-1`}>⚠∅</span>}
+                        </td>
+                      </tr>
+                    )))}
+                  </tbody>
+                  <tfoot>
+                    <tr className={`border-t-2 font-black ${darkMode ? 'border-purple-700 bg-purple-900/20' : 'border-purple-300 bg-purple-50'}`}>
+                      <td colSpan={3} className={`py-2 pl-1 text-sm ${darkMode ? 'text-white' : 'text-slate-800'}`}>TOTAL ({stats.totalVacataires} intervenants)</td>
+                      <td className={`py-2 text-right ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{Math.round(stats.totalHeures)}h</td>
+                      <td />
+                      <td className={`py-2 text-right text-base ${darkMode ? 'text-purple-200' : 'text-purple-800'}`}>{Math.round(stats.totalCout).toLocaleString()} €</td>
+                      <td className={`py-2 text-right ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>{Math.round(stats.totalFI).toLocaleString()} €</td>
+                      <td className={`py-2 text-right ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>{Math.round(stats.totalFC).toLocaleString()} €</td>
+                      <td className={`py-2 text-right ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{ratioGlobal.toFixed(1)}%</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* Coût par étudiant par service */}
+              {stats.parService.some(ps => ps.coutParEtudiant) && (
+                <div className={`mt-4 pt-4 border-t flex flex-wrap gap-3 ${darkMode ? 'border-gray-700' : 'border-purple-200'}`}>
+                  <span className={`text-xs font-black uppercase self-center ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>Coût vacataires / étudiant :</span>
+                  {stats.parService.filter(ps => ps.coutParEtudiant).map(ps => (
+                    <div key={ps.service} className={`px-3 py-1.5 rounded-xl text-xs font-bold ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-white border border-purple-200 text-slate-700'}`}>
+                      {ps.service} · {Math.round(ps.coutParEtudiant.coutVacatairesParEtudiant).toLocaleString()} €/étud.
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        </>}
+
+        {/* ─── ANALYSE : SYNTHÈSE ANALYTIQUE ─── */}
+        {activeTab === 'analyse' && <>
 
         {/* ═══════════════════════════════════════════════════════
             SYNTHÈSE ANALYTIQUE — TABLEAU CROISÉ SERVICES × POSTES
@@ -2958,14 +3798,14 @@ const BudgetTool = () => {
           const bdPS = getBudgetPoleSupport();
           const rows = [
             {
-              nom: '📋 Direction / Siège',
+              nom: '📋 Siège',
               personnel: bdDir.salaires,
               exploitation: bdDir.chargesSiege,
               recettes: 0,
               isDirection: true,
             },
             {
-              nom: '🔧 Pôle Support',
+              nom: '🔧 Pôle Ressource',
               personnel: bdPS.salaires,
               exploitation: bdPS.exploitation,
               recettes: bdPS.recettes,
@@ -3057,7 +3897,7 @@ const BudgetTool = () => {
                             {r.nom}
                             {allocPS > 0 && (
                               <div className={`text-xs font-normal mt-0.5 ${darkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
-                                + Pôle Support : {allocPS.toLocaleString('fr-FR')} €
+                                + Pôle Ressource : {allocPS.toLocaleString('fr-FR')} €
                               </div>
                             )}
                           </td>
@@ -3138,14 +3978,18 @@ const BudgetTool = () => {
             </div>
           );
         })()}
+        </>}
+
+        {/* ─── RESSOURCES HUMAINES : PYRAMIDE + RQTH + ABSENCES ─── */}
+        {activeTab === 'rh' && <>
 
         {/* ═══ PYRAMIDE DES ÂGES ═══ */}
         {(() => {
           const ANNEE = 2026;
           const tousP = [
-            ...direction.personnel.map(p => ({ ...p, source: 'Direction' })),
-            ...poleSupport.personnel.map(p => ({ ...p, source: 'Pôle Support' })),
-            ...services.flatMap(s => s.personnel.map(p => ({ ...p, source: s.nom }))),
+            ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction' })),
+            ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support' })),
+            ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom }))),
           ];
           const avecAge = tousP.filter(p => p.anneeNaissance > 0);
 
@@ -3242,11 +4086,11 @@ const BudgetTool = () => {
                     {/* Noms agents */}
                     <div className="flex flex-wrap gap-1 max-w-xs">
                       {t.agents.slice(0, 3).map(p => (
-                        <span key={p.id + p.source} className={`text-[10px] px-1.5 py-0.5 rounded ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-white border text-slate-500'}`}>
+                        <span key={p.id + p.source} className={`text-xs px-1.5 py-0.5 rounded ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-white border text-slate-500'}`}>
                           {p.titre.split(' ')[0]} {p.titre.includes('(') ? p.titre.match(/\(([^)]+)\)/)?.[1]?.split(' ')[0] : ''}
                         </span>
                       ))}
-                      {t.agents.length > 3 && <span className={`text-[10px] px-1.5 py-0.5 rounded ${darkMode ? 'bg-gray-600 text-gray-400' : 'bg-slate-100 text-slate-400'}`}>+{t.agents.length - 3}</span>}
+                      {t.agents.length > 3 && <span className={`text-xs px-1.5 py-0.5 rounded ${darkMode ? 'bg-gray-600 text-gray-400' : 'bg-slate-100 text-slate-400'}`}>+{t.agents.length - 3}</span>}
                     </div>
                   </div>
                 ))}
@@ -3270,9 +4114,9 @@ const BudgetTool = () => {
         {(() => {
           // Rassembler tout le personnel (direction + services)
           const tousPersonnels = [
-            ...direction.personnel.map(p => ({ ...p, source: 'Direction' })),
-            ...poleSupport.personnel.map(p => ({ ...p, source: 'Pôle Support' })),
-            ...services.flatMap(s => s.personnel.map(p => ({ ...p, source: s.nom }))),
+            ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction' })),
+            ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support' })),
+            ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom }))),
           ];
           const totalETP = tousPersonnels.reduce((s, p) => s + (parseFloat(p.etp) || 0), 0);
           const rqthPersonnels = tousPersonnels.filter(p => p.rqth);
@@ -3308,7 +4152,10 @@ const BudgetTool = () => {
                 <div className="flex items-center gap-3">
                   <UserCheck className={darkMode ? 'text-orange-400' : 'text-orange-600'} size={28} />
                   <div>
-                    <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>RQTH & OETH</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>RQTH & OETH</h2>
+                      <HelpIcon darkMode={darkMode} position="right" wide content="RQTH = Reconnaissance en Qualité de Travailleur Handicapé. OETH = Obligation d'Emploi des Travailleurs Handicapés (loi 1987). Tout employeur de ≥ 20 salariés doit employer au moins 6% de travailleurs RQTH, sous peine de contribution AGEFIPH. Les aides AGEFIPH peuvent atteindre ~1 800 €/ETP RQTH/an." />
+                    </div>
                     <span className={`text-xs font-bold ${darkMode ? 'text-orange-400' : 'text-orange-600'}`}>
                       Obligation Emploi Travailleurs Handicapés · AGEFIPH
                     </span>
@@ -3392,6 +4239,86 @@ const BudgetTool = () => {
           setPlanningAbsences={setPlanningAbsences}
           darkMode={darkMode}
         />
+
+        {/* TABLEAU ETP RÉEL PAR MOIS PAR SERVICE */}
+        {(() => {
+          const ANNEE = 2026;
+          const { lignes, total, totalContractuel, moisLabels } = calculerETPReelParMoisParService(
+            services, direction, poleSupport, planningAbsences, ANNEE
+          );
+          // N'afficher que les lignes avec au moins 1 ETP
+          const lignesActives = lignes.filter(l => l.etp > 0);
+          if (lignesActives.length === 0) return null;
+          return (
+            <div className={`rounded-3xl shadow-lg border-2 p-6 mb-8 ${darkMode ? 'bg-gray-800 border-teal-900' : 'bg-gradient-to-br from-teal-50 to-emerald-50 border-teal-200'}`}>
+              <div className="flex items-center gap-3 mb-5">
+                <div>
+                  <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>ETP réel par mois</h2>
+                  <span className={`text-xs font-bold ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>
+                    Présence effective après congés, RTT et arrêts — ETP contractuel total : {totalContractuel.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="text-xs border-collapse w-full">
+                  <thead>
+                    <tr>
+                      <th className={`text-left px-3 py-2 font-bold sticky left-0 min-w-[160px] ${darkMode ? 'bg-gray-800 text-gray-300' : 'bg-teal-50 text-slate-600'}`}>Service</th>
+                      <th className={`px-2 py-2 text-center font-bold ${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-teal-50 text-slate-500'}`}>ETP<br/>contrat</th>
+                      {moisLabels.map(m => (
+                        <th key={m} className={`px-2 py-2 text-center font-bold w-14 ${darkMode ? 'bg-gray-800 text-gray-300' : 'bg-teal-50 text-slate-500'}`}>{m}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lignesActives.map((ligne, idx) => {
+                      const maxETP = ligne.etp;
+                      return (
+                        <tr key={ligne.nom} className={idx % 2 === 0 ? (darkMode ? 'bg-gray-800/50' : 'bg-white/60') : (darkMode ? 'bg-gray-700/30' : 'bg-teal-50/40')}>
+                          <td className={`px-3 py-1.5 font-bold sticky left-0 ${idx % 2 === 0 ? (darkMode ? 'bg-gray-800' : 'bg-white') : (darkMode ? 'bg-gray-700' : 'bg-teal-50/60')} ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                            {ligne.nom}
+                          </td>
+                          <td className={`px-2 py-1.5 text-center font-bold ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                            {ligne.etp.toFixed(2)}
+                          </td>
+                          {ligne.mensuel.map((etp, m) => {
+                            const pct = maxETP > 0 ? etp / maxETP : 1;
+                            const color = pct >= 0.95
+                              ? (darkMode ? 'text-emerald-400' : 'text-emerald-700')
+                              : pct >= 0.80
+                              ? (darkMode ? 'text-yellow-400' : 'text-yellow-700')
+                              : (darkMode ? 'text-red-400' : 'text-red-600');
+                            return (
+                              <td key={m} className={`px-1 py-1.5 text-center font-bold ${color}`}>
+                                {etp.toFixed(2)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className={`border-t-2 ${darkMode ? 'border-teal-700 bg-gray-700' : 'border-teal-300 bg-teal-100'}`}>
+                      <td className={`px-3 py-2 font-black sticky left-0 ${darkMode ? 'bg-gray-700 text-white' : 'bg-teal-100 text-slate-800'}`}>Total</td>
+                      <td className={`px-2 py-2 text-center font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{totalContractuel.toFixed(2)}</td>
+                      {total.map((t, m) => (
+                        <td key={m} className={`px-1 py-2 text-center font-black ${darkMode ? 'text-teal-300' : 'text-teal-700'}`}>{t.toFixed(2)}</td>
+                      ))}
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <p className={`text-xs mt-3 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+                Vert ≥ 95 % de l'ETP contractuel · Jaune ≥ 80 % · Rouge &lt; 80 %
+              </p>
+            </div>
+          );
+        })()}
+        </>}
+
+        {/* ─── FORMATION ─── */}
+        {activeTab === 'formation' && <>
 
         {/* ENVELOPPE DE FORMATION */}
         <div id="enveloppe-formation" className={`rounded-3xl shadow-lg border-2 p-8 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-emerald-900' : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-300'}`}>
@@ -3504,6 +4431,10 @@ const BudgetTool = () => {
           onExportExcel={() => exportReportingFC(reportingFC, services)}
           onExportPdf={() => exportReportingFCPdf(reportingFC, services)}
         />
+        </>}
+
+        {/* ─── ANALYSE : SIMULATION CHARGES ─── */}
+        {activeTab === 'analyse' && <>
 
         {/* SIMULATION CHARGES INTERACTIF */}
         {(() => {
@@ -3524,11 +4455,16 @@ const BudgetTool = () => {
   const result1 = totalRec0 - total1;
 
   const fmt = n => Math.round(n).toLocaleString('fr-FR');
+  const SLIDER_COLOR_CLS = {
+    teal:  [darkMode ? 'text-teal-300'  : 'text-teal-700'],
+    blue:  [darkMode ? 'text-blue-300'  : 'text-blue-700'],
+    amber: [darkMode ? 'text-amber-300' : 'text-amber-700'],
+  };
   const Slider = ({ label, field, min, max, color }) => (
     <div>
       <div className="flex justify-between mb-1">
         <span className={`text-xs font-bold ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{label}</span>
-        <span className={`text-sm font-black ${simCharges[field] > 0 ? (darkMode ? `text-${color}-300` : `text-${color}-700`) : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>
+        <span className={`text-sm font-black ${simCharges[field] > 0 ? (SLIDER_COLOR_CLS[color]?.[0] || (darkMode ? 'text-teal-300' : 'text-teal-700')) : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>
           {simCharges[field] > 0 ? '+' : ''}{simCharges[field]}%
         </span>
       </div>
@@ -3536,7 +4472,7 @@ const BudgetTool = () => {
         onChange={e => setSimCharges({...simCharges, [field]: parseFloat(e.target.value)})}
         className="w-full accent-teal-500"
       />
-      <div className={`flex justify-between text-[10px] ${darkMode ? 'text-gray-600' : 'text-slate-400'}`}><span>{min}%</span><span>{max}%</span></div>
+      <div className={`flex justify-between text-xs ${darkMode ? 'text-gray-600' : 'text-slate-400'}`}><span>{min}%</span><span>{max}%</span></div>
     </div>
   );
 
@@ -3604,7 +4540,10 @@ const BudgetTool = () => {
     </div>
   );
 })()}
+        </>}
 
+        {/* ─── FORMATION : PILOTAGE FINANCIER ─── */}
+        {activeTab === 'formation' && <>
         {/* PILOTAGE FINANCIER */}
         <PilotageFinancier
           key={pilotageResetKey}
@@ -3612,15 +4551,218 @@ const BudgetTool = () => {
           checkPassword={checkPassword}
           startEmpty={pilotageResetKey > 0}
           budgetPersonnel={[
-            ...direction.personnel.map(p => ({ ...p, source: 'Direction' })),
-            ...services.flatMap(s => s.personnel.map(p => ({ ...p, source: s.nom })))
+            ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction' })),
+            ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom })))
           ]}
           externalSites={pilotageSites}
           setExternalSites={setPilotageSites}
         />
+        </>}
+
+        {/* ─── ONGLET VACATAIRES ─── */}
+        {activeTab === 'vacataires' && (
+          <CalculateurVacataires darkMode={darkMode} />
+        )}
+
+        {/* ─── ONGLET SUBVENTION RÉGION ─── */}
+        {activeTab === 'subvention' && (
+          <SubventionRegion
+            darkMode={darkMode}
+            services={services}
+            direction={direction}
+            poleSupport={poleSupport}
+            calculerBudgetService={s => calculerBudgetService(s, null, 2026, msETP)}
+            calculerBudgetDirection={d => calculerBudgetDirection(d, null, 2026, msETP)}
+            calculerBudgetPoleSupport={ps => calculerBudgetPoleSupport(ps, null, 2026, msETP)}
+          />
+        )}
+
+        {/* ─── ONGLET DAF ─── */}
+        {activeTab === 'daf' && <>
+          {/* Sous-navigation DAF */}
+          <div className={`flex gap-1 mb-6 p-1 rounded-xl w-fit ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-gray-100 border border-gray-200'}`}>
+            {[
+              { id: 'subvention',    label: 'Demande de subvention', icon: <Calculator size={15}/> },
+              { id: 'ventilationBP', label: 'Ventilation BP 2026',   icon: <FileSpreadsheet size={15}/> },
+            ].map(sub => (
+              <button
+                key={sub.id}
+                onClick={() => setDafSubP(sub.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  dafSub === sub.id
+                    ? darkMode ? 'bg-teal-600 text-white shadow' : 'bg-white text-teal-700 shadow'
+                    : darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                {sub.icon} {sub.label}
+              </button>
+            ))}
+          </div>
+
+          {dafSub === 'subvention' && (
+            <DAF
+              darkMode={darkMode}
+              services={services}
+              direction={direction}
+              poleSupport={poleSupport}
+              calculerBudgetService={s => calculerBudgetService(s, null, 2026, msETP)}
+              calculerBudgetDirection={d => calculerBudgetDirection(d, null, 2026, msETP)}
+              calculerBudgetPoleSupport={ps => calculerBudgetPoleSupport(ps, null, 2026, msETP)}
+            />
+          )}
+          {dafSub === 'ventilationBP' && (
+            <VentilationBP
+              darkMode={darkMode}
+              services={services}
+              direction={direction}
+              poleSupport={poleSupport}
+              setServices={setServices}
+              setDirection={setDirection}
+              setPoleSupport={setPoleSupport}
+            />
+          )}
+        </>}
+
+        {/* ─── ONGLET PARAMÈTRES ─── */}
+        {activeTab === 'parametres' && (
+          <div className="space-y-6 max-w-3xl mx-auto">
+
+            {/* Paramètres globaux */}
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+              <h2 className={`text-lg font-black mb-5 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <Cog size={20} className="text-teal-500" /> Paramètres globaux
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className={`rounded-2xl p-4 border ${darkMode ? 'bg-teal-900/20 border-teal-800' : 'bg-teal-50 border-teal-200'}`}>
+                  <label className={`text-xs font-bold uppercase tracking-widest block mb-2 ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>Augmentation salariale annuelle</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" step="0.1" value={globalParams.augmentationAnnuelle}
+                      onChange={(e) => setGlobalParams({...globalParams, augmentationAnnuelle: validerTaux(e.target.value)})}
+                      className={`rounded-xl px-3 py-2 font-black text-2xl outline-none w-24 border ${darkMode ? 'bg-gray-700 text-teal-300 border-teal-700' : 'bg-white text-teal-700 border-teal-200'}`}
+                    />
+                    <span className={`text-2xl font-black ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>%</span>
+                  </div>
+                  <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Appliqué aux salaires pour les années N+1 et N+2</p>
+                </div>
+                <div className={`rounded-2xl p-4 border ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+                  <label className={`text-xs font-bold uppercase tracking-widest block mb-2 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Prime Ségur médico-social / ETP</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" step="1" min="0" value={globalParams.montantSegurETP ?? 238}
+                      onChange={(e) => setGlobalParams({...globalParams, montantSegurETP: parseInt(e.target.value) || 0})}
+                      className={`rounded-xl px-3 py-2 font-black text-2xl outline-none w-28 border ${darkMode ? 'bg-gray-700 text-blue-300 border-blue-700' : 'bg-white text-blue-700 border-blue-200'}`}
+                    />
+                    <span className={`text-lg font-black ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>€/mois</span>
+                  </div>
+                  <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Montant brut ajouté au salaire des agents éligibles</p>
+                </div>
+              </div>
+              <div className={`mt-4 rounded-2xl p-4 border flex items-center justify-between ${darkMode ? 'bg-gray-700/40 border-gray-600' : 'bg-slate-50 border-slate-200'}`}>
+                <div>
+                  <p className={`font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>Mode sombre</p>
+                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Basculer entre thème clair et sombre</p>
+                </div>
+                <button onClick={() => setDarkMode(!darkMode)} className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors ${darkMode ? 'bg-yellow-500 text-gray-900' : 'bg-gray-800 text-white'}`}>
+                  {darkMode ? <><Sun size={16} /> Clair</> : <><Moon size={16} /> Sombre</>}
+                </button>
+              </div>
+            </div>
+
+            {/* Sauvegarde & Export */}
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+              <h2 className={`text-lg font-black mb-5 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <Save size={20} className="text-teal-500" /> Sauvegarde & Export
+              </h2>
+              <div className="flex flex-wrap gap-3">
+                <button onClick={sauvegarderBudget} className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Save size={18} /> Sauver (JSON)</button>
+                <button onClick={() => fileInputRef.current.click()} className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 border ${darkMode ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-600 text-white border-slate-700'}`}><Upload size={18} /> Charger (JSON)</button>
+                <input type="file" ref={fileInputRef} onChange={chargerBudget} accept=".json" className="hidden" />
+                {localStorage.getItem('assoc_backup_last') && (
+                  <button
+                    onClick={restaurerBackup}
+                    title={`Restaurer backup auto (${new Date(localStorage.getItem('assoc_backup_last')).toLocaleString('fr-FR')})`}
+                    className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 border-2 transition-colors ${darkMode ? 'border-amber-600 text-amber-400 hover:bg-amber-900/30' : 'border-amber-400 text-amber-700 hover:bg-amber-50'}`}
+                  >
+                    <RotateCcw size={18} /> Restaurer backup
+                  </button>
+                )}
+                <button onClick={() => exportToExcel(direction, services, globalParams, poleSupport)} className="bg-green-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><FileSpreadsheet size={18} /> Export Excel</button>
+                <button onClick={() => exportToPDF(direction, services, globalParams, poleSupport)} className="bg-red-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Download size={18} /> Export PDF</button>
+                <button onClick={() => window.print()} className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 border ${darkMode ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-500 text-white border-slate-600'}`}><Printer size={18} /> Imprimer</button>
+              </div>
+            </div>
+
+            {/* Import de données */}
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+              <h2 className={`text-lg font-black mb-5 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <Upload size={20} className="text-violet-500" /> Import de données
+              </h2>
+              <div className="flex flex-wrap gap-3">
+                <button onClick={() => setShowImportN1(true)} className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 border-2 transition-colors ${donneesN1 ? (darkMode ? 'border-violet-500 text-violet-300 bg-violet-900/30' : 'border-violet-400 text-violet-700 bg-violet-50') : (darkMode ? 'border-gray-600 text-gray-400 hover:bg-gray-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50')}`}>
+                  <Upload size={18} /> {donneesN1 ? `Données N-1 chargées (${donneesN1.annee}) ✓` : 'Importer données N-1'}
+                </button>
+                <button onClick={() => setShowWizardBP(true)} className="bg-amber-500 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Upload size={18} /> Wizard Import BP</button>
+              </div>
+              {donneesN1 && (
+                <p className={`mt-3 text-xs ${darkMode ? 'text-violet-400' : 'text-violet-600'}`}>
+                  Données N-1 actives : exercice {donneesN1.annee} — colonnes N-1 visibles dans la Synthèse Analytique
+                </p>
+              )}
+            </div>
+
+            {/* Présentation */}
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+              <h2 className={`text-lg font-black mb-5 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <Monitor size={20} className="text-indigo-500" /> Présentation CA/AG
+              </h2>
+              <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Mode diaporama 6 slides — navigation clavier ← →</p>
+              <button onClick={() => { setPresentationMode(true); setSlideIndex(0); }} className="bg-indigo-600 text-white px-5 py-3 rounded-xl font-bold flex items-center gap-2"><Monitor size={18} /> Lancer la présentation</button>
+            </div>
+
+            {/* Administration */}
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+              <h2 className={`text-lg font-black mb-5 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <Shield size={20} className="text-slate-500" /> Administration
+              </h2>
+              <div className="flex flex-wrap gap-3">
+                <button onClick={() => setShowRolesModal(true)} className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 border-2 transition-colors ${darkMode ? 'border-slate-600 text-slate-400 hover:bg-slate-700' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}><Users size={18} /> Gérer les rôles</button>
+                {isLocalhost && (
+                  <button onClick={() => setShowPasswordModal(true)} className="bg-purple-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Key size={18} /> Changer le mot de passe</button>
+                )}
+                <button
+                  onClick={() => { setShowResetModal(true); setResetError(''); setResetPassword(''); }}
+                  className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 border-2 transition-colors ${darkMode ? 'border-red-700 text-red-400 hover:bg-red-900/30' : 'border-red-300 text-red-600 hover:bg-red-50'}`}
+                >
+                  <RotateCcw size={18} /> Réinitialiser toutes les données
+                </button>
+                <button onClick={handleLogout} className="bg-red-500 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><LogOut size={18} /> Déconnexion</button>
+              </div>
+            </div>
+
+            {/* Wizard setup */}
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+              <h2 className={`text-lg font-black mb-3 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <Cog size={20} className="text-teal-500" /> Configuration de l'organisation
+              </h2>
+              <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                Relancer le wizard pour reconfigurer les services, le personnel, les contrats et les paramètres RH depuis le début.
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setShowWizardSetup(true)} className="bg-teal-500 text-white px-5 py-3 rounded-xl font-bold flex items-center gap-2">
+                  <Users size={18} /> Reconfigurer l'organisation
+                </button>
+                {poolRH.length > 0 && (
+                  <div className={`px-4 py-3 rounded-xl flex items-center gap-2 text-sm font-bold ${darkMode ? 'bg-purple-900/40 text-purple-300' : 'bg-purple-50 text-purple-700'}`}>
+                    <Users size={16} /> {poolRH.length} agent{poolRH.length > 1 ? 's' : ''} en Pool RH
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        )}
 
         {/* Bouton ajouter service */}
-        <button onClick={() => {
+        {activeTab === 'budget' && <button onClick={() => {
           const nouveau = {...services[0], id: Date.now(), nom: `Service ${services.length + 1}`,
             personnel: services[0].personnel.map(p => ({...p, id: Date.now() + Math.random()})),
             exploitation: services[0].exploitation.map(e => ({...e, id: Date.now() + Math.random()})),
@@ -3631,10 +4773,15 @@ const BudgetTool = () => {
           setServices([...services, nouveau]);
         }} className="w-full mt-8 py-5 border-2 border-dashed border-teal-300 rounded-3xl text-teal-500 font-black text-lg hover:bg-teal-50 transition-all flex items-center justify-center gap-3 no-print">
           <Plus size={24} /> AJOUTER UN SERVICE
-        </button>
+        </button>}
         </div>
       </div>
     </div>
+    {/* ═══ MODAL FI% ═══ */}
+    <ModalFI fiDialog={fiDialog} setFiDialog={setFiDialog} services={services} setServices={setServices} msETP={msETP} darkMode={darkMode} />
+    {/* ═══ MODAL SAISONNALITÉ RECETTES ═══ */}
+    <ModalSaisonnalite dialog={saisonnaliteDialog} setDialog={setSaisonnaliteDialog} services={services} setServices={setServices} poleSupport={poleSupport} setPoleSupport={setPoleSupport} direction={direction} setDirection={setDirection} darkMode={darkMode} />
+
     {presentationMode && (
       <PresentationMode
         direction={direction}
@@ -3649,6 +4796,7 @@ const BudgetTool = () => {
         calculerStatsFormation={calculerStatsFormation}
       />
     )}
+    </div>
     </>
   );
 };

@@ -66,7 +66,7 @@ const PresentationMode = ({
   const totalMasseSalariale = roleData.reduce((s, r) => s + r.total, 0);
 
   // Effectifs formation
-  const formationServices = services.filter(s => s.promos && s.promos.length > 0);
+  const formationServices = services.filter(s => s.promos && typeof s.promos === 'object' && Object.keys(s.promos).length > 0);
   const totalEtudiants = services.reduce((s, srv) => {
     if (srv.promos) return s + calculerStatsFormation(srv).effectifActuel;
     return s + (srv.unites || 0);
@@ -79,8 +79,17 @@ const PresentationMode = ({
     { annee: 'An 3', budget: totalCharges * 1.04 },
   ];
 
+  const totalMSPct = totalCharges > 0 ? (totalMasseSalariale / totalCharges) * 100 : 0;
+  const servicesChartData = bServices.map(b => ({
+    nom: b.nom.length > 12 ? b.nom.slice(0, 12) + '…' : b.nom,
+    Charges: Math.round(b.total),
+    Recettes: Math.round(b.recettes),
+  }));
+
   const slides = [
     { id: 'cover' },
+    { id: 'kpi-ca' },
+    { id: 'services-chart' },
     { id: 'resultats' },
     { id: 'synthese' },
     { id: 'masse-salariale' },
@@ -130,6 +139,55 @@ const PresentationMode = ({
           </div>
         );
 
+      case 'kpi-ca':
+        return (
+          <div className="flex flex-col items-center justify-center h-full px-8">
+            <h2 className="text-4xl font-black text-white mb-8">Tableau de bord</h2>
+            <div className="grid grid-cols-3 gap-5 w-full max-w-5xl">
+              {[
+                { label: 'Recettes totales', val: fmtK(totalRecettes), sub: 'Produits de l\'exercice', color: 'bg-emerald-900/60 border-emerald-600', txt: 'text-emerald-300' },
+                { label: 'Charges totales', val: fmtK(totalCharges), sub: 'Toutes entités', color: 'bg-red-900/60 border-red-700', txt: 'text-red-300' },
+                { label: 'Solde', val: (solde >= 0 ? '+' : '') + fmtK(solde), sub: solde >= 0 ? 'Excédent' : 'Déficit', color: solde >= 0 ? 'bg-teal-900/60 border-teal-600' : 'bg-orange-900/60 border-orange-700', txt: solde >= 0 ? 'text-teal-300' : 'text-orange-300' },
+                { label: 'Taux de couverture', val: tauxCouverture.toFixed(1) + '%', sub: tauxCouverture >= 100 ? '✓ Équilibré' : '⚠ Sous-couverture', color: tauxCouverture >= 100 ? 'bg-indigo-900/60 border-indigo-600' : 'bg-amber-900/60 border-amber-700', txt: tauxCouverture >= 100 ? 'text-indigo-300' : 'text-amber-300' },
+                { label: 'Masse salariale', val: fmtK(totalMasseSalariale), sub: totalMSPct.toFixed(0) + '% des charges', color: 'bg-purple-900/60 border-purple-700', txt: 'text-purple-300' },
+                { label: 'ETP total', val: totalETP.toFixed(1), sub: `${totalEtudiants} étudiants`, color: 'bg-sky-900/60 border-sky-700', txt: 'text-sky-300' },
+              ].map((k, i) => (
+                <div key={i} className={`rounded-3xl border-2 p-6 flex flex-col items-center ${k.color}`}>
+                  <div className="text-slate-400 text-xs font-bold uppercase mb-2 text-center">{k.label}</div>
+                  <div className={`text-4xl font-black ${k.txt} mb-1`}>{k.val}</div>
+                  <div className="text-slate-500 text-xs">{k.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 'services-chart':
+        return (
+          <div className="flex flex-col h-full px-8 py-6">
+            <h2 className="text-4xl font-black text-white mb-6">Budget par service</h2>
+            <div className="flex-1">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={servicesChartData} margin={{ top: 10, right: 30, left: 20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="nom" tick={{ fill: '#cbd5e1', fontSize: 13, fontWeight: 700 }} />
+                  <YAxis tickFormatter={v => Math.round(v / 1000) + 'k'} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                  <Tooltip
+                    formatter={(v) => fmt(v) + ' €'}
+                    contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 8, color: '#f1f5f9' }}
+                  />
+                  <Bar dataKey="Charges" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Recettes" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex gap-6 justify-center mt-2">
+              <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-red-500" /><span className="text-slate-400 text-sm font-bold">Charges</span></div>
+              <div className="flex items-center gap-2"><div className="w-4 h-4 rounded bg-emerald-500" /><span className="text-slate-400 text-sm font-bold">Recettes</span></div>
+            </div>
+          </div>
+        );
+
       case 'resultats':
         return (
           <div className="flex flex-col items-center justify-center h-full px-8">
@@ -167,8 +225,8 @@ const PresentationMode = ({
                 </thead>
                 <tbody>
                   {[
-                    { nom: 'Direction & Siège', sal: bdDir.salaires, expl: bdDir.chargesSiege, rec: 0 },
-                    { nom: 'Pôle Support', sal: bdPole.salaires, expl: bdPole.exploitation, rec: bdPole.recettes },
+                    { nom: 'Siège', sal: bdDir.salaires, expl: bdDir.chargesSiege, rec: 0 },
+                    { nom: 'Pôle Ressource', sal: bdPole.salaires, expl: bdPole.exploitation, rec: bdPole.recettes },
                     ...bServices.map(b => ({ nom: b.nom, sal: b.salaires, expl: b.exploitation, rec: b.recettes })),
                   ].map((row, i) => {
                     const charges = row.sal + row.expl;
@@ -260,10 +318,11 @@ const PresentationMode = ({
                 {services.map(s => {
                   let effectif = 0;
                   let promoCount = 0;
-                  if (s.promos && s.promos.length > 0) {
+                  if (s.promos && typeof s.promos === 'object' && Object.keys(s.promos).length > 0) {
                     const stats = calculerStatsFormation(s);
                     effectif = stats.effectifActuel;
-                    promoCount = s.promos.length;
+                    const allPromos = Object.values(s.promos).flat();
+                    promoCount = allPromos.length;
                   } else {
                     effectif = s.unites || 0;
                   }
