@@ -1,14 +1,35 @@
 import { CHARGES_PATRONALES, TAUX_CHARGE_TOTAL, PRIME_SEGUR, JOURS_ANNEE, JOURS_OUVRES_AN, JOURS_CONGES_LEGAL, JOURS_CARENCE_MALADIE, CHARGES_VACATAIRE, SEUIL_HEURES_VACATAIRE, SEUIL_RATIO_VACATAIRE, calculerStatsFormation, SMIC_MENSUEL, TAUX_FILLON_MAX, TAUX_CHARGES_APPRENTI } from './constants';
 
+// Normalise une saisie en notation française (2.500 → 2500, 2 500,50 → 2500.5)
+const parseLocaleNumber = (valeur) => {
+  if (typeof valeur === 'number') return valeur;
+  const s = String(valeur).trim().replace(/\s/g, '');
+  const lastDot = s.lastIndexOf('.');
+  const lastComma = s.lastIndexOf(',');
+  let normalized;
+  if (lastComma > lastDot) {
+    // virgule = séparateur décimal : "2.500,50" → "2500.50"
+    normalized = s.replace(/\./g, '').replace(',', '.');
+  } else if (lastDot > lastComma) {
+    const afterDot = s.slice(lastDot + 1);
+    // point suivi de 3 chiffres = séparateur de milliers : "2.500" → "2500"
+    if (/^\d{3}$/.test(afterDot)) normalized = s.replace(/\./g, '');
+    else normalized = s.replace(/,/g, '');
+  } else {
+    normalized = s;
+  }
+  return parseFloat(normalized);
+};
+
 // Fonctions de validation des champs numériques
 export const validerNombre = (valeur, min = 0, max = Infinity) => {
-  const num = parseFloat(valeur);
+  const num = parseLocaleNumber(valeur);
   if (isNaN(num)) return min;
   return Math.min(Math.max(num, min), max);
 };
 
 export const validerEntier = (valeur, min = 0, max = Infinity) => {
-  const num = parseInt(valeur);
+  const num = Math.round(parseLocaleNumber(valeur));
   if (isNaN(num)) return min;
   return Math.min(Math.max(num, min), max);
 };
