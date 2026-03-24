@@ -1,14 +1,14 @@
 /**
- * NumericInput — champ numérique tolérant virgule/point (notation française)
- * Garde la saisie en string localement, commit la valeur numérique au onBlur.
- * Exemples acceptés : 2500 · 2.500 · 2 500 · 2500,50 · 2.500,50
+ * NumericInput — cellule comptable : mise à jour immédiate sur frappe valide,
+ * tolère virgule/point et notation française (2.500 → 2500, 2 500,50 → 2500.5).
+ * Enter = valide ; valeur intermédiaire (se terminant par . ou ,) = pas de mise à jour.
  *
  * Props :
  *  value    : number
  *  onChange : (number) => void
  *  integer  : bool   — arrondit au plus proche entier (défaut false)
  *  className: string
- *  + tous attributs input HTML (placeholder, min, max…)
+ *  + tous attributs input HTML (placeholder…)
  */
 import React, { useState, useEffect, useRef } from 'react';
 
@@ -32,10 +32,14 @@ export function parseLocaleNumber(str) {
   return parseFloat(normalized);
 }
 
+// Vrai si la saisie est en cours (ex : "2." ou "2,")
+const isPartial = (s) => /[.,]$/.test(s.trim());
+
 export default function NumericInput({ value, onChange, integer = false, className, ...props }) {
   const [str, setStr] = useState(String(value ?? ''));
   const lastExternal = useRef(value);
 
+  // Synchronise si la valeur externe change (ex : reset)
   useEffect(() => {
     if (value !== lastExternal.current) {
       const parsedStr = parseLocaleNumber(str);
@@ -44,6 +48,15 @@ export default function NumericInput({ value, onChange, integer = false, classNa
     }
   }, [value]);
 
+  const commit = (raw) => {
+    const parsed = parseLocaleNumber(raw);
+    if (!isNaN(parsed)) {
+      const v = integer ? Math.round(parsed) : parsed;
+      lastExternal.current = v;
+      onChange(v);
+    }
+  };
+
   return (
     <input
       {...props}
@@ -51,16 +64,21 @@ export default function NumericInput({ value, onChange, integer = false, classNa
       inputMode="decimal"
       className={className}
       value={str}
-      onChange={e => setStr(e.target.value)}
+      onChange={e => {
+        const raw = e.target.value;
+        setStr(raw);
+        // Mise à jour immédiate si la valeur est complète (pas de . ou , final)
+        if (!isPartial(raw)) commit(raw);
+      }}
       onBlur={() => {
+        // Assure le commit final même si le dernier char était . ou ,
+        commit(str);
+        // Remet un affichage propre si saisie invalide
         const parsed = parseLocaleNumber(str);
-        if (!isNaN(parsed)) {
-          const v = integer ? Math.round(parsed) : parsed;
-          lastExternal.current = v;
-          onChange(v);
-        } else {
-          setStr(String(value ?? ''));
-        }
+        if (isNaN(parsed)) setStr(String(value ?? ''));
+      }}
+      onKeyDown={e => {
+        if (e.key === 'Enter') e.target.blur();
       }}
     />
   );

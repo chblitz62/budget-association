@@ -74,6 +74,8 @@ function parseLocaleNumber(str) {
   return parseFloat(normalized);
 }
 
+const isPartial = (s) => /[.,]$/.test(s.trim());
+
 // ── Champ numérique tolérant virgule et point ─────────────────────────────────
 function DecimalInput({ value, onChange, integer = false, className, ...props }) {
   const [str, setStr] = useState(String(value ?? ''));
@@ -85,6 +87,14 @@ function DecimalInput({ value, onChange, integer = false, className, ...props })
       lastExternal.current = value;
     }
   }, [value]);
+  const commit = (raw) => {
+    const parsed = parseLocaleNumber(raw);
+    if (!isNaN(parsed)) {
+      const v = integer ? Math.round(parsed) : parsed;
+      lastExternal.current = v;
+      onChange(v);
+    }
+  };
   return (
     <input
       {...props}
@@ -92,17 +102,9 @@ function DecimalInput({ value, onChange, integer = false, className, ...props })
       inputMode="decimal"
       className={className}
       value={str}
-      onChange={e => setStr(e.target.value)}
-      onBlur={() => {
-        const parsed = parseLocaleNumber(str);
-        if (!isNaN(parsed)) {
-          const v = integer ? Math.round(parsed) : parsed;
-          lastExternal.current = v;
-          onChange(v);
-        } else {
-          setStr(String(value ?? ''));
-        }
-      }}
+      onChange={e => { const raw = e.target.value; setStr(raw); if (!isPartial(raw)) commit(raw); }}
+      onBlur={() => { commit(str); const parsed = parseLocaleNumber(str); if (isNaN(parsed)) setStr(String(value ?? '')); }}
+      onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
     />
   );
 }
