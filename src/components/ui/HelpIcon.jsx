@@ -1,57 +1,100 @@
 /**
- * HelpIcon — icône ronde "?" cliquable, affiche l'explication au clic
- * Usage : <HelpIcon content="Explication ici" darkMode={darkMode} />
+ * HelpIcon — icône "?" au survol, bulle d'aide colorée.
  * Props :
- *  content  : string | JSX   — contenu de l'infobulle
- *  size     : number         — taille de l'icône (défaut 14, ignoré — cercle fixe)
- *  darkMode : bool
- *  position : 'top'|'bottom'|'left'|'right'  (défaut 'top')
- *  wide     : bool           — infobulle plus large (défaut false)
+ *   content  : string | JSX   — contenu de l'infobulle
+ *   type     : 'info' | 'warning' | 'default'  — code couleur
+ *   position : 'top'|'bottom'|'left'|'right'   — placement bulle
+ *   wide     : bool — bulle plus large (w-96 vs w-72)
+ *   darkMode : bool (non utilisé — bulle toujours foncée pour le contraste)
+ *
+ * Palette unifiée :
+ *   info    → icône bleue   · bulle fond #0a0a0f · bordure bleue  · badge "💡 Calcul"
+ *   warning → icône orange  · bulle fond #0a0a0f · bordure orange · badge "⚠️ Impact"
+ *   default → icône grise   · bulle fond #0a0a0f · bordure grise
  */
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
+import { HelpCircle } from 'lucide-react';
+import { useTooltips } from '../../utils/TooltipContext';
 
-export default function HelpIcon({ content, darkMode, position = 'top', wide = false }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+const TYPE_STYLES = {
+  info: {
+    icon: 'text-blue-400 hover:text-blue-300',
+    bubble: 'border-blue-500/40',
+    badge: 'bg-blue-500/15 text-blue-300 border border-blue-500/30',
+    badgeText: '💡 Calcul',
+    dot: 'bg-blue-500',
+  },
+  warning: {
+    icon: 'text-orange-400 hover:text-orange-300',
+    bubble: 'border-orange-500/40',
+    badge: 'bg-orange-500/15 text-orange-300 border border-orange-500/30',
+    badgeText: '⚠️ Impact financier',
+    dot: 'bg-orange-500',
+  },
+  default: {
+    icon: 'text-slate-400 hover:text-slate-200',
+    bubble: 'border-slate-600/50',
+    badge: null,
+    badgeText: null,
+    dot: null,
+  },
+};
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+export default function HelpIcon({ content, text, type = 'default', position = 'top', wide = false, darkMode }) {
+  const [visible, setVisible] = useState(false);
+  const timer = useRef(null);
+  const tooltipsEnabled = useTooltips();
+
+  const show = () => { clearTimeout(timer.current); setVisible(true); };
+  const hide = () => { timer.current = setTimeout(() => setVisible(false), 150); };
+
+  const s = TYPE_STYLES[type] || TYPE_STYLES.default;
+  const widthClass = wide ? 'w-96' : 'w-72';
+  const body = content ?? text ?? null;
 
   const posClass = {
     top:    'bottom-full left-1/2 -translate-x-1/2 mb-2',
     bottom: 'top-full left-1/2 -translate-x-1/2 mt-2',
     left:   'right-full top-1/2 -translate-y-1/2 mr-2',
     right:  'left-full top-1/2 -translate-y-1/2 ml-2',
-  }[position] || 'bottom-full left-1/2 -translate-x-1/2 mb-2';
+  }[position] ?? 'bottom-full left-1/2 -translate-x-1/2 mb-2';
 
-  const widthClass = wide ? 'w-96' : 'w-72';
+  if (!body || !tooltipsEnabled) return null;
 
   return (
-    <span ref={ref} className="relative inline-flex items-center">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className={`flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-black transition-colors
-          ${open
-            ? 'bg-teal-500 text-white'
-            : darkMode ? 'bg-gray-600 text-gray-300 hover:bg-teal-600 hover:text-white' : 'bg-slate-200 text-slate-500 hover:bg-teal-500 hover:text-white'
-          }`}
-      >?</button>
-      {open && (
+    <span
+      className="relative inline-flex items-center flex-shrink-0"
+      onMouseEnter={show}
+      onMouseLeave={hide}
+    >
+      <HelpCircle
+        size={14}
+        className={`cursor-help transition-colors ${s.icon}`}
+      />
+
+      {visible && (
         <span
           className={`
             absolute z-[9999] ${posClass} ${widthClass}
-            rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-2xl
-            ${darkMode
-              ? 'bg-gray-800 text-gray-100 border border-gray-600'
-              : 'bg-slate-900 text-slate-50 border border-slate-700'}
+            rounded-xl border shadow-2xl
+            bg-gray-950 text-white
+            ${s.bubble}
           `}
+          style={{ fontFamily: 'inherit' }}
+          onMouseEnter={show}
+          onMouseLeave={hide}
         >
-          {content}
+          {s.dot && (
+            <span className={`block h-0.5 w-full rounded-t-xl ${s.dot} opacity-70`} />
+          )}
+          <span className="block px-3.5 py-3">
+            {s.badge && (
+              <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full mb-2 ${s.badge}`}>
+                {s.badgeText}
+              </span>
+            )}
+            <span className="block text-xs leading-relaxed font-medium text-white/90">{body}</span>
+          </span>
         </span>
       )}
     </span>

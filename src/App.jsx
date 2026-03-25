@@ -21,6 +21,7 @@ import HelpIcon from './components/ui/HelpIcon';
 import ModalFI from './components/modals/ModalFI';
 import ModalSaisonnalite from './components/modals/ModalSaisonnalite';
 import InfoTooltip from './components/ui/Tooltip';
+import { TooltipContext } from './utils/TooltipContext';
 import ModalRoles from './components/modals/ModalRoles';
 import ModalPassword from './components/modals/ModalPassword';
 import ModalReset from './components/modals/ModalReset';
@@ -495,6 +496,7 @@ const BudgetTool = () => {
 
   // Sauvegarde automatique avec notification
   const triggerSaveIndicator = () => window.dispatchEvent(new Event('storage-save'));
+  useEffect(() => { localStorage.setItem('assoc_show_tooltips', String(showTooltips)); }, [showTooltips]);
   useEffect(() => { localStorage.setItem('assoc_globalParams', JSON.stringify(globalParams)); triggerSaveIndicator(); }, [globalParams]);
   useEffect(() => { localStorage.setItem('assoc_direction', JSON.stringify(direction)); triggerSaveIndicator(); }, [direction]);
   const [enveloppeFormation, setEnveloppeFormation] = useState(() => loadFromStorage('assoc_enveloppe_formation', { budget: 0, actions: [] }));
@@ -606,6 +608,10 @@ const BudgetTool = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showAICopilot, setShowAICopilot] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(false);
+  const [showTooltips, setShowTooltips] = useState(() => {
+    const saved = localStorage.getItem('assoc_show_tooltips');
+    return saved === null ? true : saved === 'true';
+  });
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
   const handleLogout = () => {
@@ -812,6 +818,7 @@ const BudgetTool = () => {
     alertes.push({ lvl: 'warning', msg: `Tension de trésorerie prévisionnelle : solde cumulé négatif en ${tresorerie.alertesMois.map(i => ['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][i]).join(', ')}` });
 
   return (
+    <TooltipContext.Provider value={showTooltips}>
     <>
     {/* Startup gate — premier lancement */}
     {showStartupGate && (
@@ -2711,7 +2718,9 @@ const BudgetTool = () => {
                               </div>
                               {/* Effectif initial éditable */}
                               <div className="flex items-center gap-2 mb-2">
-                                <label className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Effectif initial:</label>
+                                <InfoTooltip content="Nombre d'apprenants inscrits au démarrage de la promotion. L'effectif actuel est recalculé chaque mois en soustrayant les abandons cumulés. Utilisé pour le calcul du point mort et le coût par étudiant." darkMode={darkMode} position="top">
+                                  <label className={`text-xs cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Effectif initial:</label>
+                                </InfoTooltip>
                                 <input
                                   type="number"
                                   className={`w-16 text-xs rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`}
@@ -2722,7 +2731,10 @@ const BudgetTool = () => {
                               {/* Abandons par mois */}
                               <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
                                 <div className="flex items-center gap-1 mb-1">
-                                  <UserMinus size={12} /> Abandons par mois:
+                                  <UserMinus size={12} />
+                                  <InfoTooltip content="Nombre d'apprenants qui quittent la formation ce mois-ci (désinscription, rupture, abandon). S'accumule pour calculer l'effectif réel présent chaque mois, et sert à évaluer le risque de rentabilité de la promotion." darkMode={darkMode} position="top">
+                                    <span className="cursor-help">Abandons par mois:</span>
+                                  </InfoTooltip>
                                 </div>
                                 <div className="grid grid-cols-4 sm:grid-cols-6 gap-1">
                                   {Object.entries(promo.abandons).map(([mois, val]) => (
@@ -3066,12 +3078,16 @@ const BudgetTool = () => {
                 {!hasPromos && !isPrestation && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-blue-900/30 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
-                      <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Unités / Bénéficiaires</label>
-                      <input type="number" className={`font-black text-2xl px-4 py-2 rounded-xl w-full outline-none ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-blue-700'}`} value={service.unites} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, unites: validerUnites(e.target.value)} : s))} />
+                      <InfoTooltip content="Nombre de bénéficiaires, usagers ou unités d'œuvre produits sur l'année (ex : nombre de stagiaires, journées de prise en charge…). Utilisé pour calculer le coût par unité et comparer l'efficience entre services." darkMode={darkMode} position="top">
+                        <label className={`text-xs font-black uppercase cursor-help ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Unités / Bénéficiaires</label>
+                      </InfoTooltip>
+                      <input type="number" className={`font-black text-2xl px-4 py-2 rounded-xl w-full outline-none mt-2 ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-blue-700'}`} value={service.unites} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, unites: validerUnites(e.target.value)} : s))} />
                     </div>
                     <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-teal-900/30 border-teal-800' : 'bg-teal-50 border-teal-200'}`}>
-                      <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-teal-400' : 'text-slate-600'}`}>Taux d'activité (%)</label>
-                      <input type="number" className={`font-black text-2xl px-4 py-2 rounded-xl w-full outline-none ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-slate-700'}`} value={service.tauxActivite} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, tauxActivite: validerTaux(e.target.value)} : s))} />
+                      <InfoTooltip content="Pourcentage de temps d'ouverture ou de fonctionnement du service sur l'année. Un service ouvert toute l'année = 100%. Un service saisonnier ouvert 9 mois sur 12 = 75%. Impacte le calcul des unités annuelles réelles." darkMode={darkMode} position="top">
+                        <label className={`text-xs font-black uppercase cursor-help ${darkMode ? 'text-teal-400' : 'text-slate-600'}`}>Taux d'activité (%)</label>
+                      </InfoTooltip>
+                      <input type="number" className={`font-black text-2xl px-4 py-2 rounded-xl w-full outline-none mt-2 ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-slate-700'}`} value={service.tauxActivite} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, tauxActivite: validerTaux(e.target.value)} : s))} />
                     </div>
                   </div>
                 )}
@@ -3080,8 +3096,10 @@ const BudgetTool = () => {
                 {hasPromos && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-teal-900/30 border-teal-800' : 'bg-teal-50 border-teal-200'}`}>
-                      <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-teal-400' : 'text-slate-600'}`}>Taux d'activité (%)</label>
-                      <input type="number" className={`font-black text-2xl px-4 py-2 rounded-xl w-full outline-none ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-slate-700'}`} value={service.tauxActivite} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, tauxActivite: validerTaux(e.target.value)} : s))} />
+                      <InfoTooltip content="Pourcentage de temps d'ouverture ou de fonctionnement du service sur l'année. Un service ouvert toute l'année = 100%. Un service saisonnier ouvert 9 mois sur 12 = 75%. Impacte le calcul des unités annuelles réelles." darkMode={darkMode} position="top">
+                        <label className={`text-xs font-black uppercase cursor-help ${darkMode ? 'text-teal-400' : 'text-slate-600'}`}>Taux d'activité (%)</label>
+                      </InfoTooltip>
+                      <input type="number" className={`font-black text-2xl px-4 py-2 rounded-xl w-full outline-none mt-2 ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-slate-700'}`} value={service.tauxActivite} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, tauxActivite: validerTaux(e.target.value)} : s))} />
                     </div>
                     <div className={`p-4 rounded-2xl border ${darkMode ? 'bg-purple-900/30 border-purple-800' : 'bg-purple-50 border-purple-200'}`}>
                       <label className={`text-xs font-black uppercase block mb-2 ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>Effectif total actuel</label>
@@ -3103,9 +3121,18 @@ const BudgetTool = () => {
                           <div key={key} className={`p-3 rounded-xl ${darkMode ? 'bg-gray-600' : 'bg-white'}`}>
                             <div className="text-xs text-teal-600 font-bold">{info.compte} - {info.libelle}</div>
                             <div className="grid grid-cols-3 gap-2 mt-2">
-                              <input type="number" placeholder="Montant" className={`text-xs rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-slate-50'}`} value={inv.montant} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, investissements: {...s.investissements, [key]: {...inv, montant: validerMontant(e.target.value)}}} : s))} />
-                              <input type="number" placeholder="Durée" className={`text-xs rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-slate-50'}`} value={inv.duree} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, investissements: {...s.investissements, [key]: {...inv, duree: validerDuree(e.target.value)}}} : s))} />
-                              <input type="number" step="0.1" placeholder="Taux" className={`text-xs rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-slate-50'}`} value={inv.taux} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, investissements: {...s.investissements, [key]: {...inv, taux: validerTaux(e.target.value)}}} : s))} />
+                              <div>
+                                <InfoTooltip content="Valeur d'acquisition hors taxes de l'immobilisation (€). Sert de base au calcul de l'amortissement annuel (Montant ÷ Durée) et aux intérêts d'emprunt si financement à crédit." darkMode={darkMode} position="top"><label className={`text-[10px] cursor-help ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Montant €</label></InfoTooltip>
+                                <input type="number" placeholder="0" className={`w-full text-xs rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-slate-50'}`} value={inv.montant} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, investissements: {...s.investissements, [key]: {...inv, montant: validerMontant(e.target.value)}}} : s))} />
+                              </div>
+                              <div>
+                                <InfoTooltip content="Durée d'amortissement comptable en années. Varie selon la nature du bien : 20–50 ans pour les constructions, 5–10 ans pour le matériel, 3–5 ans pour l'informatique. Détermine la dotation aux amortissements annuelle." darkMode={darkMode} position="top"><label className={`text-[10px] cursor-help ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Durée (ans)</label></InfoTooltip>
+                                <input type="number" placeholder="0" className={`w-full text-xs rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-slate-50'}`} value={inv.duree} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, investissements: {...s.investissements, [key]: {...inv, duree: validerDuree(e.target.value)}}} : s))} />
+                              </div>
+                              <div>
+                                <InfoTooltip content="Taux d'intérêt annuel du crédit finançant cet investissement (%). Laisser à 0 si l'achat est réalisé en fonds propres ou sur subvention. Le coût du crédit (intérêts) est inscrit en charges financières." darkMode={darkMode} position="top"><label className={`text-[10px] cursor-help ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Taux crédit %</label></InfoTooltip>
+                                <input type="number" step="0.1" placeholder="0" className={`w-full text-xs rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-slate-50'}`} value={inv.taux} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, investissements: {...s.investissements, [key]: {...inv, taux: validerTaux(e.target.value)}}} : s))} />
+                              </div>
                             </div>
                           </div>
                         );
@@ -3365,7 +3392,9 @@ const BudgetTool = () => {
                               <GraduationCap size={14} /> Vacataires FC / FI
                             </h4>
                             <div className="flex items-center gap-2">
-                              <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Enveloppe :</span>
+                              <InfoTooltip content="Budget maximal alloué aux vacataires (FI + FC) pour ce service sur l'année. Déclenche une alerte visuelle si le coût réel calculé dépasse ce plafond." darkMode={darkMode} position="top">
+                                <span className={`text-xs cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Enveloppe :</span>
+                              </InfoTooltip>
                               <input type="number" min="0" step="100" placeholder="0 €"
                                 className={`w-24 rounded px-2 py-0.5 text-xs font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-white border'} ${bs.alerteEnveloppe ? 'border-red-500' : ''}`}
                                 value={service.budgetVacataires || ''}
@@ -3426,25 +3455,33 @@ const BudgetTool = () => {
                                   {/* Ligne 2 : taux horaire + charges + % FI */}
                                   <div className="flex flex-wrap items-center gap-3 text-xs mb-2">
                                     <div className="flex items-center gap-1">
-                                      <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Taux</span>
+                                      <InfoTooltip content="Taux horaire brut versé à l'intervenant (€/heure). Multiplié par les heures planifiées et les charges patronales pour obtenir le coût employeur total." darkMode={darkMode} position="top">
+                                        <span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Taux</span>
+                                      </InfoTooltip>
                                       <input type="number" min="0" step="1" className={`w-16 rounded px-1.5 py-0.5 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={v.tauxHoraire} onChange={e => updV(v.id, {tauxHoraire: parseFloat(e.target.value)||0})} />
                                       <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>€/h</span>
                                     </div>
                                     <div className="flex items-center gap-1">
-                                      <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Ch.</span>
+                                      <InfoTooltip content="Taux de charges patronales appliqué (%). Les vacataires bénéficient d'un régime allégé (~15%). Un prestataire auto-entrepreneur facture HT sans charges supplémentaires (mettre 0%)." darkMode={darkMode} position="top">
+                                        <span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Ch.</span>
+                                      </InfoTooltip>
                                       <input type="number" min="0" max="100" step="1" className={`w-12 rounded px-1.5 py-0.5 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={v.tauxCharges ?? CHARGES_VACATAIRE} onChange={e => updV(v.id, {tauxCharges: parseFloat(e.target.value)||0})} />
                                       <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>%</span>
                                     </div>
                                     {v.type === 'mixte' && (
                                       <div className="flex items-center gap-1">
-                                        <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>%FI</span>
+                                        <InfoTooltip content="Part des heures allouée à la Formation Initiale (FI). Le solde est affecté à la Formation Continue (FC). Impacte la ventilation des coûts dans la synthèse analytique et la DAF." darkMode={darkMode} position="top">
+                                          <span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>%FI</span>
+                                        </InfoTooltip>
                                         <input type="number" min="0" max="100" step="5" className={`w-12 rounded px-1.5 py-0.5 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={v.pctFI ?? 50} onChange={e => updV(v.id, {pctFI: parseFloat(e.target.value)||0})} />
                                         <span className={darkMode ? 'text-gray-400' : 'text-slate-400'}>FC:{100-(v.pctFI??50)}%</span>
                                       </div>
                                     )}
                                     {v.typeContrat === 'auto_entrepreneur' && (
                                       <div className="flex items-center gap-1">
-                                        <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>SIRET</span>
+                                        <InfoTooltip content="Numéro SIRET de l'auto-entrepreneur (14 chiffres). Obligatoire pour les conventions de prestation avec un travailleur indépendant — vérification légale avant paiement." darkMode={darkMode} position="top">
+                                          <span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>SIRET</span>
+                                        </InfoTooltip>
                                         <input type="text" maxLength={14} placeholder="14 chiffres" className={`w-32 rounded px-1.5 py-0.5 text-xs font-mono ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={v.siret || ''} onChange={e => updV(v.id, {siret: e.target.value})} />
                                       </div>
                                     )}
@@ -4523,7 +4560,9 @@ const BudgetTool = () => {
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className={`rounded-2xl p-4 border ${darkMode ? 'bg-teal-900/20 border-teal-800' : 'bg-teal-50 border-teal-200'}`}>
-                  <label className={`text-xs font-bold uppercase tracking-widest block mb-2 ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>Augmentation salariale annuelle</label>
+                  <InfoTooltip content="Taux d'augmentation général des salaires appliqué à tous les agents chaque année dans les projections N+1 et N+2. Distinct du GVT qui est lié à l'ancienneté." darkMode={darkMode} position="top">
+                    <label className={`text-xs font-bold uppercase tracking-widest cursor-help ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>Augmentation salariale annuelle</label>
+                  </InfoTooltip>
                   <div className="flex items-center gap-2">
                     <input type="number" step="0.1" value={globalParams.augmentationAnnuelle}
                       onChange={(e) => setGlobalParams({...globalParams, augmentationAnnuelle: validerTaux(e.target.value)})}
@@ -4534,7 +4573,9 @@ const BudgetTool = () => {
                   <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Appliqué aux charges d'exploitation pour les années N+1 et N+2</p>
                 </div>
                 <div className={`rounded-2xl p-4 border ${darkMode ? 'bg-indigo-900/20 border-indigo-800' : 'bg-indigo-50 border-indigo-200'}`}>
-                  <label className={`text-xs font-bold uppercase tracking-widest block mb-2 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>GVT — Glissement Vieillesse Technicité</label>
+                  <InfoTooltip content="Hausse automatique de la masse salariale liée aux progressions de carrière (ancienneté, changements d'échelon, promotions). S'applique aux salaires en plus de l'augmentation générale. Typiquement 1 à 2% par an dans le secteur médico-social." darkMode={darkMode} position="top">
+                    <label className={`text-xs font-bold uppercase tracking-widest cursor-help ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>GVT — Glissement Vieillesse Technicité</label>
+                  </InfoTooltip>
                   <div className="flex items-center gap-2">
                     <input type="number" step="0.1" min="0" max="10" value={globalParams.tauxGVT ?? 1.5}
                       onChange={(e) => setGlobalParams({...globalParams, tauxGVT: validerTaux(e.target.value)})}
@@ -4567,7 +4608,9 @@ const BudgetTool = () => {
                   <p className={`text-xs mt-2 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Appliqués aux charges d'exploitation selon leur nature (label des lignes) pour les projections N+1 et N+2</p>
                 </div>
                 <div className={`rounded-2xl p-4 border ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
-                  <label className={`text-xs font-bold uppercase tracking-widest block mb-2 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Prime Ségur médico-social / ETP</label>
+                  <InfoTooltip content="Montant mensuel brut de la prime Ségur de la santé, versée par ETP à chaque agent éligible (case Ségur cochée sur la fiche agent). Soumise aux charges patronales. Montant fixé à 238 €/mois depuis les accords 2021." darkMode={darkMode} position="top">
+                    <label className={`text-xs font-bold uppercase tracking-widest cursor-help ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Prime Ségur médico-social / ETP</label>
+                  </InfoTooltip>
                   <div className="flex items-center gap-2">
                     <input type="number" step="1" min="0" value={globalParams.montantSegurETP ?? 238}
                       onChange={(e) => setGlobalParams({...globalParams, montantSegurETP: parseInt(e.target.value) || 0})}
@@ -4585,6 +4628,15 @@ const BudgetTool = () => {
                 </div>
                 <button onClick={() => setDarkMode(!darkMode)} className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors ${darkMode ? 'bg-yellow-500 text-gray-900' : 'bg-gray-800 text-white'}`}>
                   {darkMode ? <><Sun size={16} /> Clair</> : <><Moon size={16} /> Sombre</>}
+                </button>
+              </div>
+              <div className={`mt-3 rounded-2xl p-4 border flex items-center justify-between ${darkMode ? 'bg-gray-700/40 border-gray-600' : 'bg-slate-50 border-slate-200'}`}>
+                <div>
+                  <p className={`font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>Infobulles d'aide</p>
+                  <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Afficher les icônes ? et les explications au survol sur tous les champs</p>
+                </div>
+                <button onClick={() => setShowTooltips(v => !v)} className={`px-4 py-2 rounded-xl font-bold flex items-center gap-2 transition-colors ${showTooltips ? 'bg-blue-500 text-white' : (darkMode ? 'bg-gray-600 text-gray-300' : 'bg-gray-200 text-gray-600')}`}>
+                  <HelpCircle size={16} /> {showTooltips ? 'Actives' : 'Désactivées'}
                 </button>
               </div>
             </div>
@@ -4915,6 +4967,7 @@ const BudgetTool = () => {
     )}
     </div>
     </>
+    </TooltipContext.Provider>
   );
 };
 

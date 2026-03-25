@@ -1,7 +1,9 @@
-import React from 'react';
-import { Plus, Trash2, HelpCircle, X, Upload, BarChart3, Calculator, RotateCcw } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Trash2, HelpCircle, X, Upload, BarChart3, Calculator, RotateCcw, TrendingDown, Waves, Brain, FileText, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import HelpIcon from '../ui/HelpIcon';
-import { validerTaux, validerEntier, validerMontant, validerMontantSigne, calculerProvisions, calculerBFR, calculerFondRoulement } from '../../utils/calculations';
+import { validerTaux, validerEntier, validerMontant, validerMontantSigne, calculerProvisions, calculerBFR, calculerFondRoulement, calculerBudgetService } from '../../utils/calculations';
+import { FINANCIAL_HELP as H, calculerStatsFormation } from '../../utils/constants';
+import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Line, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 
 export default function TabAnalyse({
   darkMode,
@@ -18,15 +20,397 @@ export default function TabAnalyse({
   getBudgetDirection,
   getBudgetPoleSupport,
   getBudgetService,
+  getProvisions: getProvisionsProp,
+  getBFR: getBFRProp,
+  getFondRoulement: getFondRoulementProp,
   msETP,
   planningAbsences,
+  simRegion,
+  setSimRegion,
+  poolRH,
+  masseSalarialeTotal,
+  statsFormation,
+  personnelEligibleSubvention,
 }) {
-  const getProvisions = () => calculerProvisions(direction, services, globalParams, poleSupport);
-  const getBFR = () => calculerBFR(direction, services, globalParams, poleSupport);
-  const getFondRoulement = () => calculerFondRoulement(direction, services, globalParams);
+  const getProvisions = getProvisionsProp || (() => calculerProvisions(direction, services, globalParams, poleSupport));
+  const getBFR = getBFRProp || (() => calculerBFR(direction, services, globalParams, poleSupport));
+  const getFondRoulement = getFondRoulementProp || (() => calculerFondRoulement(direction, services, globalParams));
+
+  const [activeKpi, setActiveKpi] = useState(null);
+  const [showRapport, setShowRapport] = useState(false);
 
   return (
     <>
+      {/* ═══ SYNTHÈSE CONSOLIDÉE CROSS-MODULES ═══ */}
+      {(masseSalarialeTotal > 0 || statsFormation?.effectifTotal > 0) && (
+        <div className={`rounded-2xl border p-5 mb-6 ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-gradient-to-r from-slate-50 to-indigo-50 border-indigo-100'}`}>
+          <div className="flex items-center gap-2 mb-4">
+            <div className={`p-1.5 rounded-lg ${darkMode ? 'bg-indigo-900/40' : 'bg-indigo-100'}`}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={darkMode ? '#818cf8' : '#4f46e5'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h18v18H3z"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+            </div>
+            <span className={`text-sm font-black uppercase tracking-wide ${darkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>Synthèse consolidée — Sources croisées</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {masseSalarialeTotal > 0 && (
+              <div className={`rounded-xl p-3 ${darkMode ? 'bg-zinc-700' : 'bg-white border border-indigo-100'}`}>
+                <div className={`text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Masse salariale totale</div>
+                <div className={`text-lg font-black tabular-nums ${darkMode ? 'text-white' : 'text-slate-800'}`}>{Math.round(masseSalarialeTotal / 1000)}k €</div>
+                <div className={`text-[10px] mt-0.5 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>RH + Pool RH</div>
+              </div>
+            )}
+            {statsFormation?.effectifTotal > 0 && (
+              <div className={`rounded-xl p-3 ${darkMode ? 'bg-zinc-700' : 'bg-white border border-indigo-100'}`}>
+                <div className={`text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Effectifs formation</div>
+                <div className={`text-lg font-black tabular-nums ${darkMode ? 'text-white' : 'text-slate-800'}`}>{statsFormation.effectifTotal}</div>
+                <div className={`text-[10px] mt-0.5 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>étudiants actifs</div>
+              </div>
+            )}
+            {masseSalarialeTotal > 0 && statsFormation?.effectifTotal > 0 && (
+              <div className={`rounded-xl p-3 ${darkMode ? 'bg-zinc-700' : 'bg-white border border-indigo-100'}`}>
+                <div className={`text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>MS / étudiant</div>
+                <div className={`text-lg font-black tabular-nums ${darkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>{Math.round(masseSalarialeTotal / statsFormation.effectifTotal).toLocaleString()} €</div>
+                <div className={`text-[10px] mt-0.5 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>coût RH unitaire</div>
+              </div>
+            )}
+            {personnelEligibleSubvention?.length > 0 && (
+              <div className={`rounded-xl p-3 ${darkMode ? 'bg-zinc-700' : 'bg-white border border-violet-100'}`}>
+                <div className={`text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Personnel éligible subv.</div>
+                <div className={`text-lg font-black tabular-nums ${darkMode ? 'text-violet-300' : 'text-violet-700'}`}>{personnelEligibleSubvention.length} agent{personnelEligibleSubvention.length > 1 ? 's' : ''}</div>
+                <div className={`text-[10px] mt-0.5 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{Math.round(personnelEligibleSubvention.reduce((s, p) => s + p.coutSubventionnable, 0) / 1000)}k € → DAF</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ RADAR DE SANTÉ ═══ */}
+      {(() => {
+        const bdDir = getBudgetDirection();
+        const bdPS  = getBudgetPoleSupport();
+        const totalCharges = services.reduce((s, svc) => s + getBudgetService(svc).total, 0) + bdDir.total + bdPS.total;
+        const totalRecettes = services.reduce((s, svc) => s + getBudgetService(svc).recettes, 0);
+        const totalSubventions = services.reduce((s, svc) => {
+          return s + (svc.recettes || []).filter(r => r.type === 'subvention' || (r.nom || '').toLowerCase().includes('subvention') || (r.nom || '').toLowerCase().includes('région')).reduce((a, r) => a + (r.montant || 0) * 12, 0);
+        }, 0);
+
+        const tauxCouv = totalCharges > 0 ? Math.min(totalRecettes / totalCharges * 100, 120) : 0;
+        const overhead = totalCharges > 0 ? (bdDir.total + bdPS.total) / totalCharges * 100 : 0;
+        const ratioPMS = totalRecettes > 0 && masseSalarialeTotal > 0 ? masseSalarialeTotal / totalRecettes * 100 : 0;
+        const depSub = totalRecettes > 0 ? totalSubventions / totalRecettes * 100 : 50;
+
+        // Abandons globaux
+        let totalEtus = 0, totalAbandons = 0;
+        services.forEach(svc => {
+          if (svc.promos) {
+            const st = calculerStatsFormation(svc);
+            totalEtus += st.totalEtudiants || 0;
+            totalAbandons += st.totalAbandons || 0;
+          }
+        });
+        const tauxRetention = totalEtus > 0 ? Math.max(0, (1 - totalAbandons / totalEtus) * 100) : 80;
+
+        // Normalisation 0–100 (plus haut = mieux)
+        const kpiMarge = Math.max(0, Math.min(100, tauxCouv - 20));          // 20=0, 120=100
+        const kpiStructure = Math.max(0, Math.min(100, 100 - overhead * 2)); // 0%overhead=100, 50%=0
+        const kpiMS = Math.max(0, Math.min(100, 150 - ratioPMS));            // 50%=100, 150%=0
+        const kpiRetention = Math.max(0, Math.min(100, tauxRetention));
+        const kpiSubvention = Math.max(0, Math.min(100, 100 - depSub));      // 0% dep.=100
+
+        const radarData = [
+          { kpi: 'Marge', val: Math.round(kpiMarge),      raw: `${tauxCouv.toFixed(0)}% couverture`,        detail: 'Taux de couverture recettes/charges. 100% = équilibre.' },
+          { kpi: 'Structure', val: Math.round(kpiStructure), raw: `${overhead.toFixed(0)}% overhead`,         detail: 'Efficience : poids Direction+Pôle Support dans les charges. Seuil sain : <30%.' },
+          { kpi: 'Masse sal.', val: Math.round(kpiMS),    raw: `${ratioPMS.toFixed(0)}% MS/recettes`,       detail: 'Ratio masse salariale / recettes. Seuil d\'alerte : >70%.' },
+          { kpi: 'Rétention', val: Math.round(kpiRetention), raw: `${tauxRetention.toFixed(0)}% maintien`,  detail: 'Taux de maintien en formation (100% − taux d\'abandon).' },
+          { kpi: 'Autonomie', val: Math.round(kpiSubvention), raw: `${depSub.toFixed(0)}% subventions`,     detail: 'Indépendance financière : 100% = aucune recette issue de subventions.' },
+        ];
+
+        const scoreGlobal = Math.round(radarData.reduce((s, d) => s + d.val, 0) / radarData.length);
+        const scoreColor = scoreGlobal >= 70 ? 'text-emerald-500' : scoreGlobal >= 50 ? 'text-amber-500' : 'text-rose-500';
+
+        // Rapport stratégique
+        const genererRapport = () => {
+          const vigilance = [];
+          const opportunites = [];
+          if (tauxCouv < 100) vigilance.push(`⚠ Taux de couverture insuffisant (${tauxCouv.toFixed(0)}%) — déficit de ${Math.round(totalCharges - totalRecettes).toLocaleString('fr-FR')} €. Activer les leviers de recettes ou réduire les charges variables.`);
+          if (overhead > 35) vigilance.push(`⚠ Overhead structurel élevé (${overhead.toFixed(0)}%) — la part Direction+Pôle Support dépasse le seuil de 30%.`);
+          if (ratioPMS > 75) vigilance.push(`⚠ Poids de la masse salariale critique (${ratioPMS.toFixed(0)}% des recettes) — toute variation de recettes amplifie l'impact sur la trésorerie.`);
+          if (depSub > 60) vigilance.push(`⚠ Dépendance aux subventions élevée (${depSub.toFixed(0)}%) — risque de fragilité si un financeur se retire. Diversifier les sources.`);
+          if (totalAbandons > 0 && totalAbandons / (totalEtus || 1) > 0.1) vigilance.push(`⚠ Taux d'abandon formation (${(totalAbandons / (totalEtus || 1) * 100).toFixed(0)}%) — perte de recettes et signal qualité pédagogique.`);
+
+          if (depSub < 80 && totalRecettes > 0) opportunites.push(`✓ Potentiel de diversification : ${(100 - depSub).toFixed(0)}% des recettes sont issues de sources autonomes (droits d'inscription, prestations). À développer.`);
+          if (overhead < 30) opportunites.push(`✓ Structure légère (overhead ${overhead.toFixed(0)}%) — efficience opérationnelle favorable. Marge de manœuvre pour investir dans le pédagogique.`);
+          if (statsFormation?.effectifTotal > 0 && masseSalarialeTotal > 0) {
+            const cout = Math.round(masseSalarialeTotal / statsFormation.effectifTotal);
+            opportunites.push(`✓ Coût RH par étudiant : ${cout.toLocaleString('fr-FR')} €. Benchmarker vs. formations similaires pour identifier les gisements d'efficience.`);
+          }
+          opportunites.push(`✓ Subventions OPCO/DREETS : vérifier l'éligibilité des formations continues aux dispositifs FNE-Formation, CPF, Plan de développement des compétences.`);
+
+          const prevision = tauxCouv >= 100
+            ? `Atterrissage financier favorable : excédent prévisionnel de ${Math.round(totalRecettes - totalCharges).toLocaleString('fr-FR')} €. Affecter en réserves de gestion.`
+            : `Atterrissage financier déficitaire : un déficit de ${Math.round(totalCharges - totalRecettes).toLocaleString('fr-FR')} € est prévu. Sans action corrective, les réserves seront sollicitées.`;
+
+          return { vigilance, opportunites, prevision, scoreGlobal, date: new Date().toLocaleDateString('fr-FR') };
+        };
+
+        const rapport = showRapport ? genererRapport() : null;
+
+        return (
+          <div className={`rounded-3xl shadow-lg border-2 p-6 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-violet-900' : 'bg-gradient-to-br from-violet-50 to-fuchsia-50 border-violet-200'}`}>
+            {/* Header */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+              <div className="flex items-center gap-3">
+                <Brain className={darkMode ? 'text-violet-400' : 'text-violet-600'} size={24} />
+                <div>
+                  <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Radar de Santé</h2>
+                  <span className={`text-xs font-bold ${darkMode ? 'text-violet-400' : 'text-violet-600'}`}>5 KPIs stratégiques · Cliquez un axe pour le détail</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className={`text-center px-4 py-2 rounded-xl ${darkMode ? 'bg-zinc-700' : 'bg-white border border-violet-100'}`}>
+                  <div className={`text-[10px] font-bold uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Score global</div>
+                  <div className={`text-2xl font-black ${scoreColor}`}>{scoreGlobal}<span className="text-sm">/100</span></div>
+                </div>
+                <button
+                  onClick={() => setShowRapport(v => !v)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs transition-all ${
+                    showRapport
+                      ? 'bg-violet-500 text-white shadow-md'
+                      : darkMode ? 'bg-zinc-700 text-violet-300 hover:bg-violet-900/40' : 'bg-violet-100 text-violet-700 hover:bg-violet-200'
+                  }`}
+                >
+                  <FileText size={13} />
+                  {showRapport ? 'Fermer rapport' : 'Rapport stratégique'}
+                </button>
+              </div>
+            </div>
+
+            {/* Radar + Légende */}
+            <div className="flex flex-wrap gap-6 items-start">
+              <div className="flex-1 min-w-[260px]">
+                <ResponsiveContainer width="100%" height={280}>
+                  <RadarChart data={radarData} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
+                    <PolarGrid stroke={darkMode ? '#374151' : '#e2e8f0'} />
+                    <PolarAngleAxis
+                      dataKey="kpi"
+                      tick={({ payload, x, y, cx, cy, ...rest }) => {
+                        const d = radarData.find(r => r.kpi === payload.value);
+                        const isActive = activeKpi === payload.value;
+                        return (
+                          <text
+                            x={x} y={y}
+                            textAnchor={x > cx ? 'start' : x < cx ? 'end' : 'middle'}
+                            dominantBaseline="central"
+                            fontSize={11}
+                            fontWeight={isActive ? 800 : 600}
+                            fill={isActive ? (darkMode ? '#c084fc' : '#7c3aed') : (darkMode ? '#9ca3af' : '#475569')}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => setActiveKpi(v => v === payload.value ? null : payload.value)}
+                          >
+                            {payload.value}
+                          </text>
+                        );
+                      }}
+                    />
+                    <PolarRadiusAxis angle={90} domain={[0, 100]} tick={false} axisLine={false} />
+                    <Radar
+                      name="Score"
+                      dataKey="val"
+                      stroke={darkMode ? '#a78bfa' : '#7c3aed'}
+                      fill={darkMode ? '#7c3aed' : '#8b5cf6'}
+                      fillOpacity={0.3}
+                      strokeWidth={2}
+                      dot={{ r: 4, fill: darkMode ? '#c084fc' : '#7c3aed', cursor: 'pointer' }}
+                      onClick={(data) => setActiveKpi(v => v === data?.kpi ? null : data?.kpi)}
+                    />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: darkMode ? '#1f2937' : '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', fontSize: 12 }}
+                      formatter={(v, n, p) => [`${v}/100`, p?.payload?.raw]}
+                    />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* KPI liste */}
+              <div className="flex-1 min-w-[200px] space-y-2">
+                {radarData.map(d => (
+                  <button
+                    key={d.kpi}
+                    onClick={() => setActiveKpi(v => v === d.kpi ? null : d.kpi)}
+                    className={`w-full text-left p-3 rounded-xl border transition-all ${
+                      activeKpi === d.kpi
+                        ? darkMode ? 'bg-violet-900/40 border-violet-500' : 'bg-violet-50 border-violet-300'
+                        : darkMode ? 'bg-zinc-700/50 border-zinc-600 hover:bg-zinc-700' : 'bg-white border-slate-100 hover:border-violet-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-xs font-black ${darkMode ? 'text-white' : 'text-slate-700'}`}>{d.kpi}</span>
+                      <span className={`text-xs font-black ${d.val >= 70 ? 'text-emerald-500' : d.val >= 40 ? 'text-amber-500' : 'text-rose-500'}`}>{d.val}/100</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-zinc-600 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${d.val >= 70 ? 'bg-emerald-400' : d.val >= 40 ? 'bg-amber-400' : 'bg-rose-400'}`}
+                        style={{ width: `${d.val}%` }}
+                      />
+                    </div>
+                    <div className={`text-[10px] mt-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{d.raw}</div>
+                    {activeKpi === d.kpi && (
+                      <div className={`mt-2 pt-2 border-t text-[11px] ${darkMode ? 'border-zinc-500 text-gray-300' : 'border-slate-200 text-slate-600'}`}>
+                        {d.detail}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Rapport stratégique */}
+            {showRapport && rapport && (
+              <div className={`mt-5 pt-5 border-t ${darkMode ? 'border-zinc-700' : 'border-violet-100'}`}>
+                <div className="flex items-center gap-2 mb-4">
+                  <FileText size={16} className={darkMode ? 'text-violet-400' : 'text-violet-600'} />
+                  <span className={`font-black text-sm ${darkMode ? 'text-white' : 'text-slate-800'}`}>Note de Synthèse Stratégique — {rapport.date}</span>
+                  <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-bold ${rapport.scoreGlobal >= 70 ? 'bg-emerald-100 text-emerald-700' : rapport.scoreGlobal >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'}`}>
+                    Score {rapport.scoreGlobal}/100
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className={`rounded-xl p-4 border ${darkMode ? 'bg-rose-900/20 border-rose-700/40' : 'bg-rose-50 border-rose-200'}`}>
+                    <div className={`font-black text-xs mb-3 flex items-center gap-1 ${darkMode ? 'text-rose-300' : 'text-rose-700'}`}>
+                      <AlertTriangle size={12} /> 1. Points de vigilance
+                    </div>
+                    {rapport.vigilance.length === 0
+                      ? <p className={`text-[11px] ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Aucun point critique détecté.</p>
+                      : rapport.vigilance.map((v, i) => <p key={i} className={`text-[11px] mb-2 ${darkMode ? 'text-gray-300' : 'text-slate-700'}`}>{v}</p>)
+                    }
+                  </div>
+                  <div className={`rounded-xl p-4 border ${darkMode ? 'bg-emerald-900/20 border-emerald-700/40' : 'bg-emerald-50 border-emerald-200'}`}>
+                    <div className={`font-black text-xs mb-3 flex items-center gap-1 ${darkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                      2. Opportunités d'optimisation
+                    </div>
+                    {rapport.opportunites.map((v, i) => <p key={i} className={`text-[11px] mb-2 ${darkMode ? 'text-gray-300' : 'text-slate-700'}`}>{v}</p>)}
+                  </div>
+                  <div className={`rounded-xl p-4 border ${darkMode ? 'bg-blue-900/20 border-blue-700/40' : 'bg-blue-50 border-blue-200'}`}>
+                    <div className={`font-black text-xs mb-3 ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>3. Prévision d'atterrissage</div>
+                    <p className={`text-[11px] ${darkMode ? 'text-gray-300' : 'text-slate-700'}`}>{rapport.prevision}</p>
+                    {masseSalarialeTotal > 0 && totalRecettes > 0 && (
+                      <p className={`text-[11px] mt-2 ${darkMode ? 'text-gray-400' : 'text-slate-600'}`}>
+                        Ratio MS/Recettes : <strong>{Math.round(masseSalarialeTotal / totalRecettes * 100)}%</strong>{' '}
+                        {masseSalarialeTotal / totalRecettes > 0.75 ? '— levier prioritaire à surveiller.' : '— dans les normes.'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ═══ POINT MORT PAR PROMOTION ═══ */}
+      {services.some(s => s.promos?.length > 0) && (() => {
+        const promoData = [];
+        services.forEach(svc => {
+          if (!svc.promos?.length) return;
+          const bs = getBudgetService(svc);
+          const nPersonnel = (svc.personnel || []).length;
+          const chargesFixesAnnuelles = bs.total - (bs.vacataires || 0);
+          const totalEtus = svc.promos.reduce((s, p) => s + (p.effectif || 0), 0);
+          const totalAbandons = svc.promos.reduce((s, p) => {
+            const ab = p.abandons || {};
+            return s + Object.values(ab).reduce((a, v) => a + (parseInt(v) || 0), 0);
+          }, 0);
+          const etusActuels = Math.max(0, totalEtus - totalAbandons);
+
+          svc.promos.forEach(promo => {
+            const effectif = promo.effectif || 0;
+            const chargesPromo = totalEtus > 0 ? chargesFixesAnnuelles * (effectif / totalEtus) : chargesFixesAnnuelles;
+            // Recettes par étudiant (droits d'inscription + autres recettes variables)
+            const recettesVarParEtu = totalEtus > 0 ? bs.recettes / totalEtus : 0;
+            const chargesVarParEtu = bs.vacataires && totalEtus > 0 ? (bs.vacataires / totalEtus) : 0;
+            const margeContrib = recettesVarParEtu - chargesVarParEtu;
+            const pointMort = margeContrib > 0 ? Math.ceil(chargesPromo / margeContrib) : null;
+            const abandonsCumul = (() => {
+              const ab = promo.abandons || {};
+              return Object.values(ab).reduce((a, v) => a + (parseInt(v) || 0), 0);
+            })();
+            const etusRestants = effectif - abandonsCumul;
+            const risque = pointMort !== null && etusRestants < pointMort;
+
+            promoData.push({
+              service: svc.nom,
+              promo: promo.nom || `Promo ${promo.id}`,
+              effectif,
+              abandonsCumul,
+              etusRestants,
+              pointMort,
+              risque,
+            });
+          });
+        });
+
+        if (promoData.length === 0) return null;
+
+        return (
+          <div className={`rounded-3xl shadow-lg border-2 p-6 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-amber-900' : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200'}`}>
+            <div className="flex items-center gap-3 mb-5">
+              <AlertTriangle className={darkMode ? 'text-amber-400' : 'text-amber-600'} size={24} />
+              <div>
+                <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Point Mort par Promotion</h2>
+                <span className={`text-xs font-bold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>Effectif minimum pour couvrir les charges fixes · Alertes temps réel</span>
+              </div>
+              {promoData.some(p => p.risque) && (
+                <span className="ml-auto px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-black animate-pulse">
+                  {promoData.filter(p => p.risque).length} RISQUE{promoData.filter(p => p.risque).length > 1 ? 'S' : ''} RENTABILITÉ
+                </span>
+              )}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className={darkMode ? 'text-gray-400' : 'text-slate-500'}>
+                    <th className="text-left py-2 px-3 font-bold">Service</th>
+                    <th className="text-left py-2 px-3 font-bold">Promotion</th>
+                    <th className="text-right py-2 px-3 font-bold">Effectif initial</th>
+                    <th className="text-right py-2 px-3 font-bold">Abandons</th>
+                    <th className="text-right py-2 px-3 font-bold">Étudiants actifs</th>
+                    <th className="text-right py-2 px-3 font-bold">Point mort</th>
+                    <th className="text-center py-2 px-3 font-bold">Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {promoData.map((p, i) => (
+                    <tr key={i} className={`border-t ${darkMode ? 'border-zinc-700' : 'border-slate-100'} ${p.risque ? (darkMode ? 'bg-rose-900/20' : 'bg-rose-50') : ''}`}>
+                      <td className={`py-2.5 px-3 font-bold ${darkMode ? 'text-gray-200' : 'text-slate-700'}`}>{p.service}</td>
+                      <td className={`py-2.5 px-3 ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{p.promo}</td>
+                      <td className={`py-2.5 px-3 text-right tabular-nums ${darkMode ? 'text-gray-200' : 'text-slate-700'}`}>{p.effectif}</td>
+                      <td className={`py-2.5 px-3 text-right tabular-nums ${p.abandonsCumul > 0 ? 'text-rose-500 font-bold' : darkMode ? 'text-gray-400' : 'text-slate-400'}`}>
+                        {p.abandonsCumul > 0 ? `−${p.abandonsCumul}` : '—'}
+                      </td>
+                      <td className={`py-2.5 px-3 text-right tabular-nums font-bold ${p.risque ? 'text-rose-500' : 'text-emerald-500'}`}>{p.etusRestants}</td>
+                      <td className={`py-2.5 px-3 text-right tabular-nums ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>
+                        {p.pointMort !== null ? p.pointMort : <span className="opacity-40">n/a</span>}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        {p.risque ? (
+                          <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black">⚠ RISQUE</span>
+                        ) : p.pointMort !== null ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold">OK</span>
+                        ) : (
+                          <span className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className={`mt-3 text-[11px] ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+              Point mort = charges fixes promo ÷ marge de contribution par étudiant. Si les étudiants actifs passent sous ce seuil, le service génère un déficit.
+            </div>
+          </div>
+        );
+      })()}
+
       {/* PROVISIONS & BFR & FONDS DE ROULEMENT */}
       <div id="provisions-bfr-fr" className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {/* PROVISIONS */}
@@ -82,33 +466,39 @@ export default function TabAnalyse({
                     />
                   </div>
                   <div className="flex items-center gap-2 text-xs">
-                    <select
-                      className={`rounded px-2 py-1 ${darkMode ? 'bg-gray-600 text-white' : 'bg-orange-50'}`}
-                      value={globalParams.provisions[idx]?.baseCalcul || prov.baseCalcul}
-                      onChange={(e) => setGlobalParams({
-                        ...globalParams,
-                        provisions: globalParams.provisions.map(pr =>
-                          pr.id === prov.id ? {...pr, baseCalcul: e.target.value} : pr
-                        )
-                      })}
-                    >
-                      <option value="salaires">% Salaires</option>
-                      <option value="investissements">% Investissements</option>
-                      <option value="chiffre_affaires">% Chiffre d'affaires</option>
-                    </select>
-                    <input
-                      type="number"
-                      step="0.1"
-                      className={`w-16 text-right rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-orange-50'}`}
-                      value={globalParams.provisions[idx]?.taux || 0}
-                      onChange={(e) => setGlobalParams({
-                        ...globalParams,
-                        provisions: globalParams.provisions.map(pr =>
-                          pr.id === prov.id ? {...pr, taux: validerTaux(e.target.value)} : pr
-                        )
-                      })}
-                    />
-                    <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>%</span>
+                    <div className="flex items-center gap-1">
+                      <HelpIcon darkMode={darkMode} position="right" content="Assiette de calcul de la provision : masse salariale totale, valeur des investissements, ou chiffre d'affaires (recettes totales). Le montant provisionné = base × taux." />
+                      <select
+                        className={`rounded px-2 py-1 ${darkMode ? 'bg-gray-600 text-white' : 'bg-orange-50'}`}
+                        value={globalParams.provisions[idx]?.baseCalcul || prov.baseCalcul}
+                        onChange={(e) => setGlobalParams({
+                          ...globalParams,
+                          provisions: globalParams.provisions.map(pr =>
+                            pr.id === prov.id ? {...pr, baseCalcul: e.target.value} : pr
+                          )
+                        })}
+                      >
+                        <option value="salaires">% Salaires</option>
+                        <option value="investissements">% Investissements</option>
+                        <option value="chiffre_affaires">% Chiffre d'affaires</option>
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <HelpIcon darkMode={darkMode} position="right" content="Taux de provisionnement appliqué à la base sélectionnée. Ex : 10% des salaires pour les congés payés, 1% du CA pour les créances douteuses." />
+                      <input
+                        type="number"
+                        step="0.1"
+                        className={`w-16 text-right rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-orange-50'}`}
+                        value={globalParams.provisions[idx]?.taux || 0}
+                        onChange={(e) => setGlobalParams({
+                          ...globalParams,
+                          provisions: globalParams.provisions.map(pr =>
+                            pr.id === prov.id ? {...pr, taux: validerTaux(e.target.value)} : pr
+                          )
+                        })}
+                      />
+                      <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>%</span>
+                    </div>
                   </div>
                   <div className={`text-right mt-1 font-black text-orange-600`}>
                     {Math.round(prov.montant).toLocaleString()} €
@@ -129,14 +519,7 @@ export default function TabAnalyse({
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
                 <h2 className={`text-xl font-black ${darkMode ? 'text-purple-400' : 'text-purple-900'}`}>Fonds de Roulement</h2>
-                <div className="relative group">
-                  <HelpCircle size={16} className={`cursor-help ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-                  <div className={`absolute left-0 top-6 w-72 p-3 rounded-xl shadow-lg z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-slate-700'}`}>
-                    <p className="font-bold mb-2">Méthode de calcul :</p>
-                    <p className="text-xs mb-1"><strong>FR = Capitaux permanents - Immobilisations nettes</strong></p>
-                    <p className="text-xs text-gray-500">Le FR représente la part des capitaux permanents qui finance l'exploitation. Un FR positif signifie une marge de sécurité financière.</p>
-                  </div>
-                </div>
+                <HelpIcon {...H.fondsRoulement} darkMode={darkMode} position="right" wide />
               </div>
               <button
                 onClick={() => setGlobalParams({
@@ -180,6 +563,7 @@ export default function TabAnalyse({
                       })}
                     />
                     <div className="flex items-center gap-1">
+                      <HelpIcon darkMode={darkMode} position="left" content={item.id === 'reportNouveau' ? "Report à nouveau : résultat excédentaire ou déficitaire des exercices précédents, repris en fonds propres. Peut être négatif si l'association a accumulé des déficits." : item.id === 'subventionsInvest' ? "Subventions d'investissement reçues non encore amorties. Constituent des ressources stables mais doivent être progressivement reprises en résultat." : "Réserves accumulées par l'association sur les exercices précédents (excédents mis en réserve). Constituent un filet de sécurité financier."} />
                       <input
                         type="number"
                         className={`w-24 text-right rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-purple-50'}`}
@@ -219,16 +603,7 @@ export default function TabAnalyse({
           {(() => { const b = getBFR(); return (<>
             <div className="flex items-center gap-2 mb-4">
               <h2 className={`text-xl font-black ${darkMode ? 'text-blue-400' : 'text-blue-900'}`}>Besoin en Fonds de Roulement</h2>
-              <div className="relative group">
-                <HelpCircle size={16} className={`cursor-help ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                <div className={`absolute right-0 top-6 w-80 p-3 rounded-xl shadow-lg z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-slate-700'}`}>
-                  <p className="font-bold mb-2">Méthode de calcul :</p>
-                  <p className="text-xs mb-1"><strong>BFR = Stocks + Créances clients - Dettes fournisseurs</strong></p>
-                  <p className="text-xs mb-1">Créances = (CA / 365) × Délai paiement clients</p>
-                  <p className="text-xs mb-1">Dettes = (Achats / 365) × Délai paiement fournisseurs</p>
-                  <p className="text-xs text-gray-500 mt-2">Le BFR représente le besoin de financement lié au cycle d'exploitation. Un BFR négatif est favorable.</p>
-                </div>
-              </div>
+              <HelpIcon {...H.bfr} darkMode={darkMode} position="right" wide />
             </div>
             <div className={`text-xs mb-3 p-3 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-400' : 'bg-blue-100 text-blue-700'}`}>
               <div className="font-bold mb-1">Formule :</div>
@@ -237,7 +612,10 @@ export default function TabAnalyse({
             <div className="space-y-2">
               <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
                 <div className="flex items-center justify-between">
-                  <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>Stocks</span>
+                  <span className={`flex items-center gap-1 ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>
+                    Stocks
+                    <HelpIcon darkMode={darkMode} position="right" content="Valeur des stocks de fournitures, matières ou marchandises en fin d'exercice. Pour une association de formation, il peut s'agir de matériel pédagogique non encore consommé. Augmente le BFR car immobilise de la trésorerie." />
+                  </span>
                   <div className="flex items-center gap-1">
                     <input
                       type="number"
@@ -255,7 +633,9 @@ export default function TabAnalyse({
                   <span className="font-black text-blue-600">+{Math.round(b.creancesClients).toLocaleString()} €</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Délai:</span>
+                  <span className={`flex items-center gap-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                    Délai <HelpIcon {...H.delaiPaiement} darkMode={darkMode} position="right" wide />
+                  </span>
                   <input
                     type="number"
                     className={`w-16 text-center rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-blue-50'}`}
@@ -271,7 +651,10 @@ export default function TabAnalyse({
                   <span className="font-black text-teal-600">-{Math.round(b.dettesFournisseurs).toLocaleString()} €</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Délai:</span>
+                  <span className={`flex items-center gap-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                    Délai
+                    <HelpIcon darkMode={darkMode} position="right" content="Délai moyen de paiement de vos fournisseurs (jours). Plus ce délai est long, plus les dettes fournisseurs sont élevées et réduisent le BFR (ressource de trésorerie gratuite). Légalement plafonné à 60 jours (Loi LME)." />
+                  </span>
                   <input
                     type="number"
                     className={`w-16 text-center rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-blue-50'}`}
@@ -369,11 +752,19 @@ export default function TabAnalyse({
                 <thead>
                   <tr className={`${darkMode ? 'bg-gray-700' : 'bg-white/70'} rounded-xl`}>
                     <th className="px-3 py-2 text-left text-xs font-black uppercase text-slate-500">Service</th>
-                    <th className={`${colH} ${darkMode ? 'text-teal-400' : 'text-teal-700'}`}>Personnel</th>
-                    <th className={`${colH} ${darkMode ? 'text-blue-400' : 'text-blue-700'}`}>Exploitation</th>
+                    <th className={`${colH} ${darkMode ? 'text-teal-400' : 'text-teal-700'}`}>
+                      <span className="flex items-center justify-end gap-1">Personnel <HelpIcon {...H.chargesPatronales} darkMode={darkMode} position="bottom" /></span>
+                    </th>
+                    <th className={`${colH} ${darkMode ? 'text-blue-400' : 'text-blue-700'}`}>
+                      <span className="flex items-center justify-end gap-1">Exploitation <HelpIcon {...H.exploitation} darkMode={darkMode} position="bottom" /></span>
+                    </th>
                     <th className={`${colH} ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Total charges</th>
-                    <th className={`${colH} ${darkMode ? 'text-green-400' : 'text-green-700'}`}>Recettes</th>
-                    <th className={`${colH} ${darkMode ? 'text-violet-400' : 'text-violet-700'}`}>Résultat</th>
+                    <th className={`${colH} ${darkMode ? 'text-green-400' : 'text-green-700'}`}>
+                      <span className="flex items-center justify-end gap-1">Recettes <HelpIcon {...H.subventions} darkMode={darkMode} position="bottom" /></span>
+                    </th>
+                    <th className={`${colH} ${darkMode ? 'text-violet-400' : 'text-violet-700'}`}>
+                      <span className="flex items-center justify-end gap-1">Résultat <HelpIcon {...H.tauxCouverture} darkMode={darkMode} position="bottom" /></span>
+                    </th>
                     {donneesN1 && <th className={`${colH} ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>N-1 charges</th>}
                     {donneesN1 && <th className={`${colH} ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>Évol. %</th>}
                   </tr>
@@ -384,6 +775,10 @@ export default function TabAnalyse({
                     const allocPS = (!r.isDirection && r.serviceId != null)
                       ? Math.round(bdPS.total * (poleSupport.repartition?.[String(r.serviceId)] || 0) / 100)
                       : 0;
+                    const bdDir = getBudgetDirection();
+                    const allocDir = (!r.isDirection && r.serviceId != null)
+                      ? Math.round(bdDir.total * (direction.repartition?.[String(r.serviceId)] || 0) / 100)
+                      : 0;
                     const resultat = r.recettes - totalChargesRow;
                     const isPos = resultat >= 0;
                     const n1Row = getN1Row(r);
@@ -393,6 +788,11 @@ export default function TabAnalyse({
                       <tr key={idx} className={`border-t ${darkMode ? 'border-gray-700' : 'border-violet-100'} ${r.isDirection ? (darkMode ? 'bg-gray-700/30' : 'bg-white/50') : ''}`}>
                         <td className={`px-3 py-2 font-bold text-sm ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                           {r.nom}
+                          {allocDir > 0 && (
+                            <div className={`text-xs font-normal mt-0.5 ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>
+                              + Direction : {allocDir.toLocaleString('fr-FR')} €
+                            </div>
+                          )}
                           {allocPS > 0 && (
                             <div className={`text-xs font-normal mt-0.5 ${darkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
                               + Pôle Ressource : {allocPS.toLocaleString('fr-FR')} €
@@ -576,6 +976,265 @@ export default function TabAnalyse({
                 </div>
               </div>
             </div>
+          </div>
+        );
+      })()}
+
+      {/* SIMULATION BAISSE SUBVENTION RÉGION */}
+      {(() => {
+        const fmt = n => Math.round(n).toLocaleString('fr-FR');
+        const pct = simRegion ?? 0;
+        const facteur = 1 + pct / 100;
+
+        // Identifie les recettes "Subvention Région" par mot-clé
+        const isSubvRegion = nom => /r[eé]gion/i.test(nom);
+
+        const lignesServices = services
+          .filter(s => s.recettes && s.recettes.some(r => isSubvRegion(r.nom)))
+          .map(s => {
+            const bs = getBudgetService(s);
+            const subvBase = s.recettes
+              .filter(r => isSubvRegion(r.nom))
+              .reduce((sum, r) => sum + r.montant * 12, 0);
+            const autresRec = bs.recettes - subvBase;
+            const recSim = autresRec + subvBase * facteur;
+            const soldeSim = recSim - bs.total;
+            const tauxBase = bs.total > 0 ? (bs.recettes / bs.total) * 100 : 0;
+            const tauxSim  = bs.total > 0 ? (recSim / bs.total) * 100 : 0;
+            return { nom: s.nom, subvBase, recBase: bs.recettes, recSim, soldeBase: bs.solde, soldeSim, tauxBase, tauxSim, totalCharges: bs.total };
+          });
+
+        const totalSubvBase = lignesServices.reduce((s, l) => s + l.subvBase, 0);
+        const totalRecBase  = lignesServices.reduce((s, l) => s + l.recBase, 0);
+        const totalRecSim   = lignesServices.reduce((s, l) => s + l.recSim, 0);
+        const totalSoldeBase = lignesServices.reduce((s, l) => s + l.soldeBase, 0);
+        const totalSoldeSim  = lignesServices.reduce((s, l) => s + l.soldeSim, 0);
+        const deltaRec = totalRecSim - totalRecBase;
+
+        return (
+          <div id="simulation-region" className={`rounded-3xl shadow-lg border-2 p-6 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-rose-900' : 'bg-gradient-to-br from-rose-50 to-pink-50 border-rose-200'}`}>
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+              <div className="flex items-center gap-3">
+                <TrendingDown className={darkMode ? 'text-rose-400' : 'text-rose-600'} size={28} />
+                <div>
+                  <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Simulation — Subvention Région</h2>
+                  <span className={`text-xs font-bold ${darkMode ? 'text-rose-400' : 'text-rose-600'}`}>
+                    Impact d'une variation des subventions Région sur le résultat par service
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => setSimRegion(0)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                <RotateCcw size={13} /> Réinitialiser
+              </button>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Slider */}
+              <div className="space-y-6">
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <span className={`text-sm font-bold ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>
+                      Variation subvention Région
+                    </span>
+                    <span className={`text-xl font-black ${pct < 0 ? 'text-rose-500' : pct > 0 ? 'text-emerald-500' : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>
+                      {pct > 0 ? '+' : ''}{pct}%
+                    </span>
+                  </div>
+                  <input type="range" min={-30} max={10} step={1} value={pct}
+                    onChange={e => setSimRegion(parseFloat(e.target.value))}
+                    className="w-full accent-rose-500"
+                  />
+                  <div className={`flex justify-between text-xs mt-1 ${darkMode ? 'text-gray-600' : 'text-slate-400'}`}>
+                    <span>−30% (perte majeure)</span><span>0%</span><span>+10%</span>
+                  </div>
+                </div>
+
+                {/* Résumé global */}
+                <div className={`p-4 rounded-2xl ${darkMode ? 'bg-gray-700' : 'bg-white'} space-y-2`}>
+                  <div className={`text-xs font-bold uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Impact global</div>
+                  {[
+                    { label: 'Subventions Région (base)', val: fmt(totalSubvBase) + ' €' },
+                    { label: 'Subventions simulées', val: fmt(totalSubvBase * facteur) + ' €', delta: totalSubvBase * facteur - totalSubvBase },
+                    { label: 'Δ Recettes totales', val: (deltaRec >= 0 ? '+' : '') + fmt(deltaRec) + ' €', color: deltaRec >= 0 ? 'text-emerald-500' : 'text-rose-500' },
+                  ].map((r, i) => (
+                    <div key={i} className="flex justify-between text-sm">
+                      <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>{r.label}</span>
+                      <span className={`font-black ${r.color || (darkMode ? 'text-white' : 'text-slate-800')}`}>{r.val}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Résultat global simulé */}
+                <div className={`p-4 rounded-2xl font-black text-center border ${totalSoldeSim >= 0 ? (darkMode ? 'bg-emerald-900/30 border-emerald-700' : 'bg-emerald-50 border-emerald-200') : (darkMode ? 'bg-red-900/30 border-red-700' : 'bg-red-50 border-red-200')}`}>
+                  <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Résultat global simulé</div>
+                  <div className={`text-2xl ${totalSoldeSim >= 0 ? (darkMode ? 'text-emerald-300' : 'text-emerald-700') : (darkMode ? 'text-red-300' : 'text-red-700')}`}>
+                    {totalSoldeSim >= 0 ? '+' : ''}{fmt(totalSoldeSim)} €
+                  </div>
+                  <div className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                    vs résultat actuel : {totalSoldeBase >= 0 ? '+' : ''}{fmt(totalSoldeBase)} €
+                    {' '}({totalSoldeSim - totalSoldeBase >= 0 ? '+' : ''}{fmt(totalSoldeSim - totalSoldeBase)} € de variation)
+                  </div>
+                </div>
+              </div>
+
+              {/* Tableau par service */}
+              <div className={`rounded-2xl overflow-hidden border ${darkMode ? 'border-gray-600' : 'border-slate-200'}`}>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className={darkMode ? 'bg-gray-700 text-gray-300' : 'bg-slate-100 text-slate-600'}>
+                      <th className="text-left p-3 font-bold">Service</th>
+                      <th className="text-right p-3 font-bold">Subv. Région</th>
+                      <th className="text-right p-3 font-bold">Taux couv. base</th>
+                      <th className="text-right p-3 font-bold">Taux couv. sim.</th>
+                      <th className="text-right p-3 font-bold">Solde simulé</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lignesServices.map((l, i) => {
+                      const tauxOk = l.tauxSim >= 100;
+                      const tauxWarn = l.tauxSim >= 90 && l.tauxSim < 100;
+                      return (
+                        <tr key={i} className={`border-t ${darkMode ? 'border-gray-600' : 'border-slate-100'}`}>
+                          <td className={`p-3 font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>{l.nom}</td>
+                          <td className={`p-3 text-right font-mono ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{fmt(l.subvBase)} €</td>
+                          <td className="p-3 text-right">
+                            <span className={`px-2 py-0.5 rounded-full font-black ${l.tauxBase >= 100 ? (darkMode ? 'bg-emerald-900/50 text-emerald-300' : 'bg-emerald-100 text-emerald-700') : (darkMode ? 'bg-amber-900/50 text-amber-300' : 'bg-amber-100 text-amber-700')}`}>
+                              {l.tauxBase.toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className={`px-2 py-0.5 rounded-full font-black ${tauxOk ? (darkMode ? 'bg-emerald-900/50 text-emerald-300' : 'bg-emerald-100 text-emerald-700') : tauxWarn ? (darkMode ? 'bg-amber-900/50 text-amber-300' : 'bg-amber-100 text-amber-700') : (darkMode ? 'bg-red-900/50 text-red-300' : 'bg-red-100 text-red-700')}`}>
+                              {l.tauxSim.toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className={`p-3 text-right font-black ${l.soldeSim >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                            {l.soldeSim >= 0 ? '+' : ''}{fmt(l.soldeSim)} €
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  {lignesServices.length === 0 && (
+                    <tbody>
+                      <tr><td colSpan={5} className={`p-4 text-center text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Aucune recette "Subvention Région" trouvée dans les services</td></tr>
+                    </tbody>
+                  )}
+                </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* GRAPHIQUE TRÉSORERIE MENSUELLE SAISONNALISÉE */}
+      {(() => {
+        const MOIS_LABELS = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
+        const fmt = n => Math.round(n).toLocaleString('fr-FR');
+
+        // Charges mensuelles uniformes (salaires + exploitation divisés par 12)
+        const bdDir = getBudgetDirection();
+        const totalSalaires = [bdDir.salaires, ...services.map(s => getBudgetService(s).salaires)].reduce((a, b) => a + b, 0)
+          + (getBudgetPoleSupport ? getBudgetPoleSupport().salaires : 0);
+        const totalExpl = [bdDir.chargesSiege, ...services.map(s => getBudgetService(s).exploitation)].reduce((a, b) => a + b, 0)
+          + (getBudgetPoleSupport ? getBudgetPoleSupport().exploitation : 0);
+        const totalAmort = services.reduce((s, svc) => s + getBudgetService(svc).amortissements, 0);
+        const chargesMois = (totalSalaires + totalExpl + totalAmort) / 12;
+
+        // Recettes saisonnalisées par mois
+        const recMens = Array(12).fill(0);
+        services.forEach(svc => {
+          (svc.recettes || []).forEach(item => {
+            const annuel = (item.montant || 0) * 12;
+            if (Array.isArray(item.repartitionMensuelle) && item.repartitionMensuelle.length === 12) {
+              const somme = item.repartitionMensuelle.reduce((a, b) => a + b, 0) || 100;
+              item.repartitionMensuelle.forEach((p, i) => { recMens[i] += annuel * (p / somme); });
+            } else {
+              for (let i = 0; i < 12; i++) recMens[i] += annuel / 12;
+            }
+          });
+        });
+
+        // Construction des données du graphique avec cumul trésorerie
+        let cumul = 0;
+        const data = MOIS_LABELS.map((label, i) => {
+          const solde = recMens[i] - chargesMois;
+          cumul += solde;
+          return { label, recettes: Math.round(recMens[i]), charges: -Math.round(chargesMois), solde: Math.round(solde), cumul: Math.round(cumul) };
+        });
+
+        const totalRecAnnuel = recMens.reduce((a, b) => a + b, 0);
+        const moisDeficit = data.filter(d => d.solde < 0).length;
+        const deficitMax = Math.min(...data.map(d => d.solde));
+        const cumulMin = Math.min(...data.map(d => d.cumul));
+
+        return (
+          <div id="tresorerie-mensuelle" className={`rounded-3xl shadow-lg border-2 p-6 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-sky-900' : 'bg-gradient-to-br from-sky-50 to-cyan-50 border-sky-200'}`}>
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+              <div className="flex items-center gap-3">
+                <Waves className={darkMode ? 'text-sky-400' : 'text-sky-600'} size={28} />
+                <div>
+                  <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Trésorerie mensuelle 2026</h2>
+                  <span className={`text-xs font-bold ${darkMode ? 'text-sky-400' : 'text-sky-600'}`}>
+                    Recettes saisonnalisées vs charges — configurer via le bouton 🗓 sur chaque recette
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {[
+                  { label: 'Mois déficitaires', val: `${moisDeficit}/12`, color: moisDeficit > 0 ? 'text-rose-500' : 'text-emerald-500' },
+                  { label: 'Déficit max/mois', val: deficitMax < 0 ? `${fmt(deficitMax)} €` : '—', color: deficitMax < 0 ? 'text-rose-500' : 'text-emerald-500' },
+                  { label: 'Besoin tréso. cumulé', val: cumulMin < 0 ? `${fmt(Math.abs(cumulMin))} €` : '—', color: cumulMin < 0 ? 'text-amber-500' : 'text-emerald-500' },
+                ].map((k, i) => (
+                  <div key={i} className={`text-center px-3 py-2 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
+                    <div className={`text-xs font-bold ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{k.label}</div>
+                    <div className={`text-sm font-black ${k.color}`}>{k.val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#374151' : '#e2e8f0'} vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: darkMode ? '#9ca3af' : '#64748b' }} />
+                <YAxis tickFormatter={v => `${Math.round(v/1000)}k`} tick={{ fontSize: 10, fill: darkMode ? '#6b7280' : '#94a3b8' }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: darkMode ? '#1f2937' : '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: 12 }}
+                  formatter={(value, name) => {
+                    const v = Math.round(value);
+                    const label = name === 'recettes' ? 'Recettes' : name === 'charges' ? 'Charges' : name === 'solde' ? 'Solde mois' : 'Cumul tréso.';
+                    return [`${v >= 0 ? '+' : ''}${v.toLocaleString('fr-FR')} €`, label];
+                  }}
+                />
+                <ReferenceLine y={0} stroke={darkMode ? '#6b7280' : '#94a3b8'} strokeWidth={1.5} />
+                <Bar dataKey="charges" name="charges" fill={darkMode ? '#ef4444' : '#fca5a5'} radius={[0, 0, 4, 4]} maxBarSize={40} />
+                <Bar dataKey="recettes" name="recettes" radius={[4, 4, 0, 0]} maxBarSize={40}>
+                  {data.map((d, i) => (
+                    <Cell key={i} fill={d.solde >= 0 ? (darkMode ? '#34d399' : '#6ee7b7') : (darkMode ? '#fb923c' : '#fdba74')} />
+                  ))}
+                </Bar>
+                <Line type="monotone" dataKey="cumul" name="cumul" stroke={darkMode ? '#38bdf8' : '#0284c7'} strokeWidth={2.5} dot={{ r: 3 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+
+            <div className={`mt-4 flex flex-wrap gap-4 text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-400 inline-block"></span> Mois excédentaire (recettes &gt; charges)</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-orange-400 inline-block"></span> Mois déficitaire (recettes &lt; charges)</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-400 inline-block"></span> Charges mensuelles fixes</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-6 h-0.5 bg-sky-500"></span> Cumul trésorerie (axe droit)</span>
+            </div>
+
+            {cumulMin < 0 && (
+              <div className={`mt-4 p-3 rounded-xl text-xs flex items-start gap-2 border ${darkMode ? 'bg-amber-900/30 border-amber-700 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                <span className="text-base leading-none">⚠️</span>
+                <span>
+                  <strong>Besoin de trésorerie : {fmt(Math.abs(cumulMin))} €</strong> — la trésorerie cumulée passe en négatif.
+                  Prévoir une ligne de crédit ou avancer le versement d'une tranche de subvention Région.
+                  {moisDeficit > 0 && <> Configurez la saisonnalité des recettes (bouton 🗓) pour affiner cette projection.</>}
+                </span>
+              </div>
+            )}
           </div>
         );
       })()}
