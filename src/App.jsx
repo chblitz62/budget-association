@@ -496,7 +496,6 @@ const BudgetTool = () => {
 
   // Sauvegarde automatique avec notification
   const triggerSaveIndicator = () => window.dispatchEvent(new Event('storage-save'));
-  useEffect(() => { localStorage.setItem('assoc_show_tooltips', String(showTooltips)); }, [showTooltips]);
   useEffect(() => { localStorage.setItem('assoc_globalParams', JSON.stringify(globalParams)); triggerSaveIndicator(); }, [globalParams]);
   useEffect(() => { localStorage.setItem('assoc_direction', JSON.stringify(direction)); triggerSaveIndicator(); }, [direction]);
   const [enveloppeFormation, setEnveloppeFormation] = useState(() => loadFromStorage('assoc_enveloppe_formation', { budget: 0, actions: [] }));
@@ -612,6 +611,7 @@ const BudgetTool = () => {
     const saved = localStorage.getItem('assoc_show_tooltips');
     return saved === null ? true : saved === 'true';
   });
+  useEffect(() => { localStorage.setItem('assoc_show_tooltips', String(showTooltips)); }, [showTooltips]);
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
   const handleLogout = () => {
