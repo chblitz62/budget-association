@@ -1836,6 +1836,17 @@ const BudgetTool = () => {
                                     value={p.anneeNaissance || ''}
                                     onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, anneeNaissance: parseInt(e.target.value) || 0} : x)})}
                                   />
+                                  <span className={`ml-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Entrée</span>
+                                  <input type="number" min="1990" max="2026" placeholder="2020"
+                                    className={`w-16 rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`}
+                                    value={p.dateEntree || ''}
+                                    onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, dateEntree: parseInt(e.target.value) || 0} : x)})}
+                                  />
+                                  {p.dateEntree > 0 && (
+                                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${darkMode ? 'bg-indigo-900/50 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>
+                                      {2026 - p.dateEntree} an{2026 - p.dateEntree > 1 ? 's' : ''}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-3 text-xs flex-wrap mt-1">
@@ -2103,6 +2114,17 @@ const BudgetTool = () => {
                                 <div className="flex items-center gap-1">
                                   <InfoTooltip content="Année de naissance — utilisée pour la pyramide des âges et les alertes départs en retraite." darkMode={darkMode} position="top"><span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Né(e) en</span></InfoTooltip>
                                   <input type="number" min="1940" max="2005" placeholder="1980" className={`w-16 rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={p.anneeNaissance || ''} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, anneeNaissance: parseInt(e.target.value) || 0} : x)})} />
+                                  <span className={`ml-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Entrée</span>
+                                  <input type="number" min="1990" max="2026" placeholder="2020"
+                                    className={`w-16 rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`}
+                                    value={p.dateEntree || ''}
+                                    onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, dateEntree: parseInt(e.target.value) || 0} : x)})}
+                                  />
+                                  {p.dateEntree > 0 && (
+                                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${darkMode ? 'bg-indigo-900/50 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>
+                                      {2026 - p.dateEntree} an{2026 - p.dateEntree > 1 ? 's' : ''}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-3 text-xs flex-wrap mt-1">
