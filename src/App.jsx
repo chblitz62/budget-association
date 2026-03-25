@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus, Banknote, TrendingDown, CheckCircle, AlertTriangle, FileSpreadsheet, Key, Eye, EyeOff, HelpCircle, X, AlertCircle, Clock, BarChart3, Search, Menu, ChevronLeft, ChevronRight, Home, Shield, Wallet, Building, Layers, Calculator, RotateCcw, Target, Gauge, Bell, GripVertical, ChevronDown, ChevronUp, UserCheck, UserX, Zap, Monitor, Cog, ExternalLink } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus, Banknote, TrendingDown, CheckCircle, AlertTriangle, FileSpreadsheet, Key, Eye, EyeOff, HelpCircle, X, AlertCircle, Clock, BarChart3, Search, Menu, ChevronLeft, ChevronRight, Home, Shield, Wallet, Building, Layers, Calculator, RotateCcw, Target, Gauge, Bell, GripVertical, ChevronDown, ChevronUp, UserCheck, UserX, Zap, Monitor, Cog, ExternalLink, Camera, GitCompare, Leaf, Brain } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
 import { exportToExcel, exportReportingFC } from './utils/excelExport';
 import { exportToPDF, exportReportingFCPdf } from './utils/pdfExport';
-import PilotageFinancier, { defaultSites as pilotageDefaultSites, zeroSites as pilotageZeroSites, calcSalarie as calcSalarieFormateur } from './components/PilotageFinancier';
+import PilotageFinancier, { zeroSites as pilotageZeroSites, calcSalarie as calcSalarieFormateur } from './components/PilotageFinancier';
 import PresentationMode from './components/PresentationMode';
 import PlanningAbsences from './components/PlanningAbsences';
 import ReportingFC from './components/ReportingFC';
@@ -25,9 +25,15 @@ import ModalRoles from './components/modals/ModalRoles';
 import ModalPassword from './components/modals/ModalPassword';
 import ModalReset from './components/modals/ModalReset';
 import TabTresorerie from './components/TabTresorerie';
-import TabFormation from './components/tabs/TabFormation';
-import TabRH from './components/tabs/TabRH';
 import TabAnalyse from './components/tabs/TabAnalyse';
+import StartupGate from './components/StartupGate';
+import ModalHardReset from './components/ModalHardReset';
+import StressTestBar from './components/StressTestBar';
+import PoolRHManager from './components/PoolRHManager';
+import SnapshotManager, { loadSnapshot } from './components/SnapshotManager';
+import AICopilot from './components/AICopilot';
+import DashboardCard from './components/ui/DashboardCard';
+import { hasStoredData, exportData, importData } from './utils/storage';
 
 // Import des constantes et valeurs par défaut
 import {
@@ -53,10 +59,6 @@ import {
   defaultDirection,
   defaultPoleSupport,
   defaultServices,
-  defaultServiceRecherche,
-  defaultServicePrevention,
-  defaultPromosFormationContinue,
-  DATA_VERSION
 } from './utils/constants';
 
 // Import des fonctions de calcul
@@ -86,8 +88,14 @@ import {
   calculerAlertesRH,
   calculerTresorerieMensuelle,
   calculerPartPoolRH,
+  verifierCoherencePoolRH,
+  repartirFraisSiege,
+  appliquerStressTest,
+  calculerIFC,
+  runFinancialAudit,
   loadFromStorage
 } from './utils/calculations';
+import { genererCSVComptable, telechargerCSVComptable } from './utils/csvExport';
 
 // Hachage SHA-256 du mot de passe (natif navigateur)
 const hashPassword = async (password) => {
@@ -212,137 +220,139 @@ const LoginScreen = ({ onLogin, checkPassword, darkMode }) => {
 
 
 // Composant menu latéral de navigation
-const SidebarNav = ({ services, darkMode, isOpen, onToggle, searchQuery, onSearchChange }) => {
-  const navItems = [
-    { id: 'header', label: 'Accueil', icon: Home },
-    { id: 'budget-annuel', label: 'Budget Annuel', icon: Calendar },
-    { id: 'synthese-3ans', label: 'Synthèse 3 ans', icon: TrendingUp },
-    { id: 'graphiques', label: 'Graphiques', icon: BarChart3 },
-    { id: 'provisions-bfr-fr', label: 'Provisions / BFR / FR', icon: Shield },
-    { id: 'direction', label: 'Siège', icon: Building2 },
-    { id: 'pole-support', label: 'Pôle Ressource', icon: Building },
-    { id: 'planning-absences', label: 'Planning Absences', icon: Calendar },
-    { id: 'enveloppe-formation', label: 'Enveloppe Formation', icon: GraduationCap },
-    { id: 'reporting-fc', label: 'Reporting FC', icon: FileSpreadsheet },
-    { id: 'pilotage-financier', label: 'Pilotage Financier', icon: Calculator },
+const SidebarNav = ({ services, darkMode, isOpen, onToggle, activeTab, onTabChange }) => {
+  const groups = [
+    {
+      label: 'Tableau de bord',
+      items: [
+        { id: 'dashboard',  label: 'Tableau de bord', icon: Home },
+        { id: 'analyse',    label: 'Analyse',          icon: BarChart3 },
+      ]
+    },
+    {
+      label: 'Saisie',
+      items: [
+        { id: 'budget',     label: 'Budget',           icon: Building2 },
+        { id: 'rh',         label: 'RH',               icon: Users },
+        { id: 'formation',  label: 'Formation',        icon: GraduationCap },
+        { id: 'vacataires', label: 'Vacataires',       icon: UserCheck },
+      ]
+    },
+    {
+      label: 'Pilotage',
+      items: [
+        { id: 'subvention', label: 'Subvention',       icon: Landmark },
+        { id: 'daf',        label: 'DAF',              icon: Calculator },
+        { id: 'parametres', label: 'Paramètres',       icon: Settings },
+      ]
+    },
+    {
+      label: 'Audit',
+      items: [
+        { id: 'reporting',  label: 'Reporting réglementaire', icon: Shield },
+      ]
+    },
   ];
 
-  const scrollToSection = (id) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
-  // Filter services based on search query
-  const filteredServices = services.filter(s =>
-    s.nom.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   return (
-    <div className={`sidebar-container fixed left-0 top-0 h-screen z-50 transition-all duration-300 no-print ${isOpen ? 'w-64' : 'w-16'}`}>
-      <div className={`h-full ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-slate-200'} border-r shadow-lg flex flex-col`}>
-        {/* Toggle button */}
+    <div className={`sidebar-container fixed left-0 z-40 transition-all duration-300 no-print ${isOpen ? 'w-64' : 'w-14'}`}
+         style={{ top: '56px', height: 'calc(100vh - 56px)' }}>
+      <div className={`h-full flex flex-col border-r ${darkMode ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-slate-200'} shadow-xl`}>
+
+        {/* Toggle */}
         <button
           onClick={onToggle}
-          className={`absolute -right-3 top-20 w-6 h-6 rounded-full shadow-lg flex items-center justify-center ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-slate-600'} border ${darkMode ? 'border-gray-600' : 'border-slate-200'}`}
+          className={`absolute -right-3 top-6 w-6 h-6 rounded-full shadow-lg flex items-center justify-center border z-10
+            ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
         >
-          {isOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+          {isOpen ? <ChevronLeft size={13} /> : <ChevronRight size={13} />}
         </button>
 
-        {/* Logo/Title */}
-        <div className={`p-4 border-b ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
-          {isOpen ? (
-            <div className="flex items-center gap-2">
-              <Menu className="text-teal-500" size={24} />
-              <span className={`font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Navigation</span>
-            </div>
-          ) : (
-            <Menu className="text-teal-500 mx-auto" size={24} />
-          )}
-        </div>
-
-        {/* Search bar */}
-        {isOpen && (
-          <div className="p-3">
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-slate-100'}`}>
-              <Search size={16} className={darkMode ? 'text-gray-400' : 'text-slate-400'} />
-              <input
-                type="text"
-                placeholder="Rechercher..."
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className={`flex-1 bg-transparent outline-none text-sm ${darkMode ? 'text-white placeholder:text-gray-500' : 'text-slate-700 placeholder:text-slate-400'}`}
-              />
-              {searchQuery && (
-                <button onClick={() => onSearchChange('')} className={darkMode ? 'text-gray-400' : 'text-slate-400'}>
-                  <X size={14} />
-                </button>
+        {/* Nav groups */}
+        <nav className="flex-1 overflow-y-auto sidebar-nav py-3 px-2">
+          {groups.map(group => (
+            <div key={group.label} className="mb-3">
+              {isOpen && (
+                <div className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 ${darkMode ? 'text-zinc-600' : 'text-slate-400'}`}>
+                  {group.label}
+                </div>
               )}
+              {group.items.map(item => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onTabChange(item.id)}
+                    title={!isOpen ? item.label : undefined}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 transition-all duration-150 ${
+                      isActive
+                        ? darkMode
+                          ? 'bg-indigo-600/20 text-indigo-400'
+                          : 'bg-indigo-50 text-indigo-700'
+                        : darkMode
+                          ? 'text-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-200'
+                          : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                    }`}
+                  >
+                    <item.icon size={16} className={`flex-shrink-0 ${isActive ? 'text-indigo-500' : ''}`} />
+                    {isOpen && (
+                      <span className={`text-xs font-semibold truncate ${isActive ? 'font-bold' : ''}`}>
+                        {item.label}
+                      </span>
+                    )}
+                    {isActive && isOpen && (
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+              {!isOpen && <div className={`mx-3 my-1.5 h-px ${darkMode ? 'bg-zinc-800' : 'bg-slate-100'}`} />}
             </div>
-          </div>
-        )}
-
-        {/* Navigation items */}
-        <nav className="flex-1 overflow-y-auto sidebar-nav p-2">
-          {/* Main sections */}
-          {isOpen && <div className={`text-xs font-bold uppercase px-3 py-2 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Sections</div>}
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => scrollToSection(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl mb-1 transition-colors ${darkMode ? 'hover:bg-gray-800 text-gray-300 hover:text-white' : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'}`}
-              title={!isOpen ? item.label : undefined}
-            >
-              <item.icon size={18} className="text-teal-500 flex-shrink-0" />
-              {isOpen && <span className="text-sm font-medium truncate">{item.label}</span>}
-            </button>
           ))}
 
-          {/* Services section */}
-          {isOpen && (
-            <>
-              <div className={`text-xs font-bold uppercase px-3 py-2 mt-4 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
-                Services ({filteredServices.length})
+          {/* Services — visibles seulement sidebar ouverte */}
+          {isOpen && services.length > 0 && (
+            <div className="mb-3">
+              <div className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 ${darkMode ? 'text-zinc-600' : 'text-slate-400'}`}>
+                Services ({services.length})
               </div>
-              {filteredServices.map(service => (
+              {services.map(srv => (
                 <button
-                  key={service.id}
-                  onClick={() => scrollToSection(`service-${service.id}`)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl mb-1 transition-colors ${darkMode ? 'hover:bg-gray-800 text-gray-300 hover:text-white' : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900'}`}
+                  key={srv.id}
+                  onClick={() => {
+                    onTabChange('budget');
+                    setTimeout(() => {
+                      const el = document.getElementById(`service-${srv.id}`);
+                      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl mb-0.5 transition-all duration-150 ${
+                    darkMode ? 'text-zinc-500 hover:bg-zinc-800/80 hover:text-zinc-300' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700'
+                  }`}
                 >
-                  {service.type === 'prestation' ? (
-                    <Calendar size={16} className="text-orange-500 flex-shrink-0" />
-                  ) : service.promos ? (
-                    <GraduationCap size={16} className="text-purple-500 flex-shrink-0" />
-                  ) : (
-                    <Layers size={16} className="text-teal-500 flex-shrink-0" />
-                  )}
-                  <span className="text-sm font-medium truncate">{service.nom}</span>
+                  {srv.promos
+                    ? <GraduationCap size={13} className="text-violet-400 flex-shrink-0" />
+                    : <Layers size={13} className="text-indigo-400 flex-shrink-0" />
+                  }
+                  <span className="text-xs truncate">{srv.nom}</span>
                 </button>
               ))}
-            </>
-          )}
-
-          {!isOpen && (
-            <button
-              onClick={() => scrollToSection('services-section')}
-              className={`w-full flex items-center justify-center p-3 rounded-xl mb-1 transition-colors ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-slate-100'}`}
-              title="Services"
-            >
-              <Layers size={18} className="text-purple-500" />
-            </button>
+            </div>
           )}
         </nav>
 
-        {/* Footer with quick stats */}
-        {isOpen && (
-          <div className={`p-3 border-t ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
-            <div className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
-              {services.length} service{services.length > 1 ? 's' : ''}
+        {/* Footer */}
+        <div className={`p-3 border-t ${darkMode ? 'border-zinc-800' : 'border-slate-100'}`}>
+          {isOpen ? (
+            <div className={`text-[10px] font-medium ${darkMode ? 'text-zinc-600' : 'text-slate-400'}`}>
+              {services.length} service{services.length !== 1 ? 's' : ''}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="flex justify-center">
+              <Layers size={14} className={darkMode ? 'text-zinc-700' : 'text-slate-300'} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -390,6 +400,19 @@ const zeroGlobalParams = {
 const BudgetTool = () => {
   const fileInputRef = useRef(null);
 
+  // Startup gate — affiché si aucune donnée en localStorage
+  const [showStartupGate, setShowStartupGate] = useState(() => !hasStoredData());
+  const [showHardReset, setShowHardReset] = useState(false);
+
+  // Stress Test — simulateur d'aléas sur les subventions (-20 à +20 %)
+  const [stressTest, setStressTest] = useState(0);
+
+  // Snapshot — comparaison Budget Voté
+  const [compareSnapshot, setCompareSnapshot] = useState(false);
+
+  // Clés de répartition — frais de siège répercutés sur services
+  const [repartirSiege, setRepartirSiege] = useState(false);
+
   // Authentification
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('budget_authenticated') === 'true';
@@ -412,13 +435,8 @@ const BudgetTool = () => {
 
   const [globalParams, setGlobalParams] = useState(() => loadFromStorage('assoc_globalParams', defaultGlobalParams));
   const [direction, setDirection] = useState(() => {
-    // Réinitialiser les données si la version a changé
-    if (localStorage.getItem('assoc_data_version') !== DATA_VERSION) {
-      ['assoc_direction', 'assoc_services', 'assoc_globalParams'].forEach(k => localStorage.removeItem(k));
-      localStorage.setItem('assoc_data_version', DATA_VERSION);
-    }
     const d = loadFromStorage('assoc_direction', defaultDirection);
-    // Migration ancien format (loyer/charges/autresCharges) → chargesSiege[]
+    // Migration format 1 (loyer/charges/autresCharges) → chargesSiege[]
     if (!d.chargesSiege && (d.loyer !== undefined || d.charges !== undefined || d.autresCharges !== undefined)) {
       const migrated = { ...d, chargesSiege: [] };
       if (d.loyer)        migrated.chargesSiege.push({ id: 1, nom: 'Loyer', montant: d.loyer });
@@ -427,31 +445,17 @@ const BudgetTool = () => {
       delete migrated.loyer; delete migrated.charges; delete migrated.autresCharges;
       return migrated;
     }
-    return d;
+    // Migration format 2 : ajout des nouveaux champs si absents
+    const out = { ...d };
+    if (!out.exploitation)   out.exploitation   = [];
+    if (!out.recettes)        out.recettes        = [];
+    if (!out.repartition)     out.repartition     = {};
+    if (!out.investissements) out.investissements = { bienImmo:{montant:0,duree:25,taux:0}, travaux:{montant:0,duree:10,taux:0}, vehicule:{montant:0,duree:5,taux:0}, informatique:{montant:0,duree:3,taux:0}, mobilier:{montant:0,duree:10,taux:0} };
+    return out;
   });
-  const [services, setServices] = useState(() => {
-    let svcs = loadFromStorage('assoc_services', defaultServices);
-    // Migration noms : renommer les anciens labels affichage
-    const nomsMigration = { 1: 'FI Saint-Laurent', 2: 'FI Avion', 3: 'FC' };
-    svcs = svcs.map(s => {
-      const newNom = nomsMigration[s.id];
-      if (newNom && s.nom !== newNom) return { ...s, nom: newNom };
-      return s;
-    });
-    // Migration : ajouter le site Avion au service FC (id:3) s'il n'existe pas encore
-    svcs = svcs.map(s => {
-      if (s.id === 3 && s.promos && !s.promos[SITES.AVION]) {
-        return { ...s, promos: { ...s.promos, [SITES.AVION]: defaultPromosFormationContinue[SITES.AVION] } };
-      }
-      return s;
-    });
-    // Migration : ajouter Recherche (id:4) et Prévention (id:5) si absents
-    if (!svcs.some(s => s.id === 4)) svcs = [...svcs, defaultServiceRecherche];
-    if (!svcs.some(s => s.id === 5)) svcs = [...svcs, defaultServicePrevention];
-    return svcs;
-  });
+  const [services, setServices] = useState(() => loadFromStorage('assoc_services', defaultServices));
   const [poleSupport, setPoleSupport] = useState(() => loadFromStorage('assoc_pole_support', defaultPoleSupport));
-  const [pilotageSites, setPilotageSites] = useState(() => loadFromStorage('assoc_pilotage_sites', pilotageDefaultSites));
+  const [pilotageSites, setPilotageSites] = useState(() => loadFromStorage('assoc_pilotage_sites', pilotageZeroSites));
 
   // Position de la Direction dans la liste unifiée (0 = avant tout, 1 = après service[0], etc.)
   const [directionPosition, setDirectionPosition] = useState(() => loadFromStorage('assoc_direction_position', 0));
@@ -499,6 +503,7 @@ const BudgetTool = () => {
   const [showImportN1, setShowImportN1] = useState(false);
   const [showWizardBP, setShowWizardBP] = useState(false);
   const [simCharges, setSimCharges] = useState({ augSalaires: 0, augCharges: 0, augExploitation: 0 });
+  const [simRegion, setSimRegion] = useState(0);
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('assoc_active_tab') || 'dashboard');
   const [dafSub, setDafSub] = useState(() => localStorage.getItem('daf_sub') || 'subvention');
   const setDafSubP = (v) => { setDafSub(v); localStorage.setItem('daf_sub', v); };
@@ -584,6 +589,8 @@ const BudgetTool = () => {
     localStorage.removeItem('assoc_planning_absences');
     setPlanningAbsences({});
     setDarkMode(false);
+    setPoolRH([]);
+    localStorage.removeItem('assoc_pool_rh');
     setGlobalParams(zeroGlobalParams);
     setDirection(zeroDirection);
     setServices(zeroServices);
@@ -597,6 +604,8 @@ const BudgetTool = () => {
 
   // Gestion du mot de passe (uniquement en local)
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showAICopilot, setShowAICopilot] = useState(false);
+  const [privacyMode, setPrivacyMode] = useState(false);
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
   const handleLogout = () => {
@@ -605,15 +614,71 @@ const BudgetTool = () => {
   };
 
   const msETP = globalParams.montantSegurETP ?? PRIME_SEGUR;
-  const getBudgetDirection = () => calculerBudgetDirection(direction, planningAbsences, 2026, msETP, poolRH);
-  const getBudgetPoleSupport = () => calculerBudgetPoleSupport(poleSupport, planningAbsences, 2026, msETP, poolRH);
-  const getBudgetService = (service) => calculerBudgetService(service, planningAbsences, 2026, msETP, poolRH);
-  const getProvisions = () => calculerProvisions(direction, services, globalParams, poleSupport, poolRH);
-  const getBFR = () => calculerBFR(direction, services, globalParams, poleSupport, poolRH);
-  const getFondRoulement = () => calculerFondRoulement(direction, services, globalParams);
-  const summary3Ans = calculerSynthese3Ans(direction, services, globalParams, poleSupport, poolRH);
-  const budgetAnnuel = calculerBudgetAnnuelMensuel(direction, services, globalParams, poleSupport, poolRH);
-  const tresorerie = calculerTresorerieMensuelle(direction, services, globalParams, poleSupport, poolRH);
+
+  // Fonctions budget — useCallback pour stabiliser les références (évite re-renders en cascade dans SubventionRegion/DAF)
+  const getBudgetDirection   = useCallback(() => calculerBudgetDirection(direction, planningAbsences, 2026, msETP, poolRH),   [direction, planningAbsences, msETP, poolRH]);
+  const getBudgetPoleSupport = useCallback(() => calculerBudgetPoleSupport(poleSupport, planningAbsences, 2026, msETP, poolRH), [poleSupport, planningAbsences, msETP, poolRH]);
+  const getBudgetService     = useCallback((service) => calculerBudgetService(service, planningAbsences, 2026, msETP, poolRH),  [planningAbsences, msETP, poolRH]);
+  const getProvisions        = useCallback(() => calculerProvisions(direction, services, globalParams, poleSupport, poolRH),    [direction, services, globalParams, poleSupport, poolRH]);
+  const getBFR               = useCallback(() => calculerBFR(direction, services, globalParams, poleSupport, poolRH),           [direction, services, globalParams, poleSupport, poolRH]);
+  const getFondRoulement     = useCallback(() => calculerFondRoulement(direction, services, globalParams),                      [direction, services, globalParams]);
+
+  // Callbacks stables pour SubventionRegion / DAF (sans planningAbsences = calcul budget pur)
+  const cbBudgetSvc = useCallback(s  => calculerBudgetService(s, null, 2026, msETP, poolRH),   [msETP, poolRH]);
+  const cbBudgetDir = useCallback(d  => calculerBudgetDirection(d, null, 2026, msETP, poolRH),  [msETP, poolRH]);
+  const cbBudgetPS  = useCallback(ps => calculerBudgetPoleSupport(ps, null, 2026, msETP, poolRH),[msETP, poolRH]);
+  const summary3Ans = useMemo(
+    () => calculerSynthese3Ans(direction, services, globalParams, poleSupport, poolRH),
+    [direction, services, globalParams, poleSupport, poolRH]
+  );
+  const budgetAnnuel = useMemo(
+    () => calculerBudgetAnnuelMensuel(direction, services, globalParams, poleSupport, poolRH),
+    [direction, services, globalParams, poleSupport, poolRH]
+  );
+  const tresorerie = useMemo(
+    () => calculerTresorerieMensuelle(direction, services, globalParams, poleSupport, poolRH),
+    [direction, services, globalParams, poleSupport, poolRH]
+  );
+
+  // ── Données consolidées cross-modules ───────────────────────────────────────
+
+  // Masse salariale totale (RH + Pool RH), source unique de vérité
+  const masseSalarialeTotal = useMemo(() => {
+    const allP = [
+      ...(direction?.personnel || []),
+      ...(poleSupport?.personnel || []),
+      ...services.flatMap(s => s.personnel || []),
+      ...(poolRH || []),
+    ];
+    return allP.reduce((tot, p) => {
+      const sr = p.segur === true ? msETP : (parseFloat(p.segur) || 0);
+      return tot + calculerSalaireAnnuel(p.salaire, p.etp, sr, p.typeContrat, p.tauxChargesManuel).total;
+    }, 0);
+  }, [direction, poleSupport, services, poolRH, msETP]);
+
+  // Personnel éligible subvention — cochés "Subvention" dans l'onglet RH/Budget
+  const personnelEligibleSubvention = useMemo(() => {
+    const all = [
+      ...(direction?.personnel || []).map(p => ({ ...p, _source: 'Direction' })),
+      ...(poleSupport?.personnel || []).map(p => ({ ...p, _source: 'Pôle Support' })),
+      ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, _source: s.nom }))),
+      ...(poolRH || []).map(p => ({ ...p, _source: 'Pool RH' })),
+    ].filter(p => p.eligibleSubvention);
+    return all.map(p => {
+      const sr = p.segur === true ? msETP : (parseFloat(p.segur) || 0);
+      const sal = calculerSalaireAnnuel(p.salaire, p.etp, sr, p.typeContrat, p.tauxChargesManuel);
+      const pctFI = p.repartitionFI
+        ? Math.min(1, Object.values(p.repartitionFI).reduce((s, v) => s + (parseFloat(v) || 0), 0) / 100)
+        : 1;
+      return { ...p, coutAnnuel: sal.total, pctFI: Math.round(pctFI * 100), coutSubventionnable: sal.total * pctFI };
+    });
+  }, [direction, poleSupport, services, msETP]);
+
+  // Effectifs formation — source unique (calclerStatsFormation sur services.promos)
+  const statsFormation = useMemo(() => ({
+    effectifTotal: services.reduce((s, srv) => s + (srv.promos ? calculerStatsFormation(srv).effectifActuel : (srv.unites || 0)), 0),
+    parService: services.map(srv => ({ id: srv.id, nom: srv.nom, stats: srv.promos ? calculerStatsFormation(srv) : null })),
+  }), [services]);
 
   // Callback wizard setup — applique la configuration initiale à l'état global
   const handleWizardComplete = (data) => {
@@ -630,7 +695,8 @@ const BudgetTool = () => {
     const data = {
       version: '2.1', type: 'association', date: new Date().toISOString(),
       globalParams, direction, services, poleSupport, poolRH,
-      enveloppeFormation, reportingFC, donneesN1, planningAbsences
+      enveloppeFormation, reportingFC, donneesN1, planningAbsences,
+      pilotageSites, directionPosition, poleSupportPosition
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const link = document.createElement('a');
@@ -675,6 +741,15 @@ const BudgetTool = () => {
           if (data.globalParams) setGlobalParams(data.globalParams);
           if (data.direction) setDirection(data.direction);
           if (data.services) setServices(data.services);
+          if (data.poleSupport) setPoleSupport(data.poleSupport);
+          if (data.poolRH) setPoolRH(data.poolRH);
+          if (data.enveloppeFormation) setEnveloppeFormation(data.enveloppeFormation);
+          if (data.reportingFC) setReportingFC(data.reportingFC);
+          if (data.donneesN1) setDonneesN1(data.donneesN1);
+          if (data.planningAbsences) setPlanningAbsences(data.planningAbsences);
+          if (data.pilotageSites) setPilotageSites(data.pilotageSites);
+          if (data.directionPosition !== undefined) setDirectionPosition(data.directionPosition);
+          if (data.poleSupportPosition !== undefined) setPoleSupportPosition(data.poleSupportPosition);
           alert('Budget chargé !');
         } catch { alert('Erreur de chargement'); }
       };
@@ -689,9 +764,15 @@ const BudgetTool = () => {
   const nomsMois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
 
   // Calcul des alertes
-  const totalRecettes = services.reduce((sum, s) => sum + getBudgetService(s).recettes, 0);
+  const totalRecettes = services.reduce((sum, s) => {
+    if (stressTest !== 0) return sum + appliquerStressTest(s.recettes || [], stressTest);
+    return sum + getBudgetService(s).recettes;
+  }, 0);
+  const totalRecettesBase = services.reduce((sum, s) => sum + getBudgetService(s).recettes, 0);
   const totalCharges = services.reduce((sum, s) => sum + getBudgetService(s).total, 0) + getBudgetDirection().total + getBudgetPoleSupport().total;
   const soldeGlobal = totalRecettes - totalCharges;
+  const soldeGlobalBase = totalRecettesBase - totalCharges;
+  const stressImpact = soldeGlobal - soldeGlobalBase;
   const hasDeficit = soldeGlobal < 0;
 
   // ── KPI globaux ──────────────────────────────────────────────────
@@ -722,13 +803,122 @@ const BudgetTool = () => {
     alertes.push({ lvl: 'info', msg: 'Aucune provision constituée — vérifier les taux dans le bloc Provisions' });
   // Alertes RH (fins de contrat, retraites)
   calculerAlertesRH(direction, poleSupport, services).forEach(a => alertes.push(a));
+  // Alertes cohérence Pool RH
+  verifierCoherencePoolRH(poolRH).forEach(a =>
+    alertes.push({ lvl: a.totalPct > 100 ? 'error' : 'warning', msg: `Pool RH — ${a.msg}` })
+  );
   // Alerte trésorerie négative
   if (tresorerie.alertesMois.length > 0)
     alertes.push({ lvl: 'warning', msg: `Tension de trésorerie prévisionnelle : solde cumulé négatif en ${tresorerie.alertesMois.map(i => ['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][i]).join(', ')}` });
 
   return (
     <>
-    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}>
+    {/* Startup gate — premier lancement */}
+    {showStartupGate && (
+      <StartupGate
+        darkMode={darkMode}
+        onStart={() => setShowStartupGate(false)}
+      />
+    )}
+    {/* Modal hard reset */}
+    {showHardReset && (
+      <ModalHardReset
+        darkMode={darkMode}
+        onClose={() => setShowHardReset(false)}
+      />
+    )}
+    {/* ═══ HEADER FIXE ═══ */}
+    <div className={`fixed top-0 left-0 right-0 z-50 h-14 flex items-center justify-between px-4 gap-4 border-b no-print transition-colors duration-300
+      ${darkMode ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+      {/* Logo + titre */}
+      <div className="flex items-center gap-3 flex-shrink-0" style={{ paddingLeft: sidebarOpen ? '256px' : '56px', transition: 'padding-left 0.3s cubic-bezier(0.4,0,0.2,1)' }}>
+        <img src="/logo.png" alt="" className={`h-7 ${darkMode ? 'brightness-200' : ''}`} onError={e => e.target.style.display='none'} />
+        <div>
+          <span className={`text-sm font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Budget Association</span>
+          <span className={`hidden sm:inline text-[11px] ml-2 ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>· Projection 3 ans</span>
+        </div>
+      </div>
+
+      {/* KPIs inline */}
+      <div className="hidden md:flex items-center gap-2 flex-1 justify-center">
+        {[
+          { label: 'Solde', val: `${soldeGlobal >= 0 ? '+' : ''}${Math.round(soldeGlobal/1000)}k €`, color: soldeGlobal >= 0 ? 'text-emerald-500' : 'text-rose-500' },
+          { label: 'ETP', val: totalETP.toFixed(1), color: darkMode ? 'text-zinc-200' : 'text-slate-700' },
+          { label: 'Couverture', val: `${Math.round(tauxCouverture)} %`, color: tauxCouverture >= 100 ? 'text-emerald-500' : 'text-rose-500' },
+        ].map(k => (
+          <div key={k.label} className={`text-center px-3 py-1 rounded-lg ${darkMode ? 'bg-zinc-900' : 'bg-slate-50'}`}>
+            <div className={`text-[9px] font-bold uppercase tracking-wide ${darkMode ? 'text-zinc-600' : 'text-slate-400'}`}>{k.label}</div>
+            <div className={`text-xs font-black font-mono-numbers ${k.color}`}>{k.val}</div>
+          </div>
+        ))}
+        {stressTest !== 0 && (
+          <div className="text-center px-3 py-1 rounded-lg bg-amber-500/15 border border-amber-500/25">
+            <div className="text-[9px] font-bold uppercase tracking-wide text-amber-500">Stress {stressTest > 0 ? '+' : ''}{stressTest}%</div>
+            <div className={`text-xs font-black font-mono-numbers ${stressImpact >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+              {stressImpact >= 0 ? '+' : ''}{Math.round(stressImpact/1000)}k €
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button onClick={sauvegarderBudget}
+          className="bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 text-xs shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:-translate-y-0.5 transition-all duration-150">
+          <Save size={13} /> Sauver
+        </button>
+        <button onClick={() => setDarkMode(!darkMode)}
+          className={`p-2 rounded-xl text-sm ${darkMode ? 'bg-yellow-500 text-gray-900' : 'bg-zinc-800 text-white'}`}>
+          {darkMode ? <Sun size={14} /> : <Moon size={14} />}
+        </button>
+        <button onClick={() => setActiveTab('parametres')}
+          className={`p-2 rounded-xl border transition-colors ${darkMode ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+          title="Paramètres">
+          <Settings size={14} />
+        </button>
+        <button
+          onClick={() => setPrivacyMode(v => !v)}
+          title={privacyMode ? 'Désactiver le mode confidentialité' : 'Mode confidentialité — masquer les montants'}
+          className={`p-2 rounded-xl border transition-all ${
+            privacyMode
+              ? 'bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-500/30'
+              : darkMode
+                ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-rose-400'
+                : 'border-slate-200 text-slate-500 hover:bg-rose-50 hover:text-rose-500'
+          }`}>
+          {privacyMode ? <EyeOff size={14} /> : <Eye size={14} />}
+        </button>
+        <button
+          onClick={() => setShowAICopilot(v => !v)}
+          title="Copilote IA — Analyse stratégique"
+          className={`p-2 rounded-xl border transition-all ${
+            showAICopilot
+              ? 'bg-violet-500 border-violet-500 text-white shadow-md shadow-violet-500/30'
+              : darkMode
+                ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-violet-400'
+                : 'border-slate-200 text-slate-500 hover:bg-violet-50 hover:text-violet-500'
+          }`}>
+          <Brain size={14} />
+        </button>
+      </div>
+    </div>
+
+    {showAICopilot && (
+      <AICopilot
+        darkMode={darkMode}
+        onClose={() => setShowAICopilot(false)}
+        direction={direction}
+        poleSupport={poleSupport}
+        services={services}
+        getBudgetDirection={getBudgetDirection}
+        getBudgetPoleSupport={getBudgetPoleSupport}
+        getBudgetService={getBudgetService}
+        masseSalarialeTotal={masseSalarialeTotal}
+        tresorerie={tresorerie}
+      />
+    )}
+
+    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-zinc-950' : 'bg-gradient-to-br from-slate-50 via-slate-50 to-indigo-50/30'}`}>
       {/* Composants globaux */}
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
@@ -765,9 +955,19 @@ const BudgetTool = () => {
         />
       )}
 
-      {/* Contenu principal avec marge pour le sidebar */}
-      <div className="main-content p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
+      <SidebarNav
+        services={services}
+        darkMode={darkMode}
+        isOpen={sidebarOpen}
+        onToggle={() => setSidebarOpen(!sidebarOpen)}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
+
+      {/* Contenu principal — décalé du header fixe (56px) et de la sidebar */}
+      <div className="main-content p-4 md:p-6 transition-all duration-300"
+           style={{ marginLeft: sidebarOpen ? '256px' : '56px', marginRight: showAICopilot ? '320px' : '0', paddingTop: 'calc(56px + 1.5rem)' }}>
+        <div className="max-w-[1600px] mx-auto">
 
           {/* ── TABLEAU DE BORD KPI ── */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
@@ -791,8 +991,8 @@ const BudgetTool = () => {
               };
               const c = colors[k.color];
               return (
-                <div key={i} className={`relative group rounded-3xl p-5 transition-all duration-300 shadow-md hover:shadow-xl hover:-translate-y-1 hover:z-50 border
-                  ${darkMode ? 'bg-gray-800/40 border-white/10 backdrop-blur-md' : 'bg-white/80 border-slate-200/60 backdrop-blur-sm'}`}>
+                <div key={i} className={`relative group rounded-3xl p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:z-50 border
+                  ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30 backdrop-blur-md shadow-[0_8px_30px_rgb(0,0,0,0.12)]' : 'bg-white border-slate-100/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-sm'}`}>
                   
                   {/* Subtle Gradient Spot */}
                   <div className={`absolute -top-10 -right-10 w-24 h-24 ${c.bg}/10 blur-3xl group-hover:${c.bg}/20 transition-all duration-500`}></div>
@@ -825,8 +1025,8 @@ const BudgetTool = () => {
 
           {/* ── ALERTES AUTOMATIQUES ── */}
           {alertes.length > 0 && (
-            <div className={`mb-6 rounded-2xl border-2 overflow-hidden ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
-              <div className={`px-4 py-2 flex items-center gap-2 ${darkMode ? 'bg-gray-700' : 'bg-slate-100'}`}>
+            <div className={`mb-6 rounded-2xl border overflow-hidden ${darkMode ? 'border-zinc-700/50' : 'border-slate-200'}`}>
+              <div className={`px-4 py-2 flex items-center gap-2 ${darkMode ? 'bg-zinc-800/60' : 'bg-slate-50'}`}>
                 <Bell size={16} className={alertes.some(a => a.lvl === 'error') ? 'text-red-500' : 'text-amber-500'} />
                 <span className={`text-sm font-black ${darkMode ? 'text-white' : 'text-slate-700'}`}>{alertes.length} point{alertes.length > 1 ? 's' : ''} de vigilance</span>
               </div>
@@ -845,25 +1045,13 @@ const BudgetTool = () => {
             </div>
           )}
 
-          {/* HEADER COMPACT */}
-          <div id="header" className={`rounded-2xl border px-5 py-3 mb-6 no-print flex items-center justify-between backdrop-blur-md transition-all duration-300 ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
-            <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="AFERTES" className={`h-8 ${darkMode ? 'brightness-200' : ''}`} />
-              <div>
-                <h1 className={`text-lg font-black leading-tight ${darkMode ? 'text-white' : 'text-slate-800'}`}>Budget Association</h1>
-                <p className={`text-[11px] ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Gestion budgétaire · Projection 3 ans</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button onClick={sauvegarderBudget} className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-3 py-2 rounded-xl font-bold flex items-center gap-1.5 text-sm"><Save size={15} /> Sauver</button>
-              <button onClick={() => setDarkMode(!darkMode)} className={`p-2.5 rounded-xl ${darkMode ? 'bg-yellow-500 text-gray-900' : 'bg-gray-800 text-white'}`}>
-                {darkMode ? <Sun size={16} /> : <Moon size={16} />}
-              </button>
-              <button onClick={() => setActiveTab('parametres')} className={`p-2.5 rounded-xl border transition-colors ${darkMode ? 'border-slate-600 text-slate-400 hover:bg-slate-700' : 'border-slate-200 text-slate-500 hover:bg-slate-100'}`} title="Paramètres">
-                <Settings size={16} />
-              </button>
-            </div>
-          </div>
+          {/* Stress Test Bar — simulateur d'aléas */}
+          <StressTestBar
+            stressTest={stressTest}
+            setStressTest={setStressTest}
+            impact={stressImpact}
+            darkMode={darkMode}
+          />
 
         <ModalRoles darkMode={darkMode} showRolesModal={showRolesModal} setShowRolesModal={setShowRolesModal} roles={roles} setRoles={setRoles} />
 
@@ -882,38 +1070,104 @@ const BudgetTool = () => {
         <ModalPassword darkMode={darkMode} showPasswordModal={showPasswordModal} setShowPasswordModal={setShowPasswordModal} />
 
         {/* ═══ BARRE D'ONGLETS ═══ */}
-        <div className={`flex gap-2 mb-8 p-1.5 rounded-2xl no-print backdrop-blur-md border transition-all duration-500 ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-slate-100/80 border-slate-200/60'}`}>
+        <div className={`mb-8 p-1.5 rounded-2xl no-print backdrop-blur-md border transition-all duration-500 ${darkMode ? 'bg-zinc-900/80 border-zinc-700/40' : 'bg-slate-100/90 border-slate-200/60'}`}>
+          <div className="flex gap-1 overflow-x-auto scrollbar-none">
           {[
-            { id: 'dashboard',   label: 'Tableau de bord', icon: <Home size={18}/> },
-            { id: 'budget',      label: 'Budget',           icon: <Building2 size={18}/> },
-            { id: 'analyse',     label: 'Analyse',          icon: <BarChart3 size={18}/> },
-            { id: 'rh',          label: 'RH',               icon: <Users size={18}/> },
-            { id: 'formation',   label: 'Formation',        icon: <GraduationCap size={18}/> },
-            { id: 'vacataires',  label: 'Vacataires',       icon: <Users size={18}/> },
-            { id: 'subvention',  label: 'Subvention',       icon: <Landmark size={18}/> },
-            { id: 'daf',         label: 'DAF',              icon: <Calculator size={18}/> },
-            { id: 'parametres',  label: 'Paramètres',       icon: <Settings size={18}/> },
+            { id: 'dashboard',   label: 'Tableau de bord', icon: <Home size={15}/> },
+            { id: 'budget',      label: 'Budget',           icon: <Building2 size={15}/> },
+            { id: 'analyse',     label: 'Analyse',          icon: <BarChart3 size={15}/> },
+            { id: 'rh',          label: 'RH',               icon: <Users size={15}/> },
+            { id: 'formation',   label: 'Formation',        icon: <GraduationCap size={15}/> },
+            { id: 'vacataires',  label: 'Vacataires',       icon: <Users size={15}/> },
+            { id: 'subvention',  label: 'Subvention',       icon: <Landmark size={15}/> },
+            { id: 'daf',         label: 'DAF',              icon: <Calculator size={15}/> },
+            { id: 'parametres',  label: 'Paramètres',       icon: <Settings size={15}/> },
           ].map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 transform active:scale-95 ${
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 whitespace-nowrap ${
                 activeTab === tab.id
-                  ? darkMode ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/20' : 'bg-white text-teal-700 shadow-md'
-                  : darkMode ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50' : 'text-slate-500 hover:text-slate-700 hover:bg-white/60'
+                  ? darkMode ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30' : 'bg-white text-indigo-700 shadow-md shadow-indigo-100'
+                  : darkMode ? 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/60' : 'text-slate-500 hover:text-slate-700 hover:bg-white/70'
               }`}
             >
-              {tab.icon} <span className="hidden sm:inline">{tab.label}</span>
+              {tab.icon} {tab.label}
             </button>
           ))}
+          </div>
         </div>
 
         {/* ─── CONTENU AVEC TRANSITION ─── */}
-        <div className="animate-in fade-in duration-500">
+        <div key={activeTab} className="animate-in fade-in duration-500">
         {activeTab === 'dashboard' && <>
 
+        {/* COMPARAISON BUDGET VOTÉ */}
+        {compareSnapshot && (() => {
+          const snap = loadSnapshot();
+          if (!snap) return null;
+          const fmtDelta = (cur, ref) => {
+            const d = cur - ref;
+            const pct = ref !== 0 ? ((d / Math.abs(ref)) * 100).toFixed(1) : '—';
+            const cls = d >= 0 ? 'text-emerald-500' : 'text-rose-500';
+            return <span className={`font-black font-mono-numbers text-xs ${cls}`}>{d >= 0 ? '+' : ''}{Math.round(d).toLocaleString()} € ({pct} %)</span>;
+          };
+          const snapServices = snap.services || [];
+          return (
+            <div className={`rounded-3xl border p-6 mb-6 ${darkMode ? 'bg-indigo-950/40 border-indigo-700/40' : 'bg-indigo-50 border-indigo-200'}`}>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className={`text-base font-black flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                  <GitCompare size={18} className="text-indigo-500" /> Comparaison — Budget Voté vs Actuel
+                  <span className={`text-xs font-normal ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>
+                    Figé le {new Date(snap.savedAt).toLocaleDateString('fr-FR')}
+                  </span>
+                </h2>
+                <button onClick={() => setCompareSnapshot(false)} className={`text-xs px-2 py-1 rounded-lg ${darkMode ? 'text-zinc-400 hover:bg-zinc-800' : 'text-slate-400 hover:bg-white'}`}>✕</button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className={`text-[10px] font-bold uppercase tracking-wide border-b ${darkMode ? 'text-zinc-500 border-zinc-700' : 'text-slate-400 border-slate-200'}`}>
+                      <th className="text-left py-2 pr-4">Service</th>
+                      <th className="text-right py-2 px-3">Budget Voté</th>
+                      <th className="text-right py-2 px-3">Actuel</th>
+                      <th className="text-right py-2 pl-3">Écart</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {services.map(srv => {
+                      const cur = getBudgetService(srv);
+                      const ref = snapServices.find(s => s.id === srv.id);
+                      if (!ref) return null;
+                      const refBudget = calculerBudgetService(ref, null, 2026, msETP, poolRH);
+                      return (
+                        <tr key={srv.id} className={`border-b ${darkMode ? 'border-zinc-800' : 'border-slate-100'}`}>
+                          <td className={`py-2 pr-4 font-medium ${darkMode ? 'text-white' : 'text-slate-800'}`}>{srv.nom}</td>
+                          <td className={`py-2 px-3 text-right font-mono-numbers ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>{Math.round(refBudget.total).toLocaleString()} €</td>
+                          <td className={`py-2 px-3 text-right font-mono-numbers ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>{Math.round(cur.total).toLocaleString()} €</td>
+                          <td className="py-2 pl-3 text-right">{fmtDelta(cur.total, refBudget.total)}</td>
+                        </tr>
+                      );
+                    })}
+                    <tr className={`border-t-2 ${darkMode ? 'border-zinc-700' : 'border-slate-300'}`}>
+                      <td className={`py-2 pr-4 font-black ${darkMode ? 'text-white' : 'text-slate-900'}`}>TOTAL CHARGES</td>
+                      <td className={`py-2 px-3 text-right font-black font-mono-numbers ${darkMode ? 'text-zinc-200' : 'text-slate-700'}`}>
+                        {Math.round(snapServices.reduce((s, r) => s + calculerBudgetService(r, null, 2026, msETP, poolRH).total, 0)).toLocaleString()} €
+                      </td>
+                      <td className={`py-2 px-3 text-right font-black font-mono-numbers ${darkMode ? 'text-zinc-200' : 'text-slate-700'}`}>{Math.round(totalCharges).toLocaleString()} €</td>
+                      <td className="py-2 pl-3 text-right">
+                        {fmtDelta(totalCharges, snapServices.reduce((s, r) => s + calculerBudgetService(r, null, 2026, msETP, poolRH).total, 0))}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* BUDGET ANNUEL */}
-        <div id="budget-annuel" className={`rounded-3xl shadow-xl border p-8 mb-8 backdrop-blur-md transition-all duration-300 ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+        <div id="budget-annuel" className={`rounded-3xl border p-8 mb-8 backdrop-blur-md transition-all duration-300 ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30 shadow-[0_8px_30px_rgb(0,0,0,0.12)]' : 'bg-white border-slate-100/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)]'}`}>
           <h2 className={`text-xl font-black mb-6 flex items-center gap-3 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
             <div className="p-2 rounded-xl bg-teal-500/10 text-teal-500"><Calendar size={22} /></div>
             Budget Annuel - Répartition mensuelle
@@ -999,16 +1253,71 @@ const BudgetTool = () => {
         })()}
 
         {/* SYNTHESE 3 ANS - CARTES */}
+        {/* ── INDICE GVT ─────────────────────────────────────────── */}
+        {(() => {
+          const tauxGVT = globalParams.tauxGVT ?? 1.5;
+          const gvtAn2 = (Math.pow(1 + tauxGVT / 100, 1) - 1) * 100;
+          const gvtAn3 = (Math.pow(1 + tauxGVT / 100, 2) - 1) * 100;
+          const impactGVTAn2 = masseSalarialeTotal * (Math.pow(1 + tauxGVT / 100, 1) - 1);
+          const impactGVTAn3 = masseSalarialeTotal * (Math.pow(1 + tauxGVT / 100, 2) - 1);
+          return (
+            <div className={`rounded-2xl border p-4 mb-5 flex flex-wrap items-center gap-4 ${darkMode ? 'bg-zinc-800/60 border-zinc-700' : 'bg-amber-50 border-amber-200'}`}>
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-lg ${darkMode ? 'bg-amber-900/40' : 'bg-amber-100'}`}>
+                  <TrendingUp size={15} className={darkMode ? 'text-amber-400' : 'text-amber-600'} />
+                </div>
+                <div>
+                  <span className={`text-xs font-black uppercase tracking-wide ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>Indice GVT</span>
+                  <InfoTooltip darkMode={darkMode} content="GVT = Glissement Vieillesse Technicité. Mesure l'augmentation automatique de la masse salariale liée à l'ancienneté et aux changements d'échelon, indépendamment des augmentations générales. Taux paramétrable dans les Paramètres généraux." />
+                </div>
+              </div>
+              <div className="flex gap-4 text-xs flex-wrap">
+                <div className={`px-3 py-1.5 rounded-lg ${darkMode ? 'bg-zinc-700' : 'bg-white border border-amber-100'}`}>
+                  <span className={`font-bold ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Taux / an : </span>
+                  <span className={`font-black ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>{tauxGVT.toFixed(1)}%</span>
+                </div>
+                {masseSalarialeTotal > 0 && <>
+                  <div className={`px-3 py-1.5 rounded-lg ${darkMode ? 'bg-zinc-700' : 'bg-white border border-amber-100'}`}>
+                    <span className={`font-bold ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>An 2 : </span>
+                    <span className={`font-black text-amber-500`}>+{gvtAn2.toFixed(1)}% → +{Math.round(impactGVTAn2 / 1000)}k €</span>
+                  </div>
+                  <div className={`px-3 py-1.5 rounded-lg ${darkMode ? 'bg-zinc-700' : 'bg-white border border-amber-100'}`}>
+                    <span className={`font-bold ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>An 3 : </span>
+                    <span className={`font-black text-orange-500`}>+{gvtAn3.toFixed(1)}% → +{Math.round(impactGVTAn3 / 1000)}k €</span>
+                  </div>
+                </>}
+              </div>
+              <div className={`ml-auto text-[10px] ${darkMode ? 'text-zinc-600' : 'text-amber-400'}`}>impact cumulé sur la masse salariale</div>
+            </div>
+          );
+        })()}
+
         <div id="synthese-3ans" className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {summary3Ans.map(s => (
+          {summary3Ans.map((s, idx) => {
+            const tauxGVT = globalParams.tauxGVT ?? 1.5;
+            const gvtPct = idx > 0 ? (Math.pow(1 + tauxGVT / 100, idx) - 1) * 100 : 0;
+            return (
             <div key={s.annee} className={`p-6 rounded-3xl shadow-lg border-2 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gradient-to-br from-white to-cyan-50 border-teal-200'}`}>
               <div className="flex justify-between items-start mb-4">
                 <span className="text-sm font-black uppercase text-teal-400">Année {s.annee}</span>
-                <TrendingUp className="text-teal-500" size={24} />
+                <div className="flex items-center gap-2">
+                  {idx > 0 && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-black">
+                      GVT +{gvtPct.toFixed(1)}%
+                    </span>
+                  )}
+                  <TrendingUp className="text-teal-500" size={20} />
+                </div>
               </div>
               <div className={`text-3xl font-black mb-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>{Math.round(s.total).toLocaleString()} €</div>
               <div className={`text-sm space-y-1 ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>
-                <div className="flex justify-between"><span>Amortissements:</span><span className="font-bold">{Math.round(s.amortissements).toLocaleString()} €</span></div>
+                <div className="flex justify-between items-center">
+                  <span className="flex items-center gap-1">
+                    Amortissements
+                    <InfoTooltip darkMode={darkMode} content="Charge comptable uniquement — étalement du coût d'un investissement sur sa durée de vie. N'est PAS un flux de trésorerie (pas de décaissement bancaire). À distinguer du remboursement d'emprunt." />
+                  </span>
+                  <span className="font-bold">{Math.round(s.amortissements).toLocaleString()} €</span>
+                </div>
                 <div className="flex justify-between"><span>Intérêts:</span><span className="font-bold">{Math.round(s.interets).toLocaleString()} €</span></div>
                 <div className="flex justify-between"><span>Siège:</span><span className="font-bold">{Math.round(s.budgetDirection).toLocaleString()} €</span></div>
               </div>
@@ -1022,8 +1331,230 @@ const BudgetTool = () => {
                 ))}
               </div>
             </div>
-          ))}
+          );})}
         </div>
+
+        {/* ── SYNTHÈSE BUDGÉTAIRE AUTOMATIQUE + IFC ───────────────────────────── */}
+        {(() => {
+          // ── Synthèse textuelle ──
+          const bDir = getBudgetDirection();
+          const bPS  = getBudgetPoleSupport();
+          const masseSalariale = services.reduce((s, srv) => s + getBudgetService(srv).salaires, 0)
+            + bDir.salaires + bPS.salaires;
+          const ratioSal = totalCharges > 0 ? Math.round(masseSalariale / totalCharges * 100) : 0;
+          const toutesLignes = [
+            ...(direction.chargesSiege || []),
+            ...(poleSupport?.exploitation || []),
+            ...services.flatMap(s => s.exploitation || []),
+          ];
+          const topPoste = toutesLignes
+            .map(l => ({ nom: l.nom || '—', montant: (l.montant || 0) * 12 }))
+            .sort((a, b) => b.montant - a.montant)[0];
+          const signeSolde = soldeGlobal >= 0 ? 'excédentaire' : 'déficitaire';
+          let synthese = `Le budget prévisionnel 2026 présente un résultat ${signeSolde} de ${Math.abs(Math.round(soldeGlobal)).toLocaleString('fr-FR')} €`;
+          synthese += ` (taux de couverture : ${Math.round(tauxCouverture)}%).`;
+          synthese += ` La masse salariale représente ${ratioSal}% des charges totales (${Math.round(masseSalariale).toLocaleString('fr-FR')} €).`;
+          if (topPoste?.montant > 0) synthese += ` Le poste de dépense le plus important hors salaires est "${topPoste.nom}" avec ${Math.round(topPoste.montant).toLocaleString('fr-FR')} €/an.`;
+          if (soldeGlobal < 0) synthese += ` ⚠️ Un déficit prévisionnel est identifié — revoir les leviers de recettes ou contenir les charges.`;
+          else if (tauxCouverture >= 105) synthese += ` ✓ L'excédent constitue une réserve de gestion permettant de sécuriser la trésorerie.`;
+
+          // ── IFC — msETP transmis pour cohérence avec le budget ──
+          const ifc = calculerIFC(direction, services, poleSupport, 2026, 62, 8, msETP);
+
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              {/* Synthèse automatique */}
+              <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+                <h2 className={`text-lg font-black mb-3 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                  <FileSpreadsheet size={20} className="text-violet-500" /> Synthèse automatique
+                </h2>
+                <p className={`text-sm leading-relaxed ${darkMode ? 'text-gray-300' : 'text-slate-700'}`}>{synthese}</p>
+                <div className={`mt-4 pt-4 border-t flex gap-6 ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
+                  <div>
+                    <div className={`text-[10px] font-bold uppercase ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Solde</div>
+                    <div className={`text-lg font-black ${soldeGlobal >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      {soldeGlobal >= 0 ? '+' : ''}{Math.round(soldeGlobal).toLocaleString()} €
+                    </div>
+                  </div>
+                  <div>
+                    <div className={`text-[10px] font-bold uppercase ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Masse sal.</div>
+                    <div className={`text-lg font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{ratioSal}%</div>
+                  </div>
+                  <div>
+                    <div className={`text-[10px] font-bold uppercase ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Couverture</div>
+                    <div className={`text-lg font-black ${tauxCouverture >= 100 ? 'text-emerald-500' : tauxCouverture >= 90 ? 'text-amber-500' : 'text-rose-500'}`}>{Math.round(tauxCouverture)}%</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* IFC — Indemnités de Fin de Carrière */}
+              <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+                <h2 className={`text-lg font-black mb-1 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                  <Clock size={20} className="text-rose-500" /> Provisions IFC
+                </h2>
+                <p className={`text-xs mb-3 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Indemnités de Fin de Carrière — agents à ≤ 8 ans de la retraite</p>
+                {ifc.agents.length === 0
+                  ? <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Aucun agent avec année de naissance et d'entrée renseignées, ou aucun départ prévu dans les 8 ans.</p>
+                  : <>
+                    <div className="space-y-2 mb-3">
+                      {ifc.agents.slice(0, 4).map(a => (
+                        <div key={a.id} className={`p-2 rounded-xl ${darkMode ? 'bg-gray-700/60' : 'bg-slate-50'}`}>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>{a.nom}</span>
+                              <span className={`text-xs ml-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{a.source}</span>
+                            </div>
+                            <div className="text-right">
+                              <div className={`text-xs font-black ${a.anneesAvantRetraite <= 2 ? 'text-rose-500' : a.anneesAvantRetraite <= 5 ? 'text-orange-500' : 'text-amber-500'}`}>
+                                retraite dans {a.anneesAvantRetraite} an{a.anneesAvantRetraite > 1 ? 's' : ''}
+                              </div>
+                              <div className={`text-sm font-black ${darkMode ? 'text-white' : 'text-slate-700'}`}>{a.provision.toLocaleString()} €</div>
+                            </div>
+                          </div>
+                          <div className={`text-[10px] mt-1 flex gap-2 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+                            <span>{a.age} ans · {a.anciennete} ans anc.</span>
+                            <span>base : {a.salaireBrutMensuel.toLocaleString()} €/mois{a.segurInclus ? ' (Ségur inclus)' : ''}</span>
+                          </div>
+                        </div>
+                      ))}
+                      {ifc.agents.length > 4 && <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>+{ifc.agents.length - 4} autre(s)…</p>}
+                    </div>
+                    <div className={`pt-3 border-t flex justify-between items-center ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
+                      <span className={`text-xs font-bold ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Provision totale estimée</span>
+                      <span className={`text-lg font-black text-rose-500`}>{ifc.totalProvision.toLocaleString()} €</span>
+                    </div>
+                  </>
+                }
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ── POINT MORT PAR SERVICE ──────────────────────────────────────────── */}
+        {(() => {
+          const MOTS_RSE = ['énergie','electricité','électricité','carburant','transport','gaz','fuel','déplacement','co2'];
+          const MOTS_AGENDA_TOP = 5;
+
+          // Point mort
+          const pointsMorts = services.map(s => {
+            const b = getBudgetService(s);
+            const stats = calculerStatsFormation(s);
+            const effectifActuel = stats.effectifActuel || s.unites || 0;
+            const recetteParEtudiant = effectifActuel > 0 ? b.recettes / effectifActuel : 0;
+            const pointMort = recetteParEtudiant > 0 ? Math.ceil(b.total / recetteParEtudiant) : null;
+            return { nom: s.nom, total: b.total, recettes: b.recettes, effectifActuel, recetteParEtudiant, pointMort };
+          }).filter(pm => pm.pointMort !== null && pm.effectifActuel > 0);
+
+          // RSE : cumul par entité toutes exploitations
+          const toutesExploitations = [
+            ...(direction.chargesSiege || []),
+            ...(poleSupport?.exploitation || []),
+            ...services.flatMap(s => s.exploitation || []),
+          ];
+          const rseCategs = { Énergie: 0, Carburant: 0, Transport: 0, Gaz: 0, Autres: 0 };
+          toutesExploitations.forEach(ligne => {
+            const nom = (ligne.nom || '').toLowerCase();
+            const montantAnnuel = (ligne.montant || 0) * 12;
+            if (nom.includes('énerg') || nom.includes('electr') || nom.includes('électr')) rseCategs.Énergie += montantAnnuel;
+            else if (nom.includes('carburant') || nom.includes('fuel')) rseCategs.Carburant += montantAnnuel;
+            else if (nom.includes('transport') || nom.includes('déplacement') || nom.includes('deplacement')) rseCategs.Transport += montantAnnuel;
+            else if (nom.includes('gaz')) rseCategs.Gaz += montantAnnuel;
+            else if (MOTS_RSE.some(m => nom.includes(m))) rseCategs.Autres += montantAnnuel;
+          });
+          const totalRSE = Object.values(rseCategs).reduce((a, b) => a + b, 0);
+          const rseData = Object.entries(rseCategs).filter(([, v]) => v > 0).map(([k, v]) => ({ name: k, montant: v }));
+
+          // Agenda : top charges
+          const agendaItems = toutesExploitations
+            .map(l => ({ nom: l.nom || '—', montant: (l.montant || 0) * 12 }))
+            .filter(l => l.montant > 0)
+            .sort((a, b) => b.montant - a.montant)
+            .slice(0, MOTS_AGENDA_TOP);
+
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
+              {/* Point mort par service */}
+              <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+                <h2 className={`text-lg font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                  <Target size={20} className="text-rose-500" /> Seuil de rentabilité
+                </h2>
+                {pointsMorts.length === 0
+                  ? <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Aucun service avec effectif et recettes définis.</p>
+                  : pointsMorts.map(pm => {
+                    const pct = pm.pointMort > 0 ? Math.min(100, Math.round(pm.effectifActuel / pm.pointMort * 100)) : 0;
+                    const ok = pm.effectifActuel >= pm.pointMort;
+                    return (
+                      <div key={pm.nom} className="mb-4 last:mb-0">
+                        <div className="flex justify-between items-baseline mb-1">
+                          <span className={`text-xs font-bold truncate max-w-[55%] ${darkMode ? 'text-gray-300' : 'text-slate-700'}`}>{pm.nom}</span>
+                          <span className={`text-xs font-black ${ok ? 'text-emerald-500' : 'text-rose-500'}`}>
+                            {pm.effectifActuel} / {pm.pointMort} étud.
+                          </span>
+                        </div>
+                        <div className={`h-2.5 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-slate-100'}`}>
+                          <div className={`h-full rounded-full transition-all ${ok ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <div className={`mt-0.5 text-[10px] ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+                          Seuil : {pm.pointMort} étudiants · {ok ? '✓ équilibré' : `−${pm.pointMort - pm.effectifActuel} manquant${pm.pointMort - pm.effectifActuel > 1 ? 's' : ''}`}
+                        </div>
+                      </div>
+                    );
+                  })
+                }
+              </div>
+
+              {/* Dashboard RSE */}
+              <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+                <h2 className={`text-lg font-black mb-1 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                  <Leaf size={20} className="text-emerald-500" /> Budget RSE
+                </h2>
+                <p className={`text-xs mb-4 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Dépenses énergie / transport / carburant</p>
+                {totalRSE === 0
+                  ? <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Aucune ligne de type RSE détectée. Nommez vos lignes exploitation : "Énergie", "Carburant", "Transport"…</p>
+                  : <>
+                    <div className={`text-2xl font-black mb-3 ${darkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>{Math.round(totalRSE).toLocaleString()} €/an</div>
+                    <div className="space-y-2">
+                      {rseData.map(d => (
+                        <div key={d.name}>
+                          <div className="flex justify-between text-xs mb-0.5">
+                            <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>{d.name}</span>
+                            <span className={`font-bold ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>{Math.round(d.montant).toLocaleString()} €</span>
+                          </div>
+                          <div className={`h-2 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-slate-100'}`}>
+                            <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${Math.round(d.montant / totalRSE * 100)}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                }
+              </div>
+
+              {/* Notification Agenda */}
+              <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+                <h2 className={`text-lg font-black mb-1 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                  <Bell size={20} className="text-amber-500" /> Top décaissements
+                </h2>
+                <p className={`text-xs mb-4 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>5 postes d'exploitation les plus lourds</p>
+                {agendaItems.length === 0
+                  ? <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Aucune charge d'exploitation saisie.</p>
+                  : <ol className="space-y-2">
+                    {agendaItems.map((item, i) => (
+                      <li key={i} className="flex items-center gap-3">
+                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${
+                          i === 0 ? 'bg-amber-500 text-white' : i === 1 ? 'bg-amber-400/80 text-white' : darkMode ? 'bg-gray-700 text-gray-400' : 'bg-slate-100 text-slate-500'
+                        }`}>{i + 1}</span>
+                        <span className={`flex-1 text-sm truncate ${darkMode ? 'text-gray-300' : 'text-slate-700'}`}>{item.nom}</span>
+                        <span className={`text-sm font-black flex-shrink-0 ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>{Math.round(item.montant).toLocaleString()} €</span>
+                      </li>
+                    ))}
+                  </ol>
+                }
+              </div>
+            </div>
+          );
+        })()}
 
         {/* GRAPHIQUES */}
         <div id="graphiques" className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -1155,274 +1686,22 @@ const BudgetTool = () => {
           setShowImportN1={setShowImportN1}
           simCharges={simCharges}
           setSimCharges={setSimCharges}
+          simRegion={simRegion}
+          setSimRegion={setSimRegion}
           getBudgetDirection={getBudgetDirection}
           getBudgetPoleSupport={getBudgetPoleSupport}
           getBudgetService={getBudgetService}
+          getProvisions={getProvisions}
+          getBFR={getBFR}
+          getFondRoulement={getFondRoulement}
           msETP={msETP}
           planningAbsences={planningAbsences}
+          poolRH={poolRH}
+          masseSalarialeTotal={masseSalarialeTotal}
+          statsFormation={statsFormation}
+          personnelEligibleSubvention={personnelEligibleSubvention}
         />}
 
-        {/* ─── ANALYSE FINANCIÈRE (ANCIEN BLOC — SUPPRIMÉ) ─── */}
-        {false && <>
-
-        {/* PROVISIONS & BFR & FONDS DE ROULEMENT */}
-        <div id="provisions-bfr-fr" className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {/* PROVISIONS */}
-          <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-orange-900' : 'bg-gradient-to-br from-orange-50 to-red-50 border-orange-200'}`}>
-            {(() => { const p = getProvisions(); return (<>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className={`text-xl font-black ${darkMode ? 'text-orange-400' : 'text-orange-900'}`}>Provisions pour risque</h2>
-                <button
-                  onClick={() => setGlobalParams({
-                    ...globalParams,
-                    provisions: [...(globalParams.provisions || []), {
-                      id: `prov_${Date.now()}`,
-                      nom: 'Nouvelle provision',
-                      baseCalcul: 'salaires',
-                      taux: 0
-                    }]
-                  })}
-                  className="bg-orange-500 text-white p-2 rounded-lg no-print"
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {(p.details || []).map((prov, idx) => (
-                  <div key={prov.id} className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'} group relative`}>
-                    <button
-                      onClick={() => setGlobalParams({
-                        ...globalParams,
-                        provisions: globalParams.provisions.filter(pr => pr.id !== prov.id)
-                      })}
-                      className="absolute -top-2.5 -right-2.5 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 no-print"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                    <div className="flex items-center gap-2 mb-2">
-                      <input
-                        className={`flex-1 font-bold text-sm bg-transparent outline-none ${darkMode ? 'text-white' : 'text-slate-700'}`}
-                        value={globalParams.provisions[idx]?.nom || prov.nom}
-                        onChange={(e) => setGlobalParams({
-                          ...globalParams,
-                          provisions: globalParams.provisions.map(pr =>
-                            pr.id === prov.id ? {...pr, nom: e.target.value} : pr
-                          )
-                        })}
-                      />
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <select
-                        className={`rounded px-2 py-1 ${darkMode ? 'bg-gray-600 text-white' : 'bg-orange-50'}`}
-                        value={globalParams.provisions[idx]?.baseCalcul || prov.baseCalcul}
-                        onChange={(e) => setGlobalParams({
-                          ...globalParams,
-                          provisions: globalParams.provisions.map(pr =>
-                            pr.id === prov.id ? {...pr, baseCalcul: e.target.value} : pr
-                          )
-                        })}
-                      >
-                        <option value="salaires">% Salaires</option>
-                        <option value="investissements">% Investissements</option>
-                        <option value="chiffre_affaires">% Chiffre d'affaires</option>
-                      </select>
-                      <input
-                        type="number"
-                        step="0.1"
-                        className={`w-16 text-right rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-orange-50'}`}
-                        value={globalParams.provisions[idx]?.taux || 0}
-                        onChange={(e) => setGlobalParams({
-                          ...globalParams,
-                          provisions: globalParams.provisions.map(pr =>
-                            pr.id === prov.id ? {...pr, taux: validerTaux(e.target.value)} : pr
-                          )
-                        })}
-                      />
-                      <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>%</span>
-                    </div>
-                    <div className={`text-right mt-1 font-black text-orange-600`}>
-                      {Math.round(prov.montant).toLocaleString()} €
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white flex justify-between">
-                <span className="font-bold">TOTAL</span>
-                <span className="text-xl font-black">{Math.round(p.total).toLocaleString()} €</span>
-              </div>
-            </>); })()}
-          </div>
-
-          {/* FOND DE ROULEMENT */}
-          <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200'}`}>
-            {(() => { const fr = getFondRoulement(); return (<>
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2">
-                  <h2 className={`text-xl font-black ${darkMode ? 'text-purple-400' : 'text-purple-900'}`}>Fonds de Roulement</h2>
-                  <div className="relative group">
-                    <HelpCircle size={16} className={`cursor-help ${darkMode ? 'text-purple-400' : 'text-purple-600'}`} />
-                    <div className={`absolute left-0 top-6 w-72 p-3 rounded-xl shadow-lg z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-slate-700'}`}>
-                      <p className="font-bold mb-2">Méthode de calcul :</p>
-                      <p className="text-xs mb-1"><strong>FR = Capitaux permanents - Immobilisations nettes</strong></p>
-                      <p className="text-xs text-gray-500">Le FR représente la part des capitaux permanents qui finance l'exploitation. Un FR positif signifie une marge de sécurité financière.</p>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setGlobalParams({
-                    ...globalParams,
-                    fondRoulement: [...(globalParams.fondRoulement || []), {
-                      id: `fr_${Date.now()}`,
-                      nom: 'Nouveau poste',
-                      montant: 0
-                    }]
-                  })}
-                  className="bg-purple-500 text-white p-2 rounded-lg no-print"
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
-              <div className={`text-xs mb-3 p-3 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-400' : 'bg-purple-100 text-purple-700'}`}>
-                <div className="font-bold mb-1">Formule :</div>
-                <div className="font-mono">FR = Σ Capitaux permanents - Immobilisations nettes</div>
-              </div>
-              <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                {(fr.details || []).map((item, idx) => (
-                  <div key={item.id} className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'} group relative`}>
-                    <button
-                      onClick={() => setGlobalParams({
-                        ...globalParams,
-                        fondRoulement: globalParams.fondRoulement.filter(f => f.id !== item.id)
-                      })}
-                      className="absolute -top-2.5 -right-2.5 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 no-print"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                    <div className="flex items-center justify-between gap-2">
-                      <input
-                        className={`flex-1 font-bold text-sm bg-transparent outline-none ${darkMode ? 'text-white' : 'text-slate-700'}`}
-                        value={globalParams.fondRoulement[idx]?.nom || item.nom}
-                        onChange={(e) => setGlobalParams({
-                          ...globalParams,
-                          fondRoulement: globalParams.fondRoulement.map(f =>
-                            f.id === item.id ? {...f, nom: e.target.value} : f
-                          )
-                        })}
-                      />
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          className={`w-24 text-right rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-purple-50'}`}
-                          value={globalParams.fondRoulement[idx]?.montant || 0}
-                          onChange={(e) => setGlobalParams({
-                            ...globalParams,
-                            fondRoulement: globalParams.fondRoulement.map(f =>
-                              f.id === item.id ? {...f, montant: (item.id === 'reportNouveau' ? validerMontantSigne : validerMontant)(e.target.value)} : f
-                            )
-                          })}
-                        />
-                        <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className={`mt-3 pt-3 border-t ${darkMode ? 'border-gray-600' : 'border-purple-200'} space-y-2 text-sm`}>
-                <div className="flex justify-between">
-                  <span className={darkMode ? 'text-gray-400' : 'text-slate-600'}>Capitaux permanents</span>
-                  <span className={`font-bold ${darkMode ? 'text-purple-300' : 'text-purple-700'}`}>+{Math.round(fr.totalCapitauxPermanents).toLocaleString()} €</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className={darkMode ? 'text-gray-400' : 'text-slate-600'}>Immobilisations nettes</span>
-                  <span className={`font-bold ${darkMode ? 'text-red-300' : 'text-red-600'}`}>-{Math.round(fr.immobilisationsNettes).toLocaleString()} €</span>
-                </div>
-              </div>
-              <div className={`mt-3 p-4 rounded-xl ${fr.fondRoulement >= 0 ? 'bg-gradient-to-r from-purple-500 to-pink-500' : 'bg-gradient-to-r from-red-500 to-orange-500'} text-white flex justify-between`}>
-                <span className="font-bold">FR</span>
-                <span className="text-xl font-black">{Math.round(fr.fondRoulement).toLocaleString()} €</span>
-              </div>
-            </>); })()}
-          </div>
-
-          {/* BFR */}
-          <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-blue-900' : 'bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200'}`}>
-            {(() => { const b = getBFR(); return (<>
-              <div className="flex items-center gap-2 mb-4">
-                <h2 className={`text-xl font-black ${darkMode ? 'text-blue-400' : 'text-blue-900'}`}>Besoin en Fonds de Roulement</h2>
-                <div className="relative group">
-                  <HelpCircle size={16} className={`cursor-help ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                  <div className={`absolute right-0 top-6 w-80 p-3 rounded-xl shadow-lg z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all ${darkMode ? 'bg-gray-700 text-gray-200' : 'bg-white text-slate-700'}`}>
-                    <p className="font-bold mb-2">Méthode de calcul :</p>
-                    <p className="text-xs mb-1"><strong>BFR = Stocks + Créances clients - Dettes fournisseurs</strong></p>
-                    <p className="text-xs mb-1">Créances = (CA / 365) × Délai paiement clients</p>
-                    <p className="text-xs mb-1">Dettes = (Achats / 365) × Délai paiement fournisseurs</p>
-                    <p className="text-xs text-gray-500 mt-2">Le BFR représente le besoin de financement lié au cycle d'exploitation. Un BFR négatif est favorable.</p>
-                  </div>
-                </div>
-              </div>
-              <div className={`text-xs mb-3 p-3 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-400' : 'bg-blue-100 text-blue-700'}`}>
-                <div className="font-bold mb-1">Formule :</div>
-                <div className="font-mono">BFR = Stocks + (CA/365 × {globalParams.delaiPaiementClients}j) - (Achats/365 × {globalParams.delaiPaiementFournisseurs}j)</div>
-              </div>
-              <div className="space-y-2">
-                {/* Stocks éditables */}
-                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
-                  <div className="flex items-center justify-between">
-                    <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>Stocks</span>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        className={`w-24 text-right rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-blue-50'}`}
-                        value={globalParams.stocksValeur || 0}
-                        onChange={(e) => setGlobalParams({...globalParams, stocksValeur: validerMontant(e.target.value)})}
-                      />
-                      <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€</span>
-                    </div>
-                  </div>
-                </div>
-                {/* Délai paiement clients */}
-                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>Créances clients</span>
-                    <span className="font-black text-blue-600">+{Math.round(b.creancesClients).toLocaleString()} €</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Délai:</span>
-                    <input
-                      type="number"
-                      className={`w-16 text-center rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-blue-50'}`}
-                      value={globalParams.delaiPaiementClients}
-                      onChange={(e) => setGlobalParams({...globalParams, delaiPaiementClients: validerEntier(e.target.value, 0, 365)})}
-                    />
-                    <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>jours</span>
-                  </div>
-                </div>
-                {/* Délai paiement fournisseurs */}
-                <div className={`p-3 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>Dettes fournisseurs</span>
-                    <span className="font-black text-teal-600">-{Math.round(b.dettesFournisseurs).toLocaleString()} €</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Délai:</span>
-                    <input
-                      type="number"
-                      className={`w-16 text-center rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-blue-50'}`}
-                      value={globalParams.delaiPaiementFournisseurs}
-                      onChange={(e) => setGlobalParams({...globalParams, delaiPaiementFournisseurs: validerEntier(e.target.value, 0, 365)})}
-                    />
-                    <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>jours</span>
-                  </div>
-                </div>
-                <div className={`p-4 rounded-xl ${b.bfr > 0 ? 'bg-gradient-to-r from-red-500 to-orange-500' : 'bg-gradient-to-r from-teal-500 to-cyan-500'} text-white flex justify-between`}>
-                  <div><span className="font-bold block">BFR</span><span className="text-xs">{Math.round(b.bfrEnJours)} jours</span></div>
-                  <span className="text-xl font-black">{Math.round(b.bfr).toLocaleString()} €</span>
-                </div>
-              </div>
-            </>); })()}
-          </div>
-        </div>
-        </>}
 
         {/* ─── BUDGET ─── */}
         {activeTab === 'budget' && <>
@@ -1495,7 +1774,7 @@ const BudgetTool = () => {
                     className={`rounded-3xl shadow-xl border p-8 print-avoid-break transition-all duration-300 backdrop-blur-md
                       ${isDirDragging ? 'opacity-40 scale-95' : 'hover:shadow-2xl'}
                       ${isDirOver ? 'ring-2 ring-teal-400 ring-offset-4' : ''}
-                      ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}
+                      ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30' : 'bg-white border-slate-100/80'}`}
                   >
                     <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
                       <div className="flex items-center gap-4 flex-wrap">
@@ -1549,6 +1828,7 @@ const BudgetTool = () => {
                                 </select>
                                 <InfoTooltip content="RQTH = Reconnaissance en Qualité de Travailleur Handicapé. Permet à l'employeur de comptabiliser ce poste dans l'obligation OETH (6% de l'effectif)." darkMode={darkMode} position="top"><label className="flex items-center gap-1 cursor-help"><input type="checkbox" checked={p.rqth || false} onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, rqth: e.target.checked} : x)})} /><span className={p.rqth ? 'text-amber-500 font-black' : (darkMode ? 'text-gray-400' : 'text-slate-500')}>RQTH</span></label></InfoTooltip>
                                 <InfoTooltip content="Prime Ségur Médico-Social : supplément brut mensuel ajouté au salaire, soumis aux charges patronales. Montant configurable dans les paramètres globaux." darkMode={darkMode} position="top"><label className="flex items-center gap-1 cursor-help"><input type="checkbox" checked={!!p.segur} onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, segur: e.target.checked} : x)})} /><span className={`text-xs ${p.segur ? (darkMode ? 'text-blue-400 font-bold' : 'text-blue-600 font-bold') : (darkMode ? 'text-gray-400' : 'text-slate-500')}`}>Ségur {p.segur ? `(+${p.segur === true ? (globalParams.montantSegurETP ?? 238) : (parseFloat(p.segur) || 0)} €/m)` : ''}</span></label></InfoTooltip>
+                                <label className="flex items-center gap-1 cursor-pointer" title="Inclure ce salarié dans le calcul de subvention régionale (onglet DAF)"><input type="checkbox" checked={!!p.eligibleSubvention} onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, eligibleSubvention: e.target.checked} : x)})} /><span className={`text-xs font-semibold ${p.eligibleSubvention ? (darkMode ? 'text-violet-400' : 'text-violet-600') : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>Subv.</span></label>
                                 <div className="flex items-center gap-1">
                                   <InfoTooltip content="Année de naissance — utilisée pour la pyramide des âges et les alertes départs en retraite." darkMode={darkMode} position="top"><span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Né(e) en</span></InfoTooltip>
                                   <input type="number" min="1940" max="2005" placeholder="1980"
@@ -1581,6 +1861,28 @@ const BudgetTool = () => {
                                   <div className="flex items-center gap-1">
                                     <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Fin contrat</span>
                                     <input type="date" className={`rounded px-2 py-0.5 text-xs ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={p.dateFinContrat || ''} onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, dateFinContrat: e.target.value} : x)})} />
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-1">
+                                  <InfoTooltip content="Taux de charges patronales forcé (%). Si vide, l'outil calcule automatiquement le taux réel incluant l'allègement Fillon." darkMode={darkMode} position="top">
+                                    <span className={`cursor-help font-bold ${p.tauxChargesManuel > 0 ? 'text-amber-500' : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>Ch.%</span>
+                                  </InfoTooltip>
+                                  <input type="number" min="0" max="100" step="0.1" placeholder="auto"
+                                    className={`w-14 text-center rounded px-1 py-0.5 text-xs font-bold ${p.tauxChargesManuel > 0 ? (darkMode ? 'bg-amber-900/40 border border-amber-600 text-amber-300' : 'bg-amber-50 border border-amber-300 text-amber-700') : (darkMode ? 'bg-gray-500 text-white' : 'bg-white border')}`}
+                                    value={p.tauxChargesManuel || ''}
+                                    onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, tauxChargesManuel: e.target.value === '' ? null : parseFloat(e.target.value)} : x)})}
+                                  />
+                                </div>
+                                <label className="flex items-center gap-1 cursor-pointer" title="Poste à pourvoir — le salaire sera proraté selon la date de début prévue">
+                                  <input type="checkbox" checked={!!p.estPosteAPourvoir} onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, estPosteAPourvoir: e.target.checked} : x)})} />
+                                  <span className={`text-xs font-semibold ${p.estPosteAPourvoir ? 'text-orange-500' : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>En recrutement</span>
+                                </label>
+                                {p.estPosteAPourvoir && (
+                                  <div className="flex items-center gap-1">
+                                    <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Début prévu</span>
+                                    <input type="month" className={`rounded px-1 py-0.5 text-xs ${darkMode ? 'bg-orange-900/40 border border-orange-600 text-orange-300' : 'bg-orange-50 border border-orange-300 text-orange-700'}`}
+                                      value={p.dateDebutPrevue || ''}
+                                      onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, dateDebutPrevue: e.target.value} : x)})} />
                                   </div>
                                 )}
                               </div>
@@ -1656,6 +1958,74 @@ const BudgetTool = () => {
                           </div>
                         )}
                       </div>
+
+                      {/* ── Recettes Direction ──────────────────────────── */}
+                      <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-emerald-50 border-emerald-200'}`}>
+                        <div className="flex justify-between items-center mb-4">
+                          <h3 className={`text-sm font-black uppercase flex items-center gap-2 ${darkMode ? 'text-gray-300' : 'text-slate-700'}`}><TrendingUp size={18} className="text-emerald-500" /> Recettes propres</h3>
+                          <button onClick={() => setDirection({ ...direction, recettes: [...(direction.recettes || []), { id: Date.now(), nom: 'Nouvelle recette', montant: 0 }] })} className="bg-emerald-500 text-white p-2 rounded-lg no-print"><Plus size={18} /></button>
+                        </div>
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                          {(direction.recettes || []).map(r => (
+                            <div key={r.id} className={`p-3 rounded-xl border group relative ${darkMode ? 'bg-gray-600 border-gray-500' : 'bg-white border-emerald-100'}`}>
+                              <button onClick={() => setDirection({ ...direction, recettes: (direction.recettes || []).filter(x => x.id !== r.id) })} className="absolute -top-2.5 -right-2.5 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 no-print"><Trash2 size={14} /></button>
+                              <input className={`font-bold text-sm w-full outline-none bg-transparent mb-1 ${darkMode ? 'text-white' : ''}`} value={r.nom} onChange={e => setDirection({ ...direction, recettes: (direction.recettes || []).map(x => x.id === r.id ? { ...x, nom: e.target.value } : x) })} />
+                              <div className="flex items-center gap-2">
+                                <TrendingUp className="text-emerald-500" size={16} />
+                                <input type="number" className={`w-28 text-right font-black text-lg rounded-lg px-3 py-1.5 outline-none ${darkMode ? 'bg-gray-500 text-white' : 'bg-white'}`} value={r.montant} onChange={e => setDirection({ ...direction, recettes: (direction.recettes || []).map(x => x.id === r.id ? { ...x, montant: validerMontant(e.target.value) } : x) })} />
+                                <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>/mois</span>
+                              </div>
+                            </div>
+                          ))}
+                          {(direction.recettes || []).length === 0 && <p className={`text-sm text-center py-3 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Aucune recette — cliquez + pour en ajouter</p>}
+                        </div>
+                        {(direction.recettes || []).length > 0 && (
+                          <div className={`mt-3 pt-3 border-t flex justify-between text-sm font-bold ${darkMode ? 'border-gray-600 text-emerald-400' : 'border-emerald-200 text-emerald-700'}`}>
+                            <span>Total mensuel</span>
+                            <span>{(direction.recettes || []).reduce((s, r) => s + (parseFloat(r.montant) || 0), 0).toLocaleString()} €</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ── Répartition vers les services ──────────────── */}
+                      <div className={`p-6 rounded-3xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-teal-50 border-teal-200'}`}>
+                        <h3 className={`font-black flex items-center gap-2 mb-4 text-sm uppercase tracking-wide ${darkMode ? 'text-gray-300' : 'text-slate-700'}`}><Layers size={18} className="text-teal-500" /> Répartition du coût Direction</h3>
+                        {(() => {
+                          const totalPct = services.reduce((sum, s) => sum + (direction.repartition?.[String(s.id)] || 0), 0);
+                          const totalDir = getBudgetDirection().total;
+                          return (
+                            <div className="space-y-2">
+                              {services.map(s => {
+                                const pct = direction.repartition?.[String(s.id)] || 0;
+                                const montant = Math.round(totalDir * pct / 100);
+                                return (
+                                  <div key={s.id} className={`flex items-center gap-2 p-2 rounded-xl ${darkMode ? 'bg-gray-600' : 'bg-white'}`}>
+                                    <span className={`text-xs font-bold flex-1 truncate ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{s.nom}</span>
+                                    <input
+                                      type="number" min="0" max="100"
+                                      className={`w-16 text-right text-xs font-bold rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-slate-50 border'}`}
+                                      value={pct}
+                                      onChange={e => setDirection({...direction, repartition: {...(direction.repartition||{}), [String(s.id)]: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0))}})}
+                                    />
+                                    <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>%</span>
+                                    <span className={`text-xs font-bold w-20 text-right ${darkMode ? 'text-teal-300' : 'text-teal-700'}`}>{montant.toLocaleString()} €</span>
+                                  </div>
+                                );
+                              })}
+                              <div className={`flex items-center justify-between pt-2 mt-1 border-t text-xs font-black ${darkMode ? 'border-gray-600' : 'border-teal-200'}`}>
+                                <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>Total</span>
+                                <span className={totalPct === 100 ? 'text-green-600' : 'text-red-500'}>{totalPct}%</span>
+                                <span className={darkMode ? 'text-teal-300' : 'text-teal-700'}>{Math.round(totalDir).toLocaleString()} €</span>
+                              </div>
+                              {totalPct !== 100 && totalPct > 0 && (
+                                <div className="text-xs text-red-500 font-bold flex items-center gap-1">
+                                  <AlertTriangle size={12} /> Le total doit être 100%
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
                   </div>
                 );
@@ -1677,7 +2047,7 @@ const BudgetTool = () => {
                     className={`rounded-3xl shadow-xl border p-8 print-avoid-break transition-all duration-300 backdrop-blur-md
                       ${isPSDragging ? 'opacity-40 scale-95' : 'hover:shadow-2xl'}
                       ${isPSOver ? 'ring-2 ring-cyan-400 ring-offset-4' : ''}
-                      ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}
+                      ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30' : 'bg-white border-slate-100/80'}`}
                   >
                     <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
                       <div className="flex items-center gap-4 flex-wrap">
@@ -1729,6 +2099,7 @@ const BudgetTool = () => {
                                 </select>
                                 <label className="flex items-center gap-1"><input type="checkbox" checked={p.rqth || false} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, rqth: e.target.checked} : x)})} /><span className={p.rqth ? 'text-amber-500 font-black' : (darkMode ? 'text-gray-400' : 'text-slate-500')}>RQTH</span></label>
                                 <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" checked={!!p.segur} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, segur: e.target.checked} : x)})} /><span className={`text-xs ${p.segur ? (darkMode ? 'text-blue-400 font-bold' : 'text-blue-600 font-bold') : (darkMode ? 'text-gray-400' : 'text-slate-500')}`}>Ségur {p.segur ? `(+${p.segur === true ? (globalParams.montantSegurETP ?? 238) : (parseFloat(p.segur) || 0)} €/m)` : ''}</span></label>
+                                <label className="flex items-center gap-1 cursor-pointer" title="Inclure ce salarié dans le calcul de subvention régionale (onglet DAF)"><input type="checkbox" checked={!!p.eligibleSubvention} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, eligibleSubvention: e.target.checked} : x)})} /><span className={`text-xs font-semibold ${p.eligibleSubvention ? (darkMode ? 'text-violet-400' : 'text-violet-600') : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>Subv.</span></label>
                                 <div className="flex items-center gap-1">
                                   <InfoTooltip content="Année de naissance — utilisée pour la pyramide des âges et les alertes départs en retraite." darkMode={darkMode} position="top"><span className={`cursor-help ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Né(e) en</span></InfoTooltip>
                                   <input type="number" min="1940" max="2005" placeholder="1980" className={`w-16 rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={p.anneeNaissance || ''} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, anneeNaissance: parseInt(e.target.value) || 0} : x)})} />
@@ -1757,6 +2128,28 @@ const BudgetTool = () => {
                                   <div className="flex items-center gap-1">
                                     <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Fin contrat</span>
                                     <input type="date" className={`rounded px-2 py-0.5 text-xs ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={p.dateFinContrat || ''} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, dateFinContrat: e.target.value} : x)})} />
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-1">
+                                  <InfoTooltip content="Taux de charges patronales forcé (%). Si vide, l'outil calcule automatiquement le taux réel incluant l'allègement Fillon." darkMode={darkMode} position="top">
+                                    <span className={`cursor-help font-bold ${p.tauxChargesManuel > 0 ? 'text-amber-500' : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>Ch.%</span>
+                                  </InfoTooltip>
+                                  <input type="number" min="0" max="100" step="0.1" placeholder="auto"
+                                    className={`w-14 text-center rounded px-1 py-0.5 text-xs font-bold ${p.tauxChargesManuel > 0 ? (darkMode ? 'bg-amber-900/40 border border-amber-600 text-amber-300' : 'bg-amber-50 border border-amber-300 text-amber-700') : (darkMode ? 'bg-gray-500 text-white' : 'bg-white border')}`}
+                                    value={p.tauxChargesManuel || ''}
+                                    onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, tauxChargesManuel: e.target.value === '' ? null : parseFloat(e.target.value)} : x)})}
+                                  />
+                                </div>
+                                <label className="flex items-center gap-1 cursor-pointer" title="Poste à pourvoir — le salaire sera proraté selon la date de début prévue">
+                                  <input type="checkbox" checked={!!p.estPosteAPourvoir} onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, estPosteAPourvoir: e.target.checked} : x)})} />
+                                  <span className={`text-xs font-semibold ${p.estPosteAPourvoir ? 'text-orange-500' : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>En recrutement</span>
+                                </label>
+                                {p.estPosteAPourvoir && (
+                                  <div className="flex items-center gap-1">
+                                    <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Début prévu</span>
+                                    <input type="month" className={`rounded px-1 py-0.5 text-xs ${darkMode ? 'bg-orange-900/40 border border-orange-600 text-orange-300' : 'bg-orange-50 border border-orange-300 text-orange-700'}`}
+                                      value={p.dateDebutPrevue || ''}
+                                      onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, dateDebutPrevue: e.target.value} : x)})} />
                                   </div>
                                 )}
                               </div>
@@ -1931,6 +2324,14 @@ const BudgetTool = () => {
                 heuresHorsProduction: 7, ratioPreparation: 1.2, joursAbsence: 0,
                 _source: svc.nom,
               }))),
+              ...(poolRH || []).map(p => ({
+                id: `budget-${p.id}`, nom: p.titre || 'Sans nom', type: 'interne',
+                salaireBrut: p.salaire || 0,
+                tauxCharges: Math.round(CHARGES_PATRONALES * 100),
+                heuresHebdo: Math.round(35 * (p.etp || 1)),
+                heuresHorsProduction: 7, ratioPreparation: 1.2, joursAbsence: 0,
+                _source: 'Pool RH',
+              })),
             ];
 
             // Calcul résultat d'une session simulée
@@ -1958,7 +2359,7 @@ const BudgetTool = () => {
                   ${isDragOver && !isDragging ? 'ring-2 ring-teal-400 ring-offset-4' : ''}
                   ${!accueilPublic 
                     ? (darkMode ? 'bg-amber-900/10 border-amber-500/20' : 'bg-amber-50/50 border-amber-200/60') 
-                    : (darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60')}`}
+                    : (darkMode ? 'bg-zinc-900/80 border-zinc-700/30' : 'bg-white border-slate-100/80')}`}
               >
                 <div className="flex flex-wrap justify-between items-center mb-8 gap-4">
                   <div className="flex items-center gap-4 flex-wrap">
@@ -1997,7 +2398,19 @@ const BudgetTool = () => {
                              value={service.nom} 
                              onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, nom: e.target.value} : s))} />
                       <div className="flex items-center gap-2 mt-1">
-                        {isPrestation && <span className="bg-orange-500/10 text-orange-600 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">Prestation</span>}
+                        <select
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border-0 outline-none cursor-pointer no-print ${
+                            service.type === 'prestation' ? 'bg-orange-500/10 text-orange-600' :
+                            service.type === 'recherche'  ? 'bg-violet-500/10 text-violet-600' :
+                                                            'bg-teal-500/10 text-teal-600'
+                          }`}
+                          value={service.type || 'formation'}
+                          onChange={e => setServices(services.map(s => s.id === service.id ? {...s, type: e.target.value} : s))}
+                        >
+                          <option value="formation">Formation</option>
+                          <option value="prestation">Prestation</option>
+                          <option value="recherche">Recherche</option>
+                        </select>
                         <button
                           onClick={() => setServices(services.map(s => s.id === service.id ? {...s, accueilPublic: !accueilPublic} : s))}
                           className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 transition-all no-print border ${
@@ -2089,6 +2502,30 @@ const BudgetTool = () => {
                     onConfirm: () => setServices(services.filter(s => s.id !== service.id))
                   })} className="text-red-400 p-2 hover:bg-red-50 rounded-xl no-print"><Trash2 size={22} /></button>
                 </div>
+
+                {/* Bouton d'initialisation promos pour un service sans promos */}
+                {!hasPromos && !isPrestation && (
+                  <div className="mb-6 flex items-center gap-3 no-print">
+                    <GraduationCap size={16} className={darkMode ? 'text-purple-400' : 'text-purple-600'} />
+                    <span className={`text-sm font-bold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>Activer les effectifs / promos</span>
+                    <select
+                      defaultValue=""
+                      onChange={e => {
+                        if (!e.target.value) return;
+                        const site = e.target.value;
+                        const ts = Date.now();
+                        setServices(services.map(s => s.id === service.id ? {
+                          ...s,
+                          promos: { [site]: [{ id: `${site}-${ts}`, nom: 'Nouvelle promo', effectifInitial: 20, abandons: makeAbandons(), type: 'standard' }] }
+                        } : s));
+                      }}
+                      className={`text-sm font-bold px-3 py-2 rounded-xl border-2 border-dashed cursor-pointer ${darkMode ? 'bg-gray-700 border-purple-700 text-purple-300' : 'bg-white border-purple-300 text-purple-700'}`}
+                    >
+                      <option value="">— Choisir un site…</option>
+                      {Object.values(SITES).map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                )}
 
                 {/* Section Promos par site - uniquement pour les services de formation */}
                 {hasPromos && (
@@ -2366,7 +2803,27 @@ const BudgetTool = () => {
                         <div key={site} className={`p-4 rounded-xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
                           <div className="flex items-center justify-between mb-3">
                             <h4 className={`font-black flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
-                              <MapPin size={18} className="text-purple-500" /> {site}
+                              <MapPin size={18} className="text-purple-500" />
+                              <select
+                                value={site}
+                                onChange={e => {
+                                  const newSite = e.target.value;
+                                  if (!newSite || newSite === site) return;
+                                  // Déplace toutes les promos de l'ancien site vers le nouveau
+                                  setServices(services.map(s => {
+                                    if (s.id !== service.id) return s;
+                                    const newPromos = { ...s.promos };
+                                    newPromos[newSite] = newPromos[site];
+                                    delete newPromos[site];
+                                    return { ...s, promos: newPromos };
+                                  }));
+                                }}
+                                className={`font-black text-sm bg-transparent border-b-2 border-transparent hover:border-purple-400 focus:border-purple-500 outline-none cursor-pointer no-print ${darkMode ? 'text-white' : 'text-slate-800'}`}
+                              >
+                                {Object.values(SITES).filter(s => s === site || !Object.keys(service.promos).includes(s)).map(s => (
+                                  <option key={s} value={s}>{s}</option>
+                                ))}
+                              </select>
                             </h4>
                             <div className="flex items-center gap-2 no-print">
                               {/* Bouton ajouter filière (mode filière) ou promo (mode plat) */}
@@ -2693,6 +3150,7 @@ const BudgetTool = () => {
                             </select>
                             <label className="flex items-center gap-1"><input type="checkbox" checked={p.rqth || false} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, rqth: e.target.checked} : x)} : s))} /><span className={p.rqth ? 'text-amber-500 font-black' : (darkMode ? 'text-gray-400' : 'text-slate-500')}>RQTH</span></label>
                             <label className="flex items-center gap-1 cursor-pointer"><input type="checkbox" checked={!!p.segur} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, segur: e.target.checked} : x)} : s))} /><span className={`text-xs ${p.segur ? (darkMode ? 'text-blue-400 font-bold' : 'text-blue-600 font-bold') : (darkMode ? 'text-gray-400' : 'text-slate-500')}`}>Ségur {p.segur ? `(+${p.segur === true ? (globalParams.montantSegurETP ?? 238) : (parseFloat(p.segur) || 0)} €/m)` : ''}</span></label>
+                            <label className="flex items-center gap-1 cursor-pointer" title="Inclure ce salarié dans le calcul de subvention régionale (onglet DAF)"><input type="checkbox" checked={!!p.eligibleSubvention} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, eligibleSubvention: e.target.checked} : x)} : s))} /><span className={`text-xs font-semibold ${p.eligibleSubvention ? (darkMode ? 'text-violet-400' : 'text-violet-600') : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>Subv.</span></label>
                             <button
                               onClick={() => {
                                 const updatedAgent = { ...p, multiAffectation: true, affectations: [{ entityType: 'service', entityId: service.id, pct: 100 }] };
@@ -2709,6 +3167,17 @@ const BudgetTool = () => {
                                 value={p.anneeNaissance || ''}
                                 onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, anneeNaissance: parseInt(e.target.value) || 0} : x)} : s))}
                               />
+                              <span className={`ml-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Entrée</span>
+                              <input type="number" min="1990" max="2026" placeholder="2020"
+                                className={`w-16 rounded px-2 py-1 font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50 border'}`}
+                                value={p.dateEntree || ''}
+                                onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, dateEntree: parseInt(e.target.value) || 0} : x)} : s))}
+                              />
+                              {p.dateEntree > 0 && (
+                                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${darkMode ? 'bg-indigo-900/50 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>
+                                  {2026 - p.dateEntree} an{2026 - p.dateEntree > 1 ? 's' : ''}
+                                </span>
+                              )}
                             </div>
                             <select className={`rounded px-2 py-1 text-xs font-bold ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50 border'}`} value={p.typeContrat || 'CDI'} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, typeContrat: e.target.value, dateFinContrat: e.target.value === 'CDI' ? '' : x.dateFinContrat} : x)} : s))}>
                               <option value="CDI">CDI</option>
@@ -2742,6 +3211,28 @@ const BudgetTool = () => {
                               <div className="flex items-center gap-1">
                                 <span className={darkMode ? 'text-gray-400' : 'text-slate-500'}>Fin contrat</span>
                                 <input type="date" className={`rounded px-2 py-0.5 text-xs ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50 border'}`} value={p.dateFinContrat || ''} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, dateFinContrat: e.target.value} : x)} : s))} />
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1">
+                              <InfoTooltip content="Taux de charges patronales forcé (%). Si vide, l'outil calcule automatiquement le taux réel incluant l'allègement Fillon." darkMode={darkMode} position="top">
+                                <span className={`cursor-help font-bold ${p.tauxChargesManuel > 0 ? 'text-amber-500' : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>Ch.%</span>
+                              </InfoTooltip>
+                              <input type="number" min="0" max="100" step="0.1" placeholder="auto"
+                                className={`w-14 text-center rounded px-1 py-0.5 text-xs font-bold ${p.tauxChargesManuel > 0 ? (darkMode ? 'bg-amber-900/40 border border-amber-600 text-amber-300' : 'bg-amber-50 border border-amber-300 text-amber-700') : (darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50 border')}`}
+                                value={p.tauxChargesManuel || ''}
+                                onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, tauxChargesManuel: e.target.value === '' ? null : parseFloat(e.target.value)} : x)} : s))}
+                              />
+                            </div>
+                            <label className="flex items-center gap-1 cursor-pointer" title="Poste à pourvoir — le salaire sera proraté selon la date de début prévue">
+                              <input type="checkbox" checked={!!p.estPosteAPourvoir} onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, estPosteAPourvoir: e.target.checked} : x)} : s))} />
+                              <span className={`text-xs font-semibold ${p.estPosteAPourvoir ? 'text-orange-500' : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>En recrutement</span>
+                            </label>
+                            {p.estPosteAPourvoir && (
+                              <div className="flex items-center gap-1">
+                                <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Début prévu</span>
+                                <input type="month" className={`rounded px-1 py-0.5 text-xs ${darkMode ? 'bg-orange-900/40 border border-orange-600 text-orange-300' : 'bg-orange-50 border border-orange-300 text-orange-700'}`}
+                                  value={p.dateDebutPrevue || ''}
+                                  onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, dateDebutPrevue: e.target.value} : x)} : s))} />
                               </div>
                             )}
                           </div>
@@ -3052,8 +3543,8 @@ const BudgetTool = () => {
                           {item.realise != null && (() => { const ecart = (item.realise - item.montant); return <span className={`text-[10px] font-bold ${ecart >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{ecart >= 0 ? '+' : ''}{Math.round(ecart).toLocaleString()}€</span>; })()}
                           <button
                             onClick={() => setSaisonnaliteDialog({ type: 'service', entityId: service.id, recetteId: item.id })}
-                            title={item.saisonnalite ? 'Saisonnalité configurée — modifier' : 'Configurer la saisonnalité mensuelle'}
-                            className={`no-print p-1 rounded-lg transition-colors ${item.saisonnalite ? (darkMode ? 'bg-cyan-800/60 text-cyan-300' : 'bg-cyan-100 text-cyan-700') : (darkMode ? 'text-gray-500 hover:text-cyan-400' : 'text-slate-300 hover:text-cyan-500')}`}
+                            title={item.repartitionMensuelle ? 'Saisonnalité configurée — modifier' : 'Configurer la saisonnalité mensuelle'}
+                            className={`no-print p-1 rounded-lg transition-colors ${item.repartitionMensuelle ? (darkMode ? 'bg-cyan-800/60 text-cyan-300' : 'bg-cyan-100 text-cyan-700') : (darkMode ? 'text-gray-500 hover:text-cyan-400' : 'text-slate-300 hover:text-cyan-500')}`}
                           ><Calendar size={13} /></button>
                         </div>
                       ))}
@@ -3387,6 +3878,7 @@ const BudgetTool = () => {
             ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction', couleur: 'slate' })),
             ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support', couleur: 'cyan' })),
             ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom, couleur: 'teal' }))),
+            ...(poolRH || []).map(p => ({ ...p, source: 'Pool RH', couleur: 'purple' })),
           ];
           const agentsMS = calculerPresenceEquipe(tousP, planningAbsences, 2026);
           const total = tousP.reduce((acc, p) => {
@@ -3885,762 +4377,23 @@ const BudgetTool = () => {
           );
         })()}
 
-        </>}
-
-        {/* ─── ANALYSE : SYNTHÈSE ANALYTIQUE ─── */}
-        {activeTab === 'analyse' && <>
-
         {/* ═══════════════════════════════════════════════════════
-            SYNTHÈSE ANALYTIQUE — TABLEAU CROISÉ SERVICES × POSTES
+            POOL RH — AGENTS PARTAGÉS
             ═══════════════════════════════════════════════════════ */}
-        {(() => {
-          const bdDir = getBudgetDirection();
-          const bdPS = getBudgetPoleSupport();
-          const rows = [
-            {
-              nom: '📋 Siège',
-              personnel: bdDir.salaires,
-              exploitation: bdDir.chargesSiege,
-              recettes: 0,
-              isDirection: true,
-            },
-            {
-              nom: '🔧 Pôle Ressource',
-              personnel: bdPS.salaires,
-              exploitation: bdPS.exploitation,
-              recettes: bdPS.recettes,
-              isDirection: true,
-            },
-            ...services.map(s => {
-              const bd = getBudgetService(s);
-              return {
-                nom: s.nom,
-                serviceId: s.id,
-                personnel: bd.salaires,
-                exploitation: bd.exploitation,
-                recettes: bd.recettes,
-                isDirection: false,
-              };
-            }),
-          ];
-          const totPerso  = rows.reduce((s, r) => s + r.personnel, 0);
-          const totExpl   = rows.reduce((s, r) => s + r.exploitation, 0);
-          const totRec    = rows.reduce((s, r) => s + r.recettes, 0);
-          const totCharges = totPerso + totExpl;
-          const totResult = totRec - totCharges;
-
-          const fmt = (n) => Math.round(n).toLocaleString('fr-FR');
-          const col = `px-3 py-2 text-right text-sm font-bold`;
-          const colH = `px-3 py-2 text-right text-xs font-black uppercase`;
-
-          const getN1Row = (r) => {
-            if (!donneesN1) return null;
-            const nomLow = r.nom.toLowerCase();
-            if (nomLow.includes('direction') || nomLow.includes('siège') || nomLow.includes('siege')) return donneesN1.direction;
-            if (nomLow.includes('support') || nomLow.includes('pôle')) return donneesN1.poleSupport;
-            return (donneesN1.services || []).find(s => s.nom && r.nom.toLowerCase().includes(s.nom.toLowerCase().slice(0, 5)));
-          };
-          const evolPct = (current, n1) => {
-            if (n1 === null || n1 === undefined || Math.abs(n1) < 1) return null;
-            return ((current - n1) / Math.abs(n1) * 100).toFixed(1);
-          };
-
-          return (
-            <div id="synthese-analytique" className={`rounded-3xl shadow-lg border-2 p-6 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-violet-900' : 'bg-gradient-to-br from-violet-50 to-indigo-50 border-violet-200'}`}>
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-                <div className="flex items-center gap-3">
-                  <BarChart3 className={darkMode ? 'text-violet-400' : 'text-violet-600'} size={28} />
-                  <div>
-                    <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Synthèse Analytique</h2>
-                    <span className={`text-xs font-bold ${darkMode ? 'text-violet-400' : 'text-violet-600'}`}>Tableau croisé par service · montants annuels{donneesN1 ? ` · comparatif N-1 (${donneesN1.annee})` : ''}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 no-print">
-                  {donneesN1 && (
-                    <button onClick={() => setDonneesN1(null)} className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                      <X size={13} /> Effacer N-1
-                    </button>
-                  )}
-                  <button onClick={() => setShowImportN1(true)} className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold ${darkMode ? 'bg-violet-900/40 text-violet-300 hover:bg-violet-900/60 border border-violet-700' : 'bg-violet-100 text-violet-700 hover:bg-violet-200'}`}>
-                    <Upload size={13} /> {donneesN1 ? 'Recharger N-1' : 'Importer N-1'}
-                  </button>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className={`${darkMode ? 'bg-gray-700' : 'bg-white/70'} rounded-xl`}>
-                      <th className="px-3 py-2 text-left text-xs font-black uppercase text-slate-500">Service</th>
-                      <th className={`${colH} ${darkMode ? 'text-teal-400' : 'text-teal-700'}`}>Personnel</th>
-                      <th className={`${colH} ${darkMode ? 'text-blue-400' : 'text-blue-700'}`}>Exploitation</th>
-                      <th className={`${colH} ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Total charges</th>
-                      <th className={`${colH} ${darkMode ? 'text-green-400' : 'text-green-700'}`}>Recettes</th>
-                      <th className={`${colH} ${darkMode ? 'text-violet-400' : 'text-violet-700'}`}>Résultat</th>
-                      {donneesN1 && <th className={`${colH} ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>N-1 charges</th>}
-                      {donneesN1 && <th className={`${colH} ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>Évol. %</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r, idx) => {
-                      const totalChargesRow = r.personnel + r.exploitation;
-                      const allocPS = (!r.isDirection && r.serviceId != null)
-                        ? Math.round(bdPS.total * (poleSupport.repartition?.[String(r.serviceId)] || 0) / 100)
-                        : 0;
-                      const resultat = r.recettes - totalChargesRow;
-                      const isPos = resultat >= 0;
-                      const n1Row = getN1Row(r);
-                      const n1Charges = n1Row ? ((n1Row.salaires || 0) + (n1Row.exploitation || 0)) : null;
-                      const ePct = n1Charges !== null ? evolPct(totalChargesRow, n1Charges) : null;
-                      return (
-                        <tr key={idx} className={`border-t ${darkMode ? 'border-gray-700' : 'border-violet-100'} ${r.isDirection ? (darkMode ? 'bg-gray-700/30' : 'bg-white/50') : ''}`}>
-                          <td className={`px-3 py-2 font-bold text-sm ${darkMode ? 'text-white' : 'text-slate-800'}`}>
-                            {r.nom}
-                            {allocPS > 0 && (
-                              <div className={`text-xs font-normal mt-0.5 ${darkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
-                                + Pôle Ressource : {allocPS.toLocaleString('fr-FR')} €
-                              </div>
-                            )}
-                          </td>
-                          <td className={`${col} ${darkMode ? 'text-teal-300' : 'text-teal-700'}`}>{fmt(r.personnel)} €</td>
-                          <td className={`${col} ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>{fmt(r.exploitation)} €</td>
-                          <td className={`${col} ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>{fmt(totalChargesRow)} €</td>
-                          <td className={`${col} ${r.recettes > 0 ? (darkMode ? 'text-green-300' : 'text-green-700') : (darkMode ? 'text-gray-500' : 'text-slate-400')}`}>
-                            {r.recettes > 0 ? fmt(r.recettes) + ' €' : '—'}
-                          </td>
-                          <td className={`${col} font-black ${isPos ? (darkMode ? 'text-emerald-300' : 'text-emerald-700') : (darkMode ? 'text-red-300' : 'text-red-600')}`}>
-                            {r.recettes > 0 ? (isPos ? '+' : '') + fmt(resultat) + ' €' : '—'}
-                          </td>
-                          {donneesN1 && (
-                            <td className={`${col} ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>
-                              {n1Charges !== null ? fmt(n1Charges) + ' €' : '—'}
-                            </td>
-                          )}
-                          {donneesN1 && (
-                            <td className="px-3 py-2 text-right">
-                              {ePct !== null ? (
-                                <span className={`text-xs font-black px-2 py-0.5 rounded-full ${parseFloat(ePct) > 0 ? (darkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700') : parseFloat(ePct) < 0 ? (darkMode ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700') : (darkMode ? 'bg-gray-700 text-gray-400' : 'bg-slate-100 text-slate-500')}`}>
-                                  {parseFloat(ePct) > 0 ? '+' : ''}{ePct}%
-                                </span>
-                              ) : '—'}
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className={`border-t-2 font-black ${darkMode ? 'border-violet-700 bg-violet-900/20' : 'border-violet-300 bg-violet-100/80'}`}>
-                      <td className={`px-3 py-3 font-black text-sm ${darkMode ? 'text-white' : 'text-slate-800'}`}>TOTAL</td>
-                      <td className={`${col} ${darkMode ? 'text-teal-200' : 'text-teal-800'}`}>{fmt(totPerso)} €</td>
-                      <td className={`${col} ${darkMode ? 'text-blue-200' : 'text-blue-800'}`}>{fmt(totExpl)} €</td>
-                      <td className={`${col} ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>{fmt(totCharges)} €</td>
-                      <td className={`${col} ${darkMode ? 'text-green-200' : 'text-green-800'}`}>{fmt(totRec)} €</td>
-                      <td className={`${col} text-base ${totResult >= 0 ? (darkMode ? 'text-emerald-200' : 'text-emerald-800') : (darkMode ? 'text-red-200' : 'text-red-800')}`}>
-                        {totResult >= 0 ? '+' : ''}{fmt(totResult)} €
-                      </td>
-                      {donneesN1 && (() => {
-                        const n1Tot = ((donneesN1.direction?.salaires || 0) + (donneesN1.direction?.exploitation || 0))
-                          + ((donneesN1.poleSupport?.salaires || 0) + (donneesN1.poleSupport?.exploitation || 0))
-                          + (donneesN1.services || []).reduce((s, sv) => s + (sv.salaires || 0) + (sv.exploitation || 0), 0);
-                        const eTot = evolPct(totCharges, n1Tot);
-                        return (<>
-                          <td className={`${col} ${darkMode ? 'text-amber-200' : 'text-amber-800'}`}>{fmt(n1Tot)} €</td>
-                          <td className="px-3 py-2 text-right">
-                            {eTot !== null ? (
-                              <span className={`text-xs font-black px-2 py-0.5 rounded-full ${parseFloat(eTot) > 0 ? (darkMode ? 'bg-red-900/60 text-red-200' : 'bg-red-200 text-red-800') : (darkMode ? 'bg-emerald-900/60 text-emerald-200' : 'bg-emerald-200 text-emerald-800')}`}>
-                                {parseFloat(eTot) > 0 ? '+' : ''}{eTot}%
-                              </span>
-                            ) : '—'}
-                          </td>
-                        </>);
-                      })()}
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-              {/* Mini KPIs */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                {[
-                  { label: 'Masse salariale', val: fmt(totPerso) + ' €', pct: totCharges > 0 ? Math.round(totPerso/totCharges*100) : 0, color: darkMode ? 'text-teal-300' : 'text-teal-700', bg: darkMode ? 'bg-teal-900/30' : 'bg-teal-50' },
-                  { label: 'Exploitation', val: fmt(totExpl) + ' €', pct: totCharges > 0 ? Math.round(totExpl/totCharges*100) : 0, color: darkMode ? 'text-blue-300' : 'text-blue-700', bg: darkMode ? 'bg-blue-900/30' : 'bg-blue-50' },
-                  { label: 'Recettes totales', val: fmt(totRec) + ' €', pct: totCharges > 0 ? Math.round(totRec/totCharges*100) : 0, color: darkMode ? 'text-green-300' : 'text-green-700', bg: darkMode ? 'bg-green-900/30' : 'bg-green-50', label2: '% couverture' },
-                  { label: 'Résultat net', val: (totResult >= 0 ? '+' : '') + fmt(totResult) + ' €', pct: null, color: totResult >= 0 ? (darkMode ? 'text-emerald-300' : 'text-emerald-700') : (darkMode ? 'text-red-300' : 'text-red-700'), bg: totResult >= 0 ? (darkMode ? 'bg-emerald-900/30' : 'bg-emerald-50') : (darkMode ? 'bg-red-900/30' : 'bg-red-50') },
-                ].map((k, i) => (
-                  <div key={i} className={`p-3 rounded-2xl ${k.bg}`}>
-                    <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{k.label}</div>
-                    <div className={`text-lg font-black ${k.color}`}>{k.val}</div>
-                    {k.pct !== null && (
-                      <div className={`text-xs font-bold mt-1 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{k.label2 || '% des charges'} : {k.pct}%</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
-        </>}
-
-        {/* ─── RESSOURCES HUMAINES : PYRAMIDE + RQTH + ABSENCES ─── */}
-        {activeTab === 'rh' && <>
-
-        {/* ═══ PYRAMIDE DES ÂGES ═══ */}
-        {(() => {
-          const ANNEE = 2026;
-          const tousP = [
-            ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction' })),
-            ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support' })),
-            ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom }))),
-          ];
-          const avecAge = tousP.filter(p => p.anneeNaissance > 0);
-
-          if (avecAge.length === 0) {
-            return (
-              <div className={`rounded-3xl shadow-lg border-2 p-6 mb-8 ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200'}`}>
-                <div className="flex items-center gap-3 mb-3">
-                  <Users className={darkMode ? 'text-purple-400' : 'text-purple-600'} size={28} />
-                  <div>
-                    <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Pyramide des âges</h2>
-                    <span className={`text-xs font-bold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>Renseignez les années de naissance sur les fiches personnel pour afficher la pyramide</span>
-                  </div>
-                </div>
-              </div>
-            );
-          }
-
-          // Tranches
-          const TRANCHES = [
-            { label: '< 30 ans',  min: 0,  max: 29  },
-            { label: '30–39 ans', min: 30, max: 39  },
-            { label: '40–49 ans', min: 40, max: 49  },
-            { label: '50–54 ans', min: 50, max: 54  },
-            { label: '55–59 ans', min: 55, max: 59  },
-            { label: '60 ans +',  min: 60, max: 999 },
-          ];
-          const COLORS = ['#6366f1','#14b8a6','#3b82f6','#f59e0b','#f97316','#ef4444'];
-
-          const ageCounts = TRANCHES.map(t => ({
-            ...t,
-            agents: avecAge.filter(p => {
-              const age = ANNEE - p.anneeNaissance;
-              return age >= t.min && age <= t.max;
-            }),
-          }));
-
-          const ages = avecAge.map(p => ANNEE - p.anneeNaissance);
-          const ageMoyen = ages.length > 0 ? Math.round(ages.reduce((a, b) => a + b, 0) / ages.length) : 0;
-          const seniors = avecAge.filter(p => (ANNEE - p.anneeNaissance) >= 55);
-          const retraite5ans = avecAge.filter(p => (ANNEE - p.anneeNaissance) >= 57); // retraite ~62 ans
-          const retraite10ans = avecAge.filter(p => (ANNEE - p.anneeNaissance) >= 52);
-          const maxCount = Math.max(...ageCounts.map(t => t.agents.length), 1);
-
-          return (
-            <div id="pyramide-ages" className={`rounded-3xl shadow-lg border-2 p-6 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-purple-900' : 'bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200'}`}>
-              <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
-                <div className="flex items-center gap-3">
-                  <Users className={darkMode ? 'text-purple-400' : 'text-purple-600'} size={28} />
-                  <div>
-                    <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Pyramide des âges</h2>
-                    <span className={`text-xs font-bold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
-                      {avecAge.length}/{tousP.length} agents renseignés · Projection {ANNEE}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <div className={`text-center px-4 py-2 rounded-2xl ${darkMode ? 'bg-purple-900/40' : 'bg-purple-100'}`}>
-                    <div className={`text-xs font-bold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>Âge moyen</div>
-                    <div className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{ageMoyen} ans</div>
-                  </div>
-                  <div className={`text-center px-4 py-2 rounded-2xl ${darkMode ? 'bg-orange-900/40' : 'bg-orange-100'}`}>
-                    <div className={`text-xs font-bold ${darkMode ? 'text-orange-400' : 'text-orange-600'}`}>≥ 55 ans (séniors)</div>
-                    <div className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{seniors.length}</div>
-                  </div>
-                  <div className={`text-center px-4 py-2 rounded-2xl ${darkMode ? 'bg-red-900/40' : 'bg-red-100'}`}>
-                    <div className={`text-xs font-bold ${darkMode ? 'text-red-400' : 'text-red-600'}`}>Retraite ~5 ans</div>
-                    <div className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{retraite5ans.length}</div>
-                  </div>
-                  <div className={`text-center px-4 py-2 rounded-2xl ${darkMode ? 'bg-amber-900/40' : 'bg-amber-100'}`}>
-                    <div className={`text-xs font-bold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>Retraite ~10 ans</div>
-                    <div className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{retraite10ans.length}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Barres horizontales */}
-              <div className="space-y-3 mb-5">
-                {ageCounts.map((t, i) => (
-                  <div key={t.label} className="flex items-center gap-3">
-                    <div className={`w-24 text-right text-xs font-bold flex-shrink-0 ${
-                      t.min >= 60 ? (darkMode ? 'text-red-400' : 'text-red-600') :
-                      t.min >= 55 ? (darkMode ? 'text-orange-400' : 'text-orange-600') :
-                      darkMode ? 'text-gray-300' : 'text-slate-600'
-                    }`}>{t.label}</div>
-                    <div className={`flex-1 h-8 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-white'} overflow-hidden relative`}>
-                      <div
-                        className="h-full rounded-lg flex items-center justify-end pr-2 transition-all"
-                        style={{ width: `${(t.agents.length / maxCount) * 100}%`, backgroundColor: COLORS[i], minWidth: t.agents.length > 0 ? '2rem' : '0' }}
-                      >
-                        {t.agents.length > 0 && <span className="text-white text-xs font-black">{t.agents.length}</span>}
-                      </div>
-                    </div>
-                    <div className={`w-8 text-xs font-bold ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{t.agents.length}</div>
-                    {/* Noms agents */}
-                    <div className="flex flex-wrap gap-1 max-w-xs">
-                      {t.agents.slice(0, 3).map(p => (
-                        <span key={p.id + p.source} className={`text-xs px-1.5 py-0.5 rounded ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-white border text-slate-500'}`}>
-                          {p.titre.split(' ')[0]} {p.titre.includes('(') ? p.titre.match(/\(([^)]+)\)/)?.[1]?.split(' ')[0] : ''}
-                        </span>
-                      ))}
-                      {t.agents.length > 3 && <span className={`text-xs px-1.5 py-0.5 rounded ${darkMode ? 'bg-gray-600 text-gray-400' : 'bg-slate-100 text-slate-400'}`}>+{t.agents.length - 3}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Alerte séniors */}
-              {seniors.length > 0 && (
-                <div className={`p-3 rounded-xl text-sm ${darkMode ? 'bg-orange-900/30 border border-orange-700 text-orange-300' : 'bg-orange-50 border border-orange-200 text-orange-700'}`}>
-                  <AlertTriangle size={14} className="inline mr-1" />
-                  <strong>{seniors.length} agent{seniors.length > 1 ? 's' : ''} ≥ 55 ans</strong> — anticipez les recrutements et transferts de compétences.
-                  {retraite5ans.length > 0 && <span className="ml-2 font-bold">Départs retraite estimés d'ici 5 ans : {retraite5ans.length}</span>}
-                </div>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* ═══════════════════════════════════════════════════════
-            RQTH / AGEFIPH — OBLIGATION D'EMPLOI DES TH
-            ═══════════════════════════════════════════════════════ */}
-        {(() => {
-          // Rassembler tout le personnel (direction + services)
-          const tousPersonnels = [
-            ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction' })),
-            ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support' })),
-            ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom }))),
-          ];
-          const totalETP = tousPersonnels.reduce((s, p) => s + (parseFloat(p.etp) || 0), 0);
-          const rqthPersonnels = tousPersonnels.filter(p => p.rqth);
-          const totalETPRqth = rqthPersonnels.reduce((s, p) => s + (parseFloat(p.etp) || 0), 0);
-
-          // OETH : obligation 6% (DOETH) au-dessus de 20 salariés
-          const SEUIL_OETH = 20;
-          const TAUX_OETH = 0.06;
-          const SMIC_HORAIRE = 11.88;
-          const HEURES_ANNUELLES = 1820;
-          const SMIC_ANNUEL = SMIC_HORAIRE * HEURES_ANNUELLES;
-
-          const obligationETP = totalETP >= SEUIL_OETH ? totalETP * TAUX_OETH : 0;
-          const ecartETP = totalETPRqth - obligationETP;
-          const estConforme = ecartETP >= 0 || totalETP < SEUIL_OETH;
-
-          // Contribution AGEFIPH si non conforme
-          const unitesMontantContrib = 400; // coefficient unités manquantes
-          const contribution = !estConforme && totalETP >= SEUIL_OETH
-            ? Math.abs(ecartETP) * SMIC_ANNUEL * (unitesMontantContrib / HEURES_ANNUELLES)
-            : 0;
-
-          // Aides estimées si conforme (aide à l'emploi durable ~1800€/ETP RQTH/an)
-          const AIDE_EMPLOI_DURABLE = 1800;
-          const aidesEstimees = estConforme && totalETPRqth > 0 ? totalETPRqth * AIDE_EMPLOI_DURABLE : 0;
-
-          const tauxRqth = totalETP > 0 ? (totalETPRqth / totalETP) * 100 : 0;
-          const fmt = n => Math.round(n).toLocaleString('fr-FR');
-
-          return (
-            <div id="rqth-agefiph" className={`rounded-3xl shadow-lg border-2 p-6 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-orange-900' : 'bg-gradient-to-br from-orange-50 to-amber-50 border-orange-200'}`}>
-              <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
-                <div className="flex items-center gap-3">
-                  <UserCheck className={darkMode ? 'text-orange-400' : 'text-orange-600'} size={28} />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>RQTH & OETH</h2>
-                      <HelpIcon darkMode={darkMode} position="right" wide content="RQTH = Reconnaissance en Qualité de Travailleur Handicapé. OETH = Obligation d'Emploi des Travailleurs Handicapés (loi 1987). Tout employeur de ≥ 20 salariés doit employer au moins 6% de travailleurs RQTH, sous peine de contribution AGEFIPH. Les aides AGEFIPH peuvent atteindre ~1 800 €/ETP RQTH/an." />
-                    </div>
-                    <span className={`text-xs font-bold ${darkMode ? 'text-orange-400' : 'text-orange-600'}`}>
-                      Obligation Emploi Travailleurs Handicapés · AGEFIPH
-                    </span>
-                  </div>
-                </div>
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-black text-sm ${
-                  totalETP < SEUIL_OETH
-                    ? darkMode ? 'bg-gray-700 text-gray-400' : 'bg-slate-100 text-slate-500'
-                    : estConforme
-                      ? darkMode ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-700' : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                      : darkMode ? 'bg-red-900/40 text-red-300 border border-red-700' : 'bg-red-100 text-red-800 border border-red-300'
-                }`}>
-                  {totalETP < SEUIL_OETH ? '— Non soumis (< 20 ETP)' : estConforme ? '✓ Conforme OETH' : '⚠ Non conforme OETH'}
-                </div>
-              </div>
-
-              {/* KPIs */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-                {[
-                  { label: 'Effectif total (ETP)', val: totalETP.toFixed(1), sub: `${tousPersonnels.length} agents`, color: darkMode ? 'text-slate-300' : 'text-slate-700', bg: darkMode ? 'bg-gray-700' : 'bg-white' },
-                  { label: 'ETP RQTH', val: totalETPRqth.toFixed(1), sub: `${rqthPersonnels.length} agents · ${tauxRqth.toFixed(1)}%`, color: darkMode ? 'text-orange-300' : 'text-orange-700', bg: darkMode ? 'bg-orange-900/30' : 'bg-orange-50' },
-                  { label: totalETP >= SEUIL_OETH ? 'Obligation OETH (6%)' : 'Obligation OETH', val: totalETP >= SEUIL_OETH ? obligationETP.toFixed(1) + ' ETP' : 'Non applicable', sub: totalETP >= SEUIL_OETH ? `Seuil ≥ ${SEUIL_OETH} ETP` : `Effectif < ${SEUIL_OETH} ETP`, color: darkMode ? 'text-blue-300' : 'text-blue-700', bg: darkMode ? 'bg-blue-900/30' : 'bg-blue-50' },
-                  estConforme
-                    ? { label: 'Aides AGEFIPH estimées', val: aidesEstimees > 0 ? fmt(aidesEstimees) + ' €/an' : '—', sub: '~1 800 €/ETP RQTH', color: darkMode ? 'text-emerald-300' : 'text-emerald-700', bg: darkMode ? 'bg-emerald-900/30' : 'bg-emerald-50' }
-                    : { label: 'Contribution AGEFIPH', val: contribution > 0 ? fmt(contribution) + ' €/an' : '—', sub: 'Estimation (coeff. 400)', color: darkMode ? 'text-red-300' : 'text-red-700', bg: darkMode ? 'bg-red-900/30' : 'bg-red-50' },
-                ].map((k, i) => (
-                  <div key={i} className={`p-3 rounded-2xl ${k.bg}`}>
-                    <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{k.label}</div>
-                    <div className={`text-lg font-black ${k.color}`}>{k.val}</div>
-                    <div className={`text-xs mt-0.5 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{k.sub}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Jauge RQTH */}
-              {totalETP >= SEUIL_OETH && (
-                <div className="mb-5">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className={`font-bold ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>Taux RQTH actuel : <strong className={darkMode ? 'text-orange-300' : 'text-orange-700'}>{tauxRqth.toFixed(1)}%</strong></span>
-                    <span className={`font-bold ${darkMode ? 'text-blue-300' : 'text-blue-600'}`}>Objectif OETH : 6%</span>
-                  </div>
-                  <div className={`w-full h-4 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-slate-200'} overflow-hidden relative`}>
-                    <div className={`h-full rounded-full transition-all ${tauxRqth >= 6 ? 'bg-emerald-500' : 'bg-orange-500'}`} style={{ width: `${Math.min(100, tauxRqth / 6 * 100)}%` }} />
-                    <div className="absolute top-0 bottom-0 w-0.5 bg-blue-500" style={{ left: '100%', transform: 'translateX(-1px)' }} title="Objectif 6%" />
-                  </div>
-                  <div className={`text-xs mt-1 ${tauxRqth >= 6 ? (darkMode ? 'text-emerald-400' : 'text-emerald-600') : (darkMode ? 'text-orange-400' : 'text-orange-600')} font-bold`}>
-                    {tauxRqth >= 6 ? `Excédent : +${(totalETPRqth - obligationETP).toFixed(1)} ETP` : `Manque : ${(obligationETP - totalETPRqth).toFixed(1)} ETP pour atteindre l'objectif`}
-                  </div>
-                </div>
-              )}
-
-              {/* Liste agents RQTH */}
-              {rqthPersonnels.length > 0 ? (
-                <div>
-                  <div className={`text-xs font-black uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Agents RQTH</div>
-                  <div className="flex flex-wrap gap-2">
-                    {rqthPersonnels.map(p => (
-                      <div key={p.id + p.source} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold ${darkMode ? 'bg-orange-900/30 border border-orange-700 text-orange-300' : 'bg-orange-100 border border-orange-200 text-orange-800'}`}>
-                        <UserCheck size={12} />
-                        {p.titre}
-                        <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>({p.source} · {p.etp} ETP)</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className={`text-sm text-center py-3 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
-                  Aucun agent RQTH déclaré — cochez la case RQTH sur les fiches personnel pour les déclarer.
-                </p>
-              )}
-            </div>
-          );
-        })()}
-
-        {/* PLANNING DES ABSENCES */}
-        <PlanningAbsences
-          direction={direction}
-          poleSupport={poleSupport}
-          services={services}
-          planningAbsences={planningAbsences}
-          setPlanningAbsences={setPlanningAbsences}
-          darkMode={darkMode}
-        />
-
-        {/* TABLEAU ETP RÉEL PAR MOIS PAR SERVICE */}
-        {(() => {
-          const ANNEE = 2026;
-          const { lignes, total, totalContractuel, moisLabels } = calculerETPReelParMoisParService(
-            services, direction, poleSupport, planningAbsences, ANNEE
-          );
-          // N'afficher que les lignes avec au moins 1 ETP
-          const lignesActives = lignes.filter(l => l.etp > 0);
-          if (lignesActives.length === 0) return null;
-          return (
-            <div className={`rounded-3xl shadow-lg border-2 p-6 mb-8 ${darkMode ? 'bg-gray-800 border-teal-900' : 'bg-gradient-to-br from-teal-50 to-emerald-50 border-teal-200'}`}>
-              <div className="flex items-center gap-3 mb-5">
-                <div>
-                  <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>ETP réel par mois</h2>
-                  <span className={`text-xs font-bold ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>
-                    Présence effective après congés, RTT et arrêts — ETP contractuel total : {totalContractuel.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="text-xs border-collapse w-full">
-                  <thead>
-                    <tr>
-                      <th className={`text-left px-3 py-2 font-bold sticky left-0 min-w-[160px] ${darkMode ? 'bg-gray-800 text-gray-300' : 'bg-teal-50 text-slate-600'}`}>Service</th>
-                      <th className={`px-2 py-2 text-center font-bold ${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-teal-50 text-slate-500'}`}>ETP<br/>contrat</th>
-                      {moisLabels.map(m => (
-                        <th key={m} className={`px-2 py-2 text-center font-bold w-14 ${darkMode ? 'bg-gray-800 text-gray-300' : 'bg-teal-50 text-slate-500'}`}>{m}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lignesActives.map((ligne, idx) => {
-                      const maxETP = ligne.etp;
-                      return (
-                        <tr key={ligne.nom} className={idx % 2 === 0 ? (darkMode ? 'bg-gray-800/50' : 'bg-white/60') : (darkMode ? 'bg-gray-700/30' : 'bg-teal-50/40')}>
-                          <td className={`px-3 py-1.5 font-bold sticky left-0 ${idx % 2 === 0 ? (darkMode ? 'bg-gray-800' : 'bg-white') : (darkMode ? 'bg-gray-700' : 'bg-teal-50/60')} ${darkMode ? 'text-white' : 'text-slate-800'}`}>
-                            {ligne.nom}
-                          </td>
-                          <td className={`px-2 py-1.5 text-center font-bold ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
-                            {ligne.etp.toFixed(2)}
-                          </td>
-                          {ligne.mensuel.map((etp, m) => {
-                            const pct = maxETP > 0 ? etp / maxETP : 1;
-                            const color = pct >= 0.95
-                              ? (darkMode ? 'text-emerald-400' : 'text-emerald-700')
-                              : pct >= 0.80
-                              ? (darkMode ? 'text-yellow-400' : 'text-yellow-700')
-                              : (darkMode ? 'text-red-400' : 'text-red-600');
-                            return (
-                              <td key={m} className={`px-1 py-1.5 text-center font-bold ${color}`}>
-                                {etp.toFixed(2)}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className={`border-t-2 ${darkMode ? 'border-teal-700 bg-gray-700' : 'border-teal-300 bg-teal-100'}`}>
-                      <td className={`px-3 py-2 font-black sticky left-0 ${darkMode ? 'bg-gray-700 text-white' : 'bg-teal-100 text-slate-800'}`}>Total</td>
-                      <td className={`px-2 py-2 text-center font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{totalContractuel.toFixed(2)}</td>
-                      {total.map((t, m) => (
-                        <td key={m} className={`px-1 py-2 text-center font-black ${darkMode ? 'text-teal-300' : 'text-teal-700'}`}>{t.toFixed(2)}</td>
-                      ))}
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-              <p className={`text-xs mt-3 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
-                Vert ≥ 95 % de l'ETP contractuel · Jaune ≥ 80 % · Rouge &lt; 80 %
-              </p>
-            </div>
-          );
-        })()}
-        </>}
-
-        {/* ─── FORMATION ─── */}
-        {activeTab === 'formation' && <>
-
-        {/* ENVELOPPE DE FORMATION */}
-        <div id="enveloppe-formation" className={`rounded-3xl shadow-lg border-2 p-8 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-emerald-900' : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-300'}`}>
-          <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
-            <div className="flex items-center gap-3">
-              <GraduationCap className="text-emerald-600" size={32} />
-              <div>
-                <h2 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Enveloppe de Formation</h2>
-                <span className={`text-sm font-bold ${darkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>Formation continue du personnel</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className={`text-right`}>
-                <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Budget alloué</div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    className={`w-36 text-right font-black text-xl rounded-xl px-3 py-2 outline-none ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-slate-800'}`}
-                    value={enveloppeFormation.budget}
-                    onChange={e => setEnveloppeFormation({...enveloppeFormation, budget: Math.max(0, parseFloat(e.target.value) || 0)})}
-                  />
-                  <span className={`font-bold ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Barre de consommation */}
-          {(() => {
-            const totalConsomme = (enveloppeFormation.actions || []).reduce((s, a) => s + (parseFloat(a.cout) || 0), 0);
-            const pct = enveloppeFormation.budget > 0 ? Math.min(100, Math.round(totalConsomme / enveloppeFormation.budget * 100)) : 0;
-            const restant = enveloppeFormation.budget - totalConsomme;
-            return (
-              <div className="mb-6">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className={`font-bold ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>Consommé : <strong className="text-emerald-600">{Math.round(totalConsomme).toLocaleString()} €</strong></span>
-                  <span className={`font-bold ${restant >= 0 ? (darkMode ? 'text-emerald-400' : 'text-emerald-600') : (darkMode ? 'text-red-400' : 'text-red-600')}`}>
-                    {restant >= 0 ? 'Restant' : 'Dépassement'} : {Math.abs(Math.round(restant)).toLocaleString()} €
-                  </span>
-                </div>
-                <div className={`w-full h-4 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-slate-200'} overflow-hidden`}>
-                  <div className={`h-full rounded-full transition-all ${pct > 100 ? 'bg-red-500' : pct > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`} style={{width: `${Math.min(100, pct)}%`}} />
-                </div>
-                <div className={`text-right text-xs mt-1 font-bold ${pct > 80 ? 'text-amber-500' : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>{pct}% consommé</div>
-              </div>
-            );
-          })()}
-
-          {/* Liste des actions de formation */}
-          <div className="space-y-3 mb-4">
-            {(enveloppeFormation.actions || []).map((action, aIdx) => (
-              <div key={action.id} className={`p-4 rounded-2xl border group relative ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-white border-emerald-100'}`}>
-                <button onClick={() => setEnveloppeFormation({...enveloppeFormation, actions: enveloppeFormation.actions.filter(a => a.id !== action.id)})} className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 no-print"><Trash2 size={14} /></button>
-                <div className="flex flex-wrap gap-3 items-start">
-                  <div className="flex-1 min-w-[150px]">
-                    <label className={`text-xs font-bold block mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Intitulé formation</label>
-                    <input className={`w-full font-bold text-sm rounded-lg px-3 py-1.5 outline-none ${darkMode ? 'bg-gray-600 text-white' : 'bg-emerald-50'}`} value={action.nom} onChange={e => setEnveloppeFormation({...enveloppeFormation, actions: enveloppeFormation.actions.map(a => a.id === action.id ? {...a, nom: e.target.value} : a)})} />
-                  </div>
-                  <div className="w-36">
-                    <label className={`text-xs font-bold block mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Bénéficiaire</label>
-                    <input className={`w-full text-sm rounded-lg px-3 py-1.5 outline-none ${darkMode ? 'bg-gray-600 text-white' : 'bg-emerald-50'}`} value={action.beneficiaire || ''} onChange={e => setEnveloppeFormation({...enveloppeFormation, actions: enveloppeFormation.actions.map(a => a.id === action.id ? {...a, beneficiaire: e.target.value} : a)})} />
-                  </div>
-                  <div className="w-28">
-                    <label className={`text-xs font-bold block mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Date</label>
-                    <input type="date" className={`w-full text-sm rounded-lg px-3 py-1.5 outline-none ${darkMode ? 'bg-gray-600 text-white' : 'bg-emerald-50'}`} value={action.date || ''} onChange={e => setEnveloppeFormation({...enveloppeFormation, actions: enveloppeFormation.actions.map(a => a.id === action.id ? {...a, date: e.target.value} : a)})} />
-                  </div>
-                  <div className="w-28">
-                    <label className={`text-xs font-bold block mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Coût (€)</label>
-                    <input type="number" min="0" className={`w-full font-black text-sm rounded-lg px-3 py-1.5 outline-none ${darkMode ? 'bg-gray-600 text-white' : 'bg-emerald-50'}`} value={action.cout || 0} onChange={e => setEnveloppeFormation({...enveloppeFormation, actions: enveloppeFormation.actions.map(a => a.id === action.id ? {...a, cout: Math.max(0, parseFloat(e.target.value) || 0)} : a)})} />
-                  </div>
-                  <div className="w-28">
-                    <label className={`text-xs font-bold block mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Statut</label>
-                    <select className={`w-full text-xs rounded-lg px-2 py-1.5 font-bold ${darkMode ? 'bg-gray-600 text-white' : 'bg-emerald-50'}`} value={action.statut || 'planifie'} onChange={e => setEnveloppeFormation({...enveloppeFormation, actions: enveloppeFormation.actions.map(a => a.id === action.id ? {...a, statut: e.target.value} : a)})}>
-                      <option value="planifie">Planifié</option>
-                      <option value="en_cours">En cours</option>
-                      <option value="realise">Réalisé</option>
-                      <option value="annule">Annulé</option>
-                    </select>
-                  </div>
-                  <div className={`self-end px-3 py-1.5 rounded-lg text-xs font-black ${
-                    action.statut === 'realise' ? (darkMode ? 'bg-emerald-900/50 text-emerald-300' : 'bg-emerald-100 text-emerald-700') :
-                    action.statut === 'en_cours' ? (darkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-700') :
-                    action.statut === 'annule' ? (darkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-100 text-gray-500') :
-                    (darkMode ? 'bg-amber-900/50 text-amber-300' : 'bg-amber-100 text-amber-700')
-                  }`}>
-                    {action.statut === 'realise' ? '✓ Réalisé' : action.statut === 'en_cours' ? '⟳ En cours' : action.statut === 'annule' ? '✕ Annulé' : '◷ Planifié'}
-                  </div>
-                </div>
-              </div>
-            ))}
-            {(enveloppeFormation.actions || []).length === 0 && (
-              <p className={`text-center py-6 text-sm ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Aucune action de formation — cliquez + pour en ajouter</p>
-            )}
-          </div>
-          <button
-            onClick={() => setEnveloppeFormation({...enveloppeFormation, actions: [...(enveloppeFormation.actions || []), { id: Date.now(), nom: 'Nouvelle formation', beneficiaire: '', date: '', cout: 0, statut: 'planifie' }]})}
-            className={`w-full py-3 border-2 border-dashed rounded-2xl text-sm font-bold flex items-center justify-center gap-2 no-print ${darkMode ? 'border-emerald-700 text-emerald-400 hover:bg-emerald-900/20' : 'border-emerald-300 text-emerald-600 hover:bg-emerald-50'}`}
-          >
-            <Plus size={16} /> Ajouter une action de formation
-          </button>
+        <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-slate-200'}`}>
+          <PoolRHManager
+            poolRH={poolRH}
+            setPoolRH={setPoolRH}
+            services={services}
+            direction={direction}
+            poleSupport={poleSupport}
+            darkMode={darkMode}
+            msETP={msETP}
+          />
         </div>
 
-
-        {/* REPORTING FC */}
-        <ReportingFC
-          reportingFC={reportingFC}
-          setReportingFC={setReportingFC}
-          services={services}
-          darkMode={darkMode}
-          onExportExcel={() => exportReportingFC(reportingFC, services)}
-          onExportPdf={() => exportReportingFCPdf(reportingFC, services)}
-        />
         </>}
 
-        {/* ─── ANALYSE : SIMULATION CHARGES ─── */}
-        {activeTab === 'analyse' && <>
-
-        {/* SIMULATION CHARGES INTERACTIF */}
-        {(() => {
-  const bdDir = getBudgetDirection();
-  const totalPers0 = [bdDir.salaires, ...services.map(s => getBudgetService(s).salaires)].reduce((a, b) => a + b, 0);
-  const totalExpl0 = [bdDir.chargesSiege, ...services.map(s => getBudgetService(s).exploitation)].reduce((a, b) => a + b, 0);
-  const totalRec0  = services.reduce((s, svc) => s + getBudgetService(svc).recettes, 0);
-
-  const factS = 1 + (simCharges.augSalaires || 0) / 100;
-  const factC = 1 + (simCharges.augCharges || 0) / 100;
-  const factE = 1 + (simCharges.augExploitation || 0) / 100;
-
-  const totalPers1 = totalPers0 * factS * factC;
-  const totalExpl1 = totalExpl0 * factE;
-  const total0 = totalPers0 + totalExpl0;
-  const total1 = totalPers1 + totalExpl1;
-  const delta  = total1 - total0;
-  const result1 = totalRec0 - total1;
-
-  const fmt = n => Math.round(n).toLocaleString('fr-FR');
-  const SLIDER_COLOR_CLS = {
-    teal:  [darkMode ? 'text-teal-300'  : 'text-teal-700'],
-    blue:  [darkMode ? 'text-blue-300'  : 'text-blue-700'],
-    amber: [darkMode ? 'text-amber-300' : 'text-amber-700'],
-  };
-  const Slider = ({ label, field, min, max, color }) => (
-    <div>
-      <div className="flex justify-between mb-1">
-        <span className={`text-xs font-bold ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{label}</span>
-        <span className={`text-sm font-black ${simCharges[field] > 0 ? (SLIDER_COLOR_CLS[color]?.[0] || (darkMode ? 'text-teal-300' : 'text-teal-700')) : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>
-          {simCharges[field] > 0 ? '+' : ''}{simCharges[field]}%
-        </span>
-      </div>
-      <input type="range" min={min} max={max} step="0.5" value={simCharges[field]}
-        onChange={e => setSimCharges({...simCharges, [field]: parseFloat(e.target.value)})}
-        className="w-full accent-teal-500"
-      />
-      <div className={`flex justify-between text-xs ${darkMode ? 'text-gray-600' : 'text-slate-400'}`}><span>{min}%</span><span>{max}%</span></div>
-    </div>
-  );
-
-  return (
-    <div id="simulation-charges" className={`rounded-3xl shadow-lg border-2 p-6 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-sky-900' : 'bg-gradient-to-br from-sky-50 to-blue-50 border-sky-200'}`}>
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
-        <div className="flex items-center gap-3">
-          <Calculator className={darkMode ? 'text-sky-400' : 'text-sky-600'} size={28} />
-          <div>
-            <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Simulation de charges</h2>
-            <span className={`text-xs font-bold ${darkMode ? 'text-sky-400' : 'text-sky-600'}`}>Testez l'impact d'une variation des charges sur le résultat</span>
-          </div>
-        </div>
-        <button onClick={() => setSimCharges({ augSalaires: 0, augCharges: 0, augExploitation: 0 })}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-          <RotateCcw size={13} /> Réinitialiser
-        </button>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Sliders */}
-        <div className="space-y-5">
-          <Slider label="Augmentation salariale (masse brute)" field="augSalaires" min={-5} max={15} color="teal" />
-          <Slider label="Variation taux de charges patronales" field="augCharges" min={-5} max={10} color="blue" />
-          <Slider label="Variation charges d'exploitation" field="augExploitation" min={-10} max={20} color="amber" />
-        </div>
-
-        {/* Résultats */}
-        <div className="space-y-3">
-          <div className={`p-4 rounded-2xl ${darkMode ? 'bg-gray-700' : 'bg-white'}`}>
-            <div className={`text-xs font-bold uppercase mb-3 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Impact sur le budget</div>
-            <div className="space-y-2 text-sm">
-              {[
-                { label: 'Personnel (base)', val: fmt(totalPers0) + ' €', sim: fmt(totalPers1) + ' €', delta: totalPers1 - totalPers0 },
-                { label: 'Exploitation (base)', val: fmt(totalExpl0) + ' €', sim: fmt(totalExpl1) + ' €', delta: totalExpl1 - totalExpl0 },
-                { label: 'TOTAL charges', val: fmt(total0) + ' €', sim: fmt(total1) + ' €', delta: delta, bold: true },
-              ].map((r, i) => (
-                <div key={i} className={`flex justify-between items-center ${r.bold ? `pt-2 border-t font-black ${darkMode ? 'border-gray-600' : 'border-slate-200'}` : ''}`}>
-                  <span className={darkMode ? 'text-gray-300' : 'text-slate-600'}>{r.label}</span>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs line-through ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{r.val}</span>
-                    <span className={darkMode ? 'text-white' : 'text-slate-800'}>{r.sim}</span>
-                    {r.delta !== 0 && (
-                      <span className={`text-xs font-black px-2 py-0.5 rounded-full ${r.delta > 0 ? (darkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700') : (darkMode ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700')}`}>
-                        {r.delta > 0 ? '+' : ''}{fmt(r.delta)} €
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className={`p-4 rounded-2xl font-black text-center ${result1 >= 0 ? (darkMode ? 'bg-emerald-900/30 border border-emerald-700' : 'bg-emerald-50 border border-emerald-200') : (darkMode ? 'bg-red-900/30 border border-red-700' : 'bg-red-50 border border-red-200')}`}>
-            <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Résultat simulé (Recettes {fmt(totalRec0)} € − Charges simulées)</div>
-            <div className={`text-2xl ${result1 >= 0 ? (darkMode ? 'text-emerald-300' : 'text-emerald-700') : (darkMode ? 'text-red-300' : 'text-red-700')}`}>
-              {result1 >= 0 ? '+' : ''}{fmt(result1)} €
-            </div>
-            <div className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
-              vs résultat actuel : {totalRec0 - total0 >= 0 ? '+' : ''}{fmt(totalRec0 - total0)} €
-              {' '}({delta >= 0 ? '+' : ''}{fmt(delta)} € de variation)
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-})()}
-        </>}
 
         {/* ─── FORMATION : PILOTAGE FINANCIER ─── */}
         {activeTab === 'formation' && <>
@@ -4649,11 +4402,11 @@ const BudgetTool = () => {
           key={pilotageResetKey}
           darkMode={darkMode}
           checkPassword={checkPassword}
-          startEmpty={pilotageResetKey > 0}
           budgetPersonnel={[
             ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction / Siège' })),
             ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support' })),
-            ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom })))
+            ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom }))),
+            ...(poolRH || []).map(p => ({ ...p, source: 'Pool RH' })),
           ]}
           externalSites={pilotageSites}
           setExternalSites={setPilotageSites}
@@ -4662,7 +4415,18 @@ const BudgetTool = () => {
 
         {/* ─── ONGLET VACATAIRES ─── */}
         {activeTab === 'vacataires' && (
-          <CalculateurVacataires darkMode={darkMode} />
+          <CalculateurVacataires
+            darkMode={darkMode}
+            vacatairesBudget={services.flatMap(s =>
+              (s.vacataires || []).map(v => {
+                const MOIS = ['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
+                const heures = MOIS.reduce((s, m) => s + (parseFloat(v.planningMensuel?.[m]) || 0), 0) || (parseFloat(v.heuresAnnuelles) || 0);
+                const taux = parseFloat(v.tauxHoraire) || 0;
+                const charges = parseFloat(v.tauxCharges ?? 15) / 100;
+                return { service: s.nom, nom: v.nom || 'Vacataire', heures, cout: heures * taux * (1 + charges) };
+              })
+            ).filter(v => v.cout > 0)}
+          />
         )}
 
         {/* ─── ONGLET SUBVENTION RÉGION ─── */}
@@ -4672,9 +4436,10 @@ const BudgetTool = () => {
             services={services}
             direction={direction}
             poleSupport={poleSupport}
-            calculerBudgetService={s => calculerBudgetService(s, null, 2026, msETP)}
-            calculerBudgetDirection={d => calculerBudgetDirection(d, null, 2026, msETP)}
-            calculerBudgetPoleSupport={ps => calculerBudgetPoleSupport(ps, null, 2026, msETP)}
+            calculerBudgetService={cbBudgetSvc}
+            calculerBudgetDirection={cbBudgetDir}
+            calculerBudgetPoleSupport={cbBudgetPS}
+            personnelEligible={personnelEligibleSubvention}
           />
         )}
 
@@ -4706,9 +4471,10 @@ const BudgetTool = () => {
               services={services}
               direction={direction}
               poleSupport={poleSupport}
-              calculerBudgetService={s => calculerBudgetService(s, null, 2026, msETP)}
-              calculerBudgetDirection={d => calculerBudgetDirection(d, null, 2026, msETP)}
-              calculerBudgetPoleSupport={ps => calculerBudgetPoleSupport(ps, null, 2026, msETP)}
+              globalParams={globalParams}
+              calculerBudgetService={cbBudgetSvc}
+              calculerBudgetDirection={cbBudgetDir}
+              calculerBudgetPoleSupport={cbBudgetPS}
             />
           )}
           {dafSub === 'ventilationBP' && (
@@ -4729,7 +4495,7 @@ const BudgetTool = () => {
           <div className="space-y-6 max-w-3xl mx-auto">
 
             {/* Paramètres globaux */}
-            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30' : 'bg-white border-slate-100/80'}`}>
               <h2 className={`text-lg font-black mb-5 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                 <Cog size={20} className="text-teal-500" /> Paramètres globaux
               </h2>
@@ -4743,7 +4509,40 @@ const BudgetTool = () => {
                     />
                     <span className={`text-2xl font-black ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>%</span>
                   </div>
-                  <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Appliqué aux salaires pour les années N+1 et N+2</p>
+                  <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Appliqué aux charges d'exploitation pour les années N+1 et N+2</p>
+                </div>
+                <div className={`rounded-2xl p-4 border ${darkMode ? 'bg-indigo-900/20 border-indigo-800' : 'bg-indigo-50 border-indigo-200'}`}>
+                  <label className={`text-xs font-bold uppercase tracking-widest block mb-2 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>GVT — Glissement Vieillesse Technicité</label>
+                  <div className="flex items-center gap-2">
+                    <input type="number" step="0.1" min="0" max="10" value={globalParams.tauxGVT ?? 1.5}
+                      onChange={(e) => setGlobalParams({...globalParams, tauxGVT: validerTaux(e.target.value)})}
+                      className={`rounded-xl px-3 py-2 font-black text-2xl outline-none w-24 border ${darkMode ? 'bg-gray-700 text-indigo-300 border-indigo-700' : 'bg-white text-indigo-700 border-indigo-200'}`}
+                    />
+                    <span className={`text-2xl font-black ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>%/an</span>
+                  </div>
+                  <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Hausse annuelle automatique des salaires (échelons, ancienneté) — s'ajoute à l'inflation</p>
+                </div>
+                <div className={`rounded-2xl p-4 border col-span-2 ${darkMode ? 'bg-slate-800/40 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                  <label className={`text-xs font-bold uppercase tracking-widest block mb-3 ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>Inflation différenciée — Synthèse N+1 / N+2</label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { key: 'inflationEnergie', label: 'Énergie', color: 'amber', default: 8.0 },
+                      { key: 'inflationLoyers', label: 'Loyers', color: 'orange', default: 3.5 },
+                      { key: 'inflationAutres', label: 'Autres charges', color: 'slate', default: 2.5 },
+                    ].map(({ key, label, color, default: def }) => (
+                      <div key={key}>
+                        <label className={`text-xs font-semibold block mb-1 ${darkMode ? `text-${color}-400` : `text-${color}-600`}`}>{label}</label>
+                        <div className="flex items-center gap-1">
+                          <input type="number" step="0.1" min="0" max="50" value={globalParams[key] ?? def}
+                            onChange={(e) => setGlobalParams({...globalParams, [key]: validerTaux(e.target.value)})}
+                            className={`rounded-lg px-2 py-1 font-black text-lg outline-none w-16 border ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-slate-200'}`}
+                          />
+                          <span className={`font-bold ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className={`text-xs mt-2 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Appliqués aux charges d'exploitation selon leur nature (label des lignes) pour les projections N+1 et N+2</p>
                 </div>
                 <div className={`rounded-2xl p-4 border ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
                   <label className={`text-xs font-bold uppercase tracking-widest block mb-2 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Prime Ségur médico-social / ETP</label>
@@ -4769,7 +4568,7 @@ const BudgetTool = () => {
             </div>
 
             {/* Sauvegarde & Export */}
-            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30' : 'bg-white border-slate-100/80'}`}>
               <h2 className={`text-lg font-black mb-5 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                 <Save size={20} className="text-teal-500" /> Sauvegarde & Export
               </h2>
@@ -4788,12 +4587,23 @@ const BudgetTool = () => {
                 )}
                 <button onClick={() => exportToExcel(direction, services, globalParams, poleSupport)} className="bg-green-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><FileSpreadsheet size={18} /> Export Excel</button>
                 <button onClick={() => exportToPDF(direction, services, globalParams, poleSupport)} className="bg-red-600 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><Download size={18} /> Export PDF</button>
+                <button
+                  onClick={() => {
+                    const csv = genererCSVComptable(direction, services, poleSupport, 2026, getBudgetService, getBudgetDirection, getBudgetPoleSupport);
+                    telechargerCSVComptable(csv, 2026);
+                  }}
+                  className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 border-2 transition-colors ${darkMode ? 'border-indigo-600 text-indigo-300 hover:bg-indigo-900/30' : 'border-indigo-400 text-indigo-700 hover:bg-indigo-50'}`}
+                  title="Génère un CSV au format journal comptable (Sage, Cegid, EBP…)"
+                >
+                  <Calculator size={18} /> Export Sage/Cegid
+                </button>
                 <button onClick={() => window.print()} className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 border ${darkMode ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-500 text-white border-slate-600'}`}><Printer size={18} /> Imprimer</button>
               </div>
+              <p className={`mt-3 text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Le CSV Sage/Cegid génère un journal OD (CodeJournal, Date, CompteGénéral PCG, Libellé, Débit, Crédit) prêt à importer.</p>
             </div>
 
             {/* Import de données */}
-            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30' : 'bg-white border-slate-100/80'}`}>
               <h2 className={`text-lg font-black mb-5 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                 <Upload size={20} className="text-violet-500" /> Import de données
               </h2>
@@ -4810,8 +4620,74 @@ const BudgetTool = () => {
               )}
             </div>
 
+            {/* Budget Voté — Snapshot */}
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30' : 'bg-white border-slate-100/80'}`}>
+              <h2 className={`text-lg font-black mb-2 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <Camera size={20} className="text-violet-500" /> Budget Voté (Snapshot)
+              </h2>
+              <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                Figez l'état actuel comme référence. Activez la comparaison pour voir les écarts dans la Synthèse.
+              </p>
+              <SnapshotManager
+                currentData={{ direction, services, poleSupport, globalParams }}
+                onToggleCompare={() => setCompareSnapshot(v => !v)}
+                compareMode={compareSnapshot}
+                darkMode={darkMode}
+              />
+            </div>
+
+            {/* Clés de répartition — Frais de siège */}
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30' : 'bg-white border-slate-100/80'}`}>
+              <h2 className={`text-lg font-black mb-2 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <Layers size={20} className="text-teal-500" /> Clés de répartition — Frais de Siège
+              </h2>
+              <p className={`text-sm mb-4 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                Répartit automatiquement le budget Direction/Siège sur les services au prorata des ETP.
+              </p>
+              <div className="flex items-center gap-3 mb-4">
+                <button
+                  onClick={() => setRepartirSiege(v => !v)}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${repartirSiege ? 'bg-teal-600 text-white' : (darkMode ? 'bg-zinc-800 border border-zinc-700 text-zinc-300' : 'bg-slate-100 text-slate-600 border border-slate-200')}`}
+                >
+                  {repartirSiege ? '✓ Actif — Quote-parts visibles' : 'Activer la répartition'}
+                </button>
+              </div>
+              {repartirSiege && (() => {
+                const repartition = repartirFraisSiege(getBudgetDirection(), services);
+                const totalSiege = getBudgetDirection().total;
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className={`text-xs font-bold uppercase tracking-wide ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>
+                          <th className="text-left py-2">Service</th>
+                          <th className="text-right py-2">ETP</th>
+                          <th className="text-right py-2">% ETP</th>
+                          <th className="text-right py-2">Quote-part Siège</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {repartition.map(r => (
+                          <tr key={r.serviceId} className={`border-t ${darkMode ? 'border-zinc-800' : 'border-slate-100'}`}>
+                            <td className={`py-2 font-medium ${darkMode ? 'text-white' : 'text-slate-800'}`}>{r.nom}</td>
+                            <td className={`py-2 text-right font-mono-numbers ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>{r.etp.toFixed(2)}</td>
+                            <td className={`py-2 text-right font-mono-numbers ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>{r.pctETP.toFixed(1)} %</td>
+                            <td className={`py-2 text-right font-black font-mono-numbers ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>{Math.round(r.quotePart).toLocaleString()} €</td>
+                          </tr>
+                        ))}
+                        <tr className={`border-t-2 ${darkMode ? 'border-zinc-700' : 'border-slate-200'}`}>
+                          <td className={`py-2 font-black ${darkMode ? 'text-white' : 'text-slate-800'}`} colSpan={3}>Total Budget Siège</td>
+                          <td className={`py-2 text-right font-black font-mono-numbers ${darkMode ? 'text-white' : 'text-slate-900'}`}>{Math.round(totalSiege).toLocaleString()} €</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Présentation */}
-            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30' : 'bg-white border-slate-100/80'}`}>
               <h2 className={`text-lg font-black mb-5 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                 <Monitor size={20} className="text-indigo-500" /> Présentation CA/AG
               </h2>
@@ -4820,7 +4696,7 @@ const BudgetTool = () => {
             </div>
 
             {/* Administration */}
-            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30' : 'bg-white border-slate-100/80'}`}>
               <h2 className={`text-lg font-black mb-5 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                 <Shield size={20} className="text-slate-500" /> Administration
               </h2>
@@ -4835,12 +4711,18 @@ const BudgetTool = () => {
                 >
                   <RotateCcw size={18} /> Réinitialiser toutes les données
                 </button>
+                <button
+                  onClick={() => setShowHardReset(true)}
+                  className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 border-2 transition-colors ${darkMode ? 'border-red-900 text-red-500 hover:bg-red-950/40' : 'border-red-400 text-red-700 hover:bg-red-50'}`}
+                >
+                  <Trash2 size={18} /> Réinitialisation complète
+                </button>
                 <button onClick={handleLogout} className="bg-red-500 text-white px-4 py-3 rounded-xl font-bold flex items-center gap-2"><LogOut size={18} /> Déconnexion</button>
               </div>
             </div>
 
             {/* Wizard setup */}
-            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-gray-800/40 border-white/10' : 'bg-white/80 border-slate-200/60'}`}>
+            <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30' : 'bg-white border-slate-100/80'}`}>
               <h2 className={`text-lg font-black mb-3 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                 <Cog size={20} className="text-teal-500" /> Configuration de l'organisation
               </h2>
@@ -4861,6 +4743,118 @@ const BudgetTool = () => {
 
           </div>
         )}
+
+        {/* ── Reporting Réglementaire ─────────────────────────────────────────── */}
+        {activeTab === 'reporting' && (() => {
+          const msETP = globalParams.montantSegurETP ?? 238;
+          const tousPersonnels = [
+            ...(direction.personnel || []).map(p => ({ ...p, _source: 'Siège' })),
+            ...(poleSupport?.personnel || []).map(p => ({ ...p, _source: 'Pôle Support' })),
+            ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, _source: s.nom }))),
+            ...(poolRH || []).map(p => ({ ...p, _source: 'Pool RH' })),
+          ];
+
+          // Pivot Rôle × agents
+          const pivotRoles = {};
+          tousPersonnels.forEach(p => {
+            const role = p.role || 'autre';
+            if (!pivotRoles[role]) pivotRoles[role] = { agents: [], etpTotal: 0, msTotal: 0 };
+            const etp = parseFloat(p.etp) || 0;
+            const sal = calculerSalaireAnnuel(parseFloat(p.salaire) || 0, etp, p.segur ? msETP : 0, p.typeContrat, p.tauxChargesManuel);
+            pivotRoles[role].agents.push(p);
+            pivotRoles[role].etpTotal += etp;
+            pivotRoles[role].msTotal += sal.total;
+          });
+
+          const roles = (globalParams.rolesPersonnel || []);
+          const getRoleLabel = (id) => roles.find(r => r.id === id)?.label || id;
+
+          const auditAlertes = runFinancialAudit(direction, services, poleSupport, globalParams);
+          const erreurs = auditAlertes.filter(a => a.type === 'ER');
+          const avertissements = auditAlertes.filter(a => a.type === 'WA');
+
+          return (
+            <div className="space-y-6 max-w-5xl mx-auto">
+              {/* Pivot Table */}
+              <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30' : 'bg-white border-slate-100/80'}`}>
+                <h2 className={`text-lg font-black mb-5 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                  <Shield size={20} className="text-violet-500" /> Pivot réglementaire — Rôle × Masse Salariale
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className={`text-xs font-bold uppercase tracking-wide border-b ${darkMode ? 'text-zinc-400 border-zinc-700' : 'text-slate-500 border-slate-200'}`}>
+                        <th className="text-left py-2 pr-4">Rôle</th>
+                        <th className="text-right py-2 pr-4">Nb agents</th>
+                        <th className="text-right py-2 pr-4">ETP total</th>
+                        <th className="text-right py-2">Masse salariale chargée</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(pivotRoles).sort((a,b) => b[1].msTotal - a[1].msTotal).map(([roleId, data]) => (
+                        <tr key={roleId} className={`border-b text-sm ${darkMode ? 'border-zinc-800 hover:bg-zinc-800/40' : 'border-slate-100 hover:bg-slate-50'}`}>
+                          <td className={`py-2 pr-4 font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>{getRoleLabel(roleId)}</td>
+                          <td className={`py-2 pr-4 text-right ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>{data.agents.length}</td>
+                          <td className={`py-2 pr-4 text-right ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>{data.etpTotal.toFixed(2)}</td>
+                          <td className={`py-2 text-right font-bold ${privacyMode ? 'blur-sm select-none' : ''} ${darkMode ? 'text-teal-300' : 'text-teal-700'}`}>
+                            {data.msTotal.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className={`text-sm font-black ${darkMode ? 'text-white border-t border-zinc-600' : 'text-slate-900 border-t border-slate-300'}`}>
+                        <td className="py-2 pr-4">TOTAL</td>
+                        <td className="py-2 pr-4 text-right">{tousPersonnels.length}</td>
+                        <td className="py-2 pr-4 text-right">{Object.values(pivotRoles).reduce((s, d) => s + d.etpTotal, 0).toFixed(2)}</td>
+                        <td className={`py-2 text-right ${privacyMode ? 'blur-sm select-none' : ''} text-teal-600`}>
+                          {Object.values(pivotRoles).reduce((s, d) => s + d.msTotal, 0).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Vérificateur de cohérence */}
+              <div className={`rounded-3xl border p-6 shadow-md ${darkMode ? 'bg-zinc-900/80 border-zinc-700/30' : 'bg-white border-slate-100/80'}`}>
+                <h2 className={`text-lg font-black mb-5 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                  <AlertTriangle size={20} className="text-amber-500" /> Vérificateur de cohérence financière
+                  <span className={`ml-auto text-sm font-bold px-3 py-1 rounded-full ${auditAlertes.length === 0 ? 'bg-green-100 text-green-700' : erreurs.length > 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {auditAlertes.length === 0 ? '✓ RAS' : `${erreurs.length} erreur${erreurs.length > 1 ? 's' : ''} · ${avertissements.length} avertissement${avertissements.length > 1 ? 's' : ''}`}
+                  </span>
+                </h2>
+                {auditAlertes.length === 0 ? (
+                  <div className={`rounded-2xl p-4 flex items-center gap-3 ${darkMode ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200'}`}>
+                    <CheckCircle size={20} className="text-green-500" />
+                    <span className={`font-semibold ${darkMode ? 'text-green-300' : 'text-green-700'}`}>Aucune anomalie détectée — budget cohérent</span>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {erreurs.map((a, i) => (
+                      <div key={i} className={`rounded-2xl p-4 flex items-start gap-3 ${darkMode ? 'bg-red-900/20 border border-red-800' : 'bg-red-50 border border-red-200'}`}>
+                        <AlertCircle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <span className={`text-xs font-black uppercase tracking-wide ${darkMode ? 'text-red-400' : 'text-red-600'}`}>[ERREUR] {a.code}</span>
+                          <p className={`text-sm font-semibold mt-0.5 ${darkMode ? 'text-red-200' : 'text-red-800'}`}>{a.message}</p>
+                          <p className={`text-xs mt-1 ${darkMode ? 'text-red-400' : 'text-red-500'}`}>{a.entity}</p>
+                        </div>
+                      </div>
+                    ))}
+                    {avertissements.map((a, i) => (
+                      <div key={i} className={`rounded-2xl p-4 flex items-start gap-3 ${darkMode ? 'bg-amber-900/20 border border-amber-800' : 'bg-amber-50 border border-amber-200'}`}>
+                        <AlertTriangle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <span className={`text-xs font-black uppercase tracking-wide ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>[AVERT.] {a.code}</span>
+                          <p className={`text-sm font-semibold mt-0.5 ${darkMode ? 'text-amber-200' : 'text-amber-800'}`}>{a.message}</p>
+                          <p className={`text-xs mt-1 ${darkMode ? 'text-amber-400' : 'text-amber-500'}`}>{a.entity}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Bouton ajouter service */}
         {activeTab === 'budget' && <button onClick={() => {

@@ -1,6 +1,181 @@
 // Constantes de l'application
-// Version des données par défaut (changer pour forcer le rechargement)
-export const DATA_VERSION = '2026-AFERTES-v2';
+
+/**
+ * Dictionnaire d'aide contextuelle.
+ * type : 'info' (bleu, explication calcul) | 'warning' (ambre, mise en garde impact)
+ */
+export const FINANCIAL_HELP = {
+  // ── Masse salariale ────────────────────────────────────────────────────────
+  chargesPatronales: {
+    type: 'info',
+    text: 'Taux moyen de 42 % sur le salaire brut. Ajusté à la baisse par la réduction Fillon pour les salaires ≤ 1,6 SMIC (max −32,14 % au niveau SMIC). Formule : Charges = Brut × Taux calculé.',
+  },
+  allégementFillon: {
+    type: 'info',
+    text: 'Réduction dégressive : T = 0,3214 × (1,6 × SMIC/Brut annuel − 1). Elle s\'annule complètement à 1,6 SMIC. Un salarié à 1 800 €/mois économise ~900 €/an de charges patronales.',
+  },
+  segur: {
+    type: 'info',
+    text: 'Prime Ségur du médico-social : 238 € bruts/mois pour 1 ETP, proratisée selon le temps de travail. Soumise à charges patronales. Non soumise à la réduction Fillon.',
+  },
+  segurWarning: {
+    type: 'warning',
+    text: 'Attention : la prime Ségur augmente le salaire brut de référence. Elle peut réduire l\'allègement Fillon si le total dépasse le seuil SMIC. Impact : +~338 €/an de charges supplémentaires par ETP.',
+  },
+  etp: {
+    type: 'info',
+    text: 'ETP = Équivalent Temps Plein. 1 ETP = 35 h/semaine toute l\'année. Un poste à 0,5 ETP revient à mi-temps. Tous les coûts salariaux sont proratisés par l\'ETP.',
+  },
+  tauxChargesManuel: {
+    type: 'warning',
+    text: 'Taux forcé : désactive le calcul automatique Fillon. À utiliser uniquement pour des situations particulières (conventions collectives spécifiques, régimes spéciaux). Laissez vide pour le calcul automatique.',
+  },
+
+  // ── Exploitation & investissements ─────────────────────────────────────────
+  exploitation: {
+    type: 'info',
+    text: 'Charges d\'exploitation courantes : loyer, énergie, fournitures, prestataires... Les montants saisis sont MENSUELS et multipliés par 12 pour obtenir le total annuel.',
+  },
+  amortissements: {
+    type: 'info',
+    text: 'Charge comptable NON décaissée représentant l\'usure des immobilisations. Formule : Amortissement = Valeur d\'achat ÷ Durée de vie. Exemple : matériel informatique 3 000 € sur 3 ans = 1 000 €/an. N\'impacte pas la trésorerie mais réduit le résultat.',
+  },
+  amortissementsWarning: {
+    type: 'warning',
+    text: 'Attention : les amortissements sont exclus des décaissements en trésorerie (charge comptable, non décaissée). En revanche, le remboursement du capital d\'emprunt est bien un flux de trésorerie réel.',
+  },
+  interetsPret: {
+    type: 'warning',
+    text: 'Les intérêts d\'emprunt sont des charges financières réelles et décaissées chaque mois. À ne pas confondre avec le remboursement du capital (aussi décaissé mais non comptabilisé en charge).',
+  },
+
+  // ── Recettes & subventions ─────────────────────────────────────────────────
+  subventions: {
+    type: 'warning',
+    text: 'Les subventions publiques sont des recettes conditionnelles et renégociées chaque année. Une dépendance >70 % aux subventions fragilise la structure. Diversifiez avec des recettes propres (droits d\'inscription, prestations).',
+  },
+  tauxCouverture: {
+    type: 'info',
+    text: 'Taux de couverture = Recettes totales ÷ Charges totales × 100. En dessous de 90 % : alerte de sous-financement. À 100 % : équilibre. Au-dessus : excédent réinvestissable ou mis en réserve.',
+  },
+  tauxCouvertureWarning: {
+    type: 'warning',
+    text: 'Un taux < 90 % signifie que les charges ne sont pas couvertes par les recettes. L\'association puise dans ses réserves. Si les réserves sont épuisées, la structure est en danger de cessation de paiement.',
+  },
+
+  // ── Formation ──────────────────────────────────────────────────────────────
+  unitesFormation: {
+    type: 'info',
+    text: 'Unités = Effectif actuel × Taux d\'activité. Exemple : 30 étudiants à 90 % d\'activité = 27 unités. Ce chiffre est la base du calcul du coût unitaire et sert de dénominateur pour les indicateurs pédagogiques.',
+  },
+  coutParEtudiant: {
+    type: 'info',
+    text: 'Coût par étudiant = (Masse salariale + Exploitation) ÷ Nombre d\'étudiants. Indicateur clé de rentabilité pédagogique. À comparer avec le prix de vente (droits d\'inscription + subvention par tête) pour mesurer la marge réelle.',
+  },
+  repartitionFI: {
+    type: 'warning',
+    text: 'La répartition FI/FC détermine la part du coût de ce formateur imputée en Formation Initiale vs Formation Continue. Elle impacte directement la présentation EPRD et les clés de répartition analytiques.',
+  },
+  abandons: {
+    type: 'warning',
+    text: 'Chaque abandon réduit les recettes (moins de droits d\'inscription) sans réduire les charges fixes (le personnel reste). L\'impact est double : baisse de recettes + hausse du coût par étudiant restant.',
+  },
+
+  // ── Trésorerie & BFR ───────────────────────────────────────────────────────
+  bfr: {
+    type: 'warning',
+    text: 'BFR = Créances clients + Stocks − Dettes fournisseurs. Un BFR positif signifie que l\'association avance de la trésorerie avant d\'être payée. Un délai long de paiement clients dégrade le BFR et peut provoquer une rupture de trésorerie même en cas d\'équilibre comptable.',
+  },
+  delaiPaiement: {
+    type: 'warning',
+    text: 'Le délai de paiement impacte directement le BFR. +30 jours de délai client = immobilisation d\'1 mois de CA en trésorerie. Pour une association avec 500 k€/mois de recettes, cela représente 500 k€ bloqués.',
+  },
+  fondsRoulement: {
+    type: 'info',
+    text: 'Fonds de Roulement = Capitaux permanents − Immobilisations nettes. Il représente le "matelas" financier de l\'association pour couvrir son BFR. Si FR > BFR : trésorerie positive. Si FR < BFR : découvert structurel.',
+  },
+
+  // ── Pilotage Financier ─────────────────────────────────────────────────────
+  fraisFixes: {
+    type: 'info',
+    text: 'Charges fixes = charges qui ne varient pas avec le volume d\'activité (loyer, salaires, assurances). Elles doivent être couvertes même si les sessions sont annulées. Formule : Taux de structure = Frais fixes ÷ Heures vendues.',
+  },
+  tauxStructure: {
+    type: 'warning',
+    text: 'Le taux de structure est le coût fixe par heure vendue. Si votre tarif horaire de vente est inférieur à ce taux, vous perdez de l\'argent sur chaque heure vendue. Seuil critique : taux de structure > prix de vente.',
+  },
+  tauxOccupation: {
+    type: 'warning',
+    text: 'Taux d\'occupation = Heures animées ÷ Heures contractuelles × 100. En dessous de 60 % : le formateur coûte plus qu\'il ne produit. Entre 60 et 80 % : zone correcte. Au-dessus de 80 % : risque de surcharge et de burn-out.',
+  },
+  coutHoraireFacture: {
+    type: 'info',
+    text: 'Coût horaire facturé = Coût total annuel ÷ Heures animées. C\'est le coût réel de chaque heure "productive". À comparer avec le taux horaire de vente pour calculer la marge par heure de formation.',
+  },
+  heuresVendues: {
+    type: 'info',
+    text: 'Heures vendues = heures de formation effectivement payées par les clients (OPCO, stagiaires, entreprises). C\'est la base du calcul du CA et du taux de structure. Différent des heures animées (hors préparation).',
+  },
+  marge: {
+    type: 'info',
+    text: 'Marge = CA sessions − Coût formateurs − Frais fixes imputés. Une marge négative sur un site indique que les sessions ne couvrent pas les coûts. Possible si la subvention globale compense, mais à surveiller.',
+  },
+
+  // ── Pool RH ────────────────────────────────────────────────────────────────
+  poolRH: {
+    type: 'info',
+    text: 'Le Pool RH permet d\'affecter le coût d\'un agent (ex. RH, comptable) à plusieurs services en pourcentage. Exemple : un comptable affecté à 30 % Service A, 70 % Service B. Le total doit être ≤ 100 %.',
+  },
+  poolRHWarning: {
+    type: 'warning',
+    text: 'Attention : si la somme des pourcentages d\'affectation dépasse 100 %, le coût est surcomptabilisé. Si elle est inférieure à 100 %, une partie du coût de l\'agent n\'est imputée à aucune entité.',
+  },
+
+  // ── Pilotage Financier — champs formateurs ──────────────────────────────────
+  salaireBrutPilotage: {
+    type: 'info',
+    text: 'Salaire brut mensuel du formateur. Multiplié par 12 pour le brut annuel, puis majoré du taux de charges patronales. Formule : Coût = Brut × 12 × (1 + Taux charges / 100).',
+  },
+  tauxChargesPilotage: {
+    type: 'info',
+    text: 'Taux de charges patronales (%). Typiquement 42–47 % pour les associations (URSSAF, retraite, prévoyance, mutuelle employeur). Saisissez 45 si vous n\'avez pas le taux exact.',
+  },
+  heuresHebdo: {
+    type: 'info',
+    text: 'Heures contractuelles par semaine (35 h = temps plein, 28 h = 0,8 ETP). Base de calcul : Heures annuelles = H/sem × 52 semaines. Tous les ratios d\'occupation et coûts horaires en dépendent.',
+  },
+  heuresHorsProd: {
+    type: 'warning',
+    text: 'Heures hebdomadaires non pédagogiques : réunions, formations internes, administratif. Ces heures réduisent les heures disponibles et augmentent mécaniquement le coût horaire facturé.',
+  },
+  ratioPreparation: {
+    type: 'info',
+    text: 'Pour 1 heure animée, combien d\'heures au total (animation + préparation) ? Ratio 1,2 = 1 h animation + 0,2 h prépa. Plus il est élevé, moins le formateur anime et plus son coût horaire facturé grimpe.',
+  },
+  joursAbsencePilotage: {
+    type: 'warning',
+    text: 'Jours d\'absence maladie / arrêt de travail sur l\'année (hors congés payés). Chaque jour réduit les heures disponibles d\'environ 7 h et dégrade le taux d\'occupation.',
+  },
+  coutHoraireContractuel: {
+    type: 'info',
+    text: 'Coût horaire de base = Coût total annuel ÷ Heures contractuelles. C\'est le coût "plancher" avant déduction des hors-productions et absences — toujours inférieur au coût horaire facturé.',
+  },
+
+  // ── Pilotage Financier — résultats sessions ─────────────────────────────────
+  fraisStructureSession: {
+    type: 'info',
+    text: 'Quote-part des frais fixes imputée à cette session = Taux de structure (€/h) × Durée (h). Contribution de la session à l\'absorption des charges fixes du site (loyer, logiciels, administration…).',
+  },
+  pointMort: {
+    type: 'info',
+    text: 'Point mort = Coût total session ÷ Prix par stagiaire. Nombre minimum de stagiaires pour atteindre l\'équilibre. En dessous : la session génère une perte. Au-dessus : elle dégage une marge.',
+  },
+  tauxMargeSession: {
+    type: 'info',
+    text: 'Taux de marge = Marge nette ÷ Recettes × 100. Mesure l\'efficacité commerciale de la session. Cible recommandée > 15 %. Négatif = la session coûte plus qu\'elle ne rapporte.',
+  },
+};
+
 
 export const CHARGES_PATRONALES = 0.42;
 export const TAUX_CHARGE_TOTAL = 1 + CHARGES_PATRONALES; // 1.42
@@ -16,7 +191,7 @@ export const CHARGES_VACATAIRE = 15;     // taux charges patronales vacataires (
 export const SEUIL_HEURES_VACATAIRE = 450; // seuil légal heures/an au-delà duquel risque de requalification
 export const SEUIL_RATIO_VACATAIRE = 30;   // alerte si vacataires > X% de la masse salariale du service
 
-// Grille tarifaire vacataires et prestataires 2025-2026 (AFERTES)
+// Grille tarifaire vacataires et prestataires (personnalisable)
 // multiplicateur : coefficient appliqué aux heures réelles pour le calcul de la rémunération
 export const TARIFS_VACATAIRES = [
   { id: 'selection',                  label: 'Sélection',                              salarie: 16.70, prestataire: 23.88, multiplicateur: 1 },
@@ -64,13 +239,16 @@ export const COMPTES_EXPLOITATION = {
   'Documentation': '6181'
 };
 
-// Valeurs par défaut
+// Paramètres globaux par défaut
 export const defaultGlobalParams = {
   augmentationAnnuelle: 2.5,
+  tauxGVT: 1.5,
+  inflationEnergie: 8.0,
+  inflationLoyers: 3.5,
+  inflationAutres: 2.5,
   delaiPaiementClients: 30,
   delaiPaiementFournisseurs: 30,
-  montantSegurETP: 238, // Prime Ségur mensuelle pour 1 ETP (configurable)
-  // Rôles personnalisables du personnel
+  montantSegurETP: 238,
   rolesPersonnel: [
     { id: 'direction',         label: 'Siège' },
     { id: 'directeur_adjoint', label: 'Directeur adjoint' },
@@ -82,7 +260,6 @@ export const defaultGlobalParams = {
     { id: 'responsable',       label: 'Resp. secteur' },
     { id: 'vacataire',         label: 'Vacataire' },
   ],
-  // Provisions personnalisables
   provisions: [
     { id: 'conges', nom: 'Congés payés', baseCalcul: 'salaires', taux: 10 },
     { id: 'reparations', nom: 'Grosses réparations', baseCalcul: 'investissements', taux: 2 },
@@ -90,46 +267,75 @@ export const defaultGlobalParams = {
     { id: 'retraite', nom: 'Provision retraite', baseCalcul: 'salaires', taux: 0 },
     { id: 'prudhommes', nom: 'Prud\'hommes', baseCalcul: 'salaires', taux: 0 }
   ],
-  // Fonds de roulement personnalisable
   fondRoulement: [
     { id: 'reserves', nom: 'Réserves', montant: 0 },
     { id: 'reportNouveau', nom: 'Report à nouveau', montant: 0 },
     { id: 'subventionsInvest', nom: 'Subventions d\'investissement', montant: 0 }
   ],
-  // BFR - éléments personnalisables supplémentaires
-  stocksValeur: 0
+  stocksValeur: 0,
+  tauxSubventionDAF: { fi: 70, transversal: 60, recherche: 30 },
 };
 
-// Données AFERTES 2026 - Structure/Direction
+// ─── DAF — Dossier de Demande de Subvention Régionale ─────────────────────────
+
+export const DAF_TAUX_INIT = { fi: 70, transversal: 60, recherche: 30 };
+
+export const DAF_FORMATIONS_INIT = [
+  { id: 'es',       nom: 'FI Éducateur Spécialisé (ES)',             duree: 3, effectif: 0 },
+  { id: 'me',       nom: 'FI Moniteur Éducateur (ME)',               duree: 2, effectif: 0 },
+  { id: 'caferuis', nom: 'CAFERUIS (Cadres intermédiaires)',          duree: 2, effectif: 0 },
+  { id: 'cafdes',   nom: 'CAFDES (Directeurs)',                       duree: 2, effectif: 0 },
+  { id: 'aes',      nom: 'AES (Accompagnant Éducatif et Social)',     duree: 1, effectif: 0 },
+];
+
+export const DAF_COST_LINES = [
+  { key: 'personnel', label: 'Personnel (salaires + charges)' },
+  { key: 'materiel',  label: 'Matériel pédagogique' },
+  { key: 'locaux',    label: 'Locaux / Infrastructure' },
+  { key: 'admin',     label: 'Frais administratifs' },
+  { key: 'autres',    label: 'Autres charges' },
+];
+
+export const DAF_TRANSVERSAL_INIT = [
+  { id: 't1', nom: 'Communication',        coutTotal: 0, cleRep: 80 },
+  { id: 't2', nom: 'Documentation',        coutTotal: 0, cleRep: 80 },
+  { id: 't3', nom: 'Informatique',         coutTotal: 0, cleRep: 70 },
+  { id: 't4', nom: 'Comptabilité',         coutTotal: 0, cleRep: 50 },
+  { id: 't5', nom: 'Ressources Humaines',  coutTotal: 0, cleRep: 60 },
+  { id: 't6', nom: 'Direction générale',   coutTotal: 0, cleRep: 60 },
+];
+
+// Structure investissements vide partagée (déclaration anticipée pour defaultDirection/defaultPoleSupport)
+const emptyInvest = () => ({
+  bienImmo:      { montant: 0, duree: 25, taux: 0 },
+  travaux:       { montant: 0, duree: 10, taux: 0 },
+  vehicule:      { montant: 0, duree: 5,  taux: 0 },
+  informatique:  { montant: 0, duree: 3,  taux: 0 },
+  mobilier:      { montant: 0, duree: 10, taux: 0 },
+  fraisBancaires:{ montant: 0, duree: 1,  taux: 0 },
+  fraisNotaire:  { montant: 0, duree: 1,  taux: 0 },
+});
+
+// Structure Direction vide — modèle "Service" complet
 export const defaultDirection = {
-  personnel: [
-    { id: 1, titre: 'Directeur', etp: 1, salaire: 3891, segur: 0, role: 'direction', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-    { id: 2, titre: 'Agent d\'Accueil', etp: 1, salaire: 2291, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-    { id: 4, titre: 'Comptable', etp: 1, salaire: 2446, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-    { id: 5, titre: 'Gestionnaire Paie', etp: 1, salaire: 2132, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-    { id: 7, titre: 'Apprenti(e) Documentation', etp: 1, salaire: 1171, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-    { id: 9, titre: 'Agent de ménage', etp: 1, salaire: 1800, segur: 0, role: 'technique', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' }
-  ],
-  chargesSiege: [
-    { id: 1, nom: 'Location immobilière', montant: 18363 },
-    { id: 2, nom: 'Location mobilière & entretien', montant: 3961 },
-    { id: 3, nom: 'Sous-traitance générale', montant: 333 },
-  ]
+  personnel: [],
+  chargesSiege: [],     // legacy (maintenu pour compat) = exploitation primaire
+  exploitation: [],     // charges de fonctionnement supplémentaires (nouveau)
+  recettes: [],         // produits propres (conventions, locations, prestations)
+  investissements: emptyInvest(),
+  repartition: {},      // clé analytique vers services { [serviceId]: pct }
 };
 
-// Données AFERTES 2026 - Pôle Support (ressources transversales)
+// Structure Pôle Support vide — modèle "Service" complet
 export const defaultPoleSupport = {
-  personnel: [
-    { id: 1, titre: 'Agent Polyvalent/Resp. Technique', etp: 1, salaire: 3099, segur: 0, role: 'technique', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-    { id: 2, titre: 'Resp. Documentation', etp: 1, salaire: 4118, segur: 0, role: 'documentation', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-    { id: 3, titre: 'Aide Documentaliste', etp: 1, salaire: 2046, segur: 0, role: 'documentation', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-  ],
+  personnel: [],
   exploitation: [],
   recettes: [],
-  repartition: {}
+  repartition: {},
+  investissements: emptyInvest(),
 };
 
-// Sites de formation
+// Sites de formation (personnalisables)
 export const SITES = {
   AVION: 'Avion',
   SAINT_LAURENT: 'Saint-Laurent-Blangy'
@@ -147,7 +353,7 @@ const defaultAbandons = () => ({
   juillet: 0, aout: 0, septembre: 0, octobre: 0, novembre: 0, decembre: 0
 });
 
-// Structure des réalisations par mois pour les prestations (VAE, Supervision, etc.)
+// Structure des réalisations par mois pour les prestations
 export const defaultRealisations = () => ({
   janvier: 0, fevrier: 0, mars: 0, avril: 0, mai: 0, juin: 0,
   juillet: 0, aout: 0, septembre: 0, octobre: 0, novembre: 0, decembre: 0
@@ -159,43 +365,9 @@ export const calculerTotalRealisations = (realisations) => {
   return Object.values(realisations).reduce((sum, val) => sum + val, 0);
 };
 
-// Promos par site - Formation Initiale
-export const defaultPromosFormationInitiale = {
-  [SITES.AVION]: [
-    { id: 'avion-aes', nom: 'AES', effectifInitial: 25, abandons: defaultAbandons() },
-    { id: 'avion-es1', nom: 'ES1', effectifInitial: 30, abandons: defaultAbandons() },
-    { id: 'avion-es2', nom: 'ES2', effectifInitial: 28, abandons: defaultAbandons() },
-    { id: 'avion-me1', nom: 'ME1', effectifInitial: 20, abandons: defaultAbandons() },
-    { id: 'avion-me2', nom: 'ME2', effectifInitial: 18, abandons: defaultAbandons() }
-  ],
-  [SITES.SAINT_LAURENT]: [
-    { id: 'slb-es1', nom: 'ES1', effectifInitial: 25, abandons: defaultAbandons() },
-    { id: 'slb-es2', nom: 'ES2', effectifInitial: 24, abandons: defaultAbandons() },
-    { id: 'slb-es3', nom: 'ES3', effectifInitial: 22, abandons: defaultAbandons() },
-    { id: 'slb-me1', nom: 'ME1', effectifInitial: 18, abandons: defaultAbandons() },
-    { id: 'slb-me2', nom: 'ME2', effectifInitial: 16, abandons: defaultAbandons() }
-  ]
-};
-
-// Promos par site - Formation Continue (CAFDES, CAFERUIS, VAE, Prestation, GAP, Supervision)
-export const defaultPromosFormationContinue = {
-  [SITES.AVION]: [
-    { id: 'avion-cafdes1', nom: 'CAFDES1', effectifInitial: 15, abandons: defaultAbandons() },
-    { id: 'avion-cafdes2', nom: 'CAFDES2', effectifInitial: 12, abandons: defaultAbandons() },
-    { id: 'avion-vae', nom: 'VAE', effectifInitial: 20, abandons: defaultAbandons() },
-    { id: 'avion-prestation', nom: 'Prestation Formation', effectifInitial: 25, abandons: defaultAbandons() },
-    { id: 'avion-gap', nom: 'GAP', effectifInitial: 15, abandons: defaultAbandons() },
-    { id: 'avion-supervision', nom: 'Supervision', effectifInitial: 12, abandons: defaultAbandons() }
-  ],
-  [SITES.SAINT_LAURENT]: [
-    { id: 'slb-caferuis1', nom: 'CAFERUIS1', effectifInitial: 20, abandons: defaultAbandons() },
-    { id: 'slb-caferuis2', nom: 'CAFERUIS2', effectifInitial: 18, abandons: defaultAbandons() },
-    { id: 'slb-vae', nom: 'VAE', effectifInitial: 20, abandons: defaultAbandons() },
-    { id: 'slb-prestation', nom: 'Prestation Formation', effectifInitial: 25, abandons: defaultAbandons() },
-    { id: 'slb-gap', nom: 'GAP', effectifInitial: 15, abandons: defaultAbandons() },
-    { id: 'slb-supervision', nom: 'Supervision', effectifInitial: 13, abandons: defaultAbandons() }
-  ]
-};
+// Promos par défaut (vides — à configurer par l'utilisateur)
+export const defaultPromosFormationInitiale = {};
+export const defaultPromosFormationContinue = {};
 
 // Plan Comptable - Comptes de produits (recettes)
 export const COMPTES_RECETTES = {
@@ -222,194 +394,23 @@ const defaultInvestissements = () => ({
   fraisNotaire:  { montant: 0, duree: 1,  taux: 0 }
 });
 
-// Service Recherche (vide, prêt à être rempli)
-export const defaultServiceRecherche = {
-  id: 4, nom: 'Recherche', type: 'recherche',
-  accueilPublic: false, sessionsSimulees: [], tauxActivite: 100,
+// Service vide par défaut (utilisé pour "Nouveau Budget")
+export const createEmptyService = (id = 1, nom = 'Service 1') => ({
+  id,
+  nom,
+  accueilPublic: false,
+  sessionsSimulees: [],
+  type: 'formation',
+  tauxActivite: 100,
   investissements: defaultInvestissements(),
-  exploitation: [], recettes: [], personnel: [], vacataires: []
-};
+  exploitation: [],
+  recettes: [],
+  personnel: [],
+  vacataires: []
+});
 
-// Service Prévention (vide, prêt à être rempli)
-export const defaultServicePrevention = {
-  id: 5, nom: 'Prévention', type: 'prevention',
-  accueilPublic: false, sessionsSimulees: [], tauxActivite: 100,
-  investissements: defaultInvestissements(),
-  exploitation: [], recettes: [], personnel: [], vacataires: []
-};
-
-// Services AFERTES 2026
-// Nota : les montants exploitation et recettes sont MENSUELS (×12 dans les calculs)
-export const defaultServices = [
-  {
-    id: 1,
-    nom: 'FI Saint-Laurent',
-    accueilPublic: true,
-    sessionsSimulees: [],
-    type: 'formation',
-    useFiliere: true,
-    promos: {
-      [SITES.SAINT_LAURENT]: [
-        {
-          id: 'fil-slb-es',
-          nom: 'Éducateur Spécialisé',
-          promos: [
-            { id: 'slb-es', nom: 'Promo ES', effectifInitial: 80, abandons: defaultAbandons(), dateDebut: '', dateFin: '' }
-          ]
-        },
-        {
-          id: 'fil-slb-me',
-          nom: 'Moniteur Éducateur',
-          promos: [
-            { id: 'slb-me', nom: 'Promo ME', effectifInitial: 40, abandons: defaultAbandons(), dateDebut: '', dateFin: '' }
-          ]
-        }
-      ]
-    },
-    tauxActivite: 90,
-    investissements: {
-      bienImmo: { montant: 0, duree: 25, taux: 0 },
-      travaux: { montant: 0, duree: 10, taux: 0 },
-      vehicule: { montant: 0, duree: 5, taux: 0 },
-      informatique: { montant: 0, duree: 3, taux: 0 },
-      mobilier: { montant: 0, duree: 10, taux: 0 },
-      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
-      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
-    },
-    exploitation: [
-      { id: 1, nom: 'Carburant', montant: 88 },
-      { id: 2, nom: 'Produits d\'entretien', montant: 166 },
-      { id: 3, nom: 'Petites fournitures', montant: 1334 },
-      { id: 4, nom: 'Photocopies et frais éducatifs', montant: 600 },
-      { id: 5, nom: 'Prestataires formation ES', montant: 3204 },
-      { id: 6, nom: 'Prestataires formation ME', montant: 1318 }
-    ],
-    recettes: [
-      { id: 1, nom: 'Droits d\'inscription ES', montant: 4578 },
-      { id: 2, nom: 'Frais de sélection ES', montant: 700 },
-      { id: 3, nom: 'Subvention Région ES', montant: 42419 },
-      { id: 4, nom: 'Aide apprentissage ES', montant: 125 },
-      { id: 5, nom: 'Droits d\'inscription ME', montant: 2301 },
-      { id: 6, nom: 'Frais de sélection ME', montant: 865 },
-      { id: 7, nom: 'Subvention Région ME', montant: 67332 },
-      { id: 8, nom: 'Aide apprentissage ME', montant: 125 }
-    ],
-    personnel: [
-      { id: 1, titre: 'Formateur (ES)', etp: 1, salaire: 3622, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 2, titre: 'Formatrice (ES)', etp: 1, salaire: 2805, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 3, titre: 'Formatrice (ES)', etp: 1, salaire: 2914, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 4, titre: 'Formateur (ES)', etp: 1, salaire: 3067, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 5, titre: 'Secrétaire Administrative (ES)', etp: 1, salaire: 2111, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 6, titre: 'Formateur Resp. Secteur (ME)', etp: 1, salaire: 3950, segur: 238, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 7, titre: 'Formateur part. FI ME', etp: 0.24, salaire: 2891, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 8, titre: 'Formateur Resp. Secteur (ME)', etp: 1, salaire: 3817, segur: 238, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 9, titre: 'Formateur Resp. Secteur (ME)', etp: 1, salaire: 3622, segur: 0, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 10, titre: 'Formateur Resp. Secteur (ME)', etp: 1, salaire: 3151, segur: 238, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 11, titre: 'Agent Administratif (ME)', etp: 1, salaire: 2247, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' }
-    ],
-    vacataires: []
-  },
-  {
-    id: 2,
-    nom: 'FI Avion',
-    accueilPublic: true,
-    sessionsSimulees: [],
-    type: 'formation',
-    useFiliere: true,
-    promos: {
-      [SITES.AVION]: [
-        {
-          id: 'fil-avion-fi',
-          nom: 'FI Avion',
-          promos: [
-            { id: 'avion-fi', nom: 'Promo FI Avion', effectifInitial: 32, abandons: defaultAbandons(), dateDebut: '', dateFin: '' }
-          ]
-        }
-      ]
-    },
-    tauxActivite: 90,
-    investissements: {
-      bienImmo: { montant: 0, duree: 25, taux: 0 },
-      travaux: { montant: 0, duree: 10, taux: 0 },
-      vehicule: { montant: 0, duree: 5, taux: 0 },
-      informatique: { montant: 0, duree: 3, taux: 0 },
-      mobilier: { montant: 0, duree: 10, taux: 0 },
-      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
-      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
-    },
-    exploitation: [
-      { id: 1, nom: 'Carré potager', montant: 100 },
-      { id: 2, nom: 'Carburant', montant: 25 },
-      { id: 3, nom: 'Produits d\'entretien', montant: 21 },
-      { id: 4, nom: 'Petites fournitures', montant: 167 },
-      { id: 5, nom: 'Photocopies et frais éducatifs', montant: 75 },
-      { id: 6, nom: 'Prestataires formation', montant: 874 },
-      { id: 7, nom: 'Location immobilière', montant: 1340 }
-    ],
-    recettes: [
-      { id: 1, nom: 'Droits d\'inscription', montant: 1980 },
-      { id: 2, nom: 'Frais de sélection', montant: 575 },
-      { id: 3, nom: 'Remboursement frais site Avion', montant: 2667 },
-      { id: 4, nom: 'Subvention Région', montant: 25249 },
-      { id: 5, nom: 'Subvention Communes', montant: 2500 },
-      { id: 6, nom: 'Autres financeurs', montant: 1333 },
-      { id: 7, nom: 'Aide apprentissage', montant: 125 }
-    ],
-    personnel: [
-      { id: 1, titre: 'Responsable site Avion', etp: 1, salaire: 3840, segur: 238, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 2, titre: 'Formateur', etp: 1, salaire: 2805, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' }
-    ],
-    vacataires: []
-  },
-  {
-    id: 3,
-    nom: 'FC',
-    accueilPublic: true,
-    sessionsSimulees: [],
-    type: 'fc',
-    promos: {
-      [SITES.SAINT_LAURENT]: [
-        { id: 'slb-caferuis', nom: 'CAFERUIS', effectifInitial: 20, abandons: defaultAbandons(), dateDebut: '', dateFin: '' },
-        { id: 'slb-apprentissage', nom: 'Apprentissage', effectifInitial: 15, abandons: defaultAbandons(), dateDebut: '', dateFin: '' }
-      ],
-      [SITES.AVION]: [...defaultPromosFormationContinue[SITES.AVION]]
-    },
-    tauxActivite: 85,
-    investissements: {
-      bienImmo: { montant: 0, duree: 25, taux: 0 },
-      travaux: { montant: 0, duree: 10, taux: 0 },
-      vehicule: { montant: 0, duree: 5, taux: 0 },
-      informatique: { montant: 0, duree: 3, taux: 0 },
-      mobilier: { montant: 0, duree: 10, taux: 0 },
-      fraisBancaires: { montant: 0, duree: 1, taux: 0 },
-      fraisNotaire: { montant: 0, duree: 1, taux: 0 }
-    },
-    exploitation: [
-      { id: 1, nom: 'Carburant', montant: 13 },
-      { id: 2, nom: 'Produits d\'entretien', montant: 21 },
-      { id: 3, nom: 'Petites fournitures', montant: 167 },
-      { id: 4, nom: 'Photocopies et frais éducatifs', montant: 75 },
-      { id: 5, nom: 'Prestataires formation', montant: 766 }
-    ],
-    recettes: [
-      { id: 1, nom: 'Conventions formation (CAFERUIS, Prépa, GAP)', montant: 18168 },
-      { id: 2, nom: 'Apprentissage', montant: 10833 },
-      { id: 3, nom: 'VAE', montant: 3239 },
-      { id: 4, nom: 'Formation continue - micro formation', montant: 10000 },
-      { id: 5, nom: 'Aide apprentissage', montant: 125 }
-    ],
-    personnel: [
-      { id: 1, titre: 'Formateur part. FC', etp: 0.76, salaire: 2891, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 2, titre: 'Formateur Resp. Secteur', etp: 1, salaire: 3509, segur: 238, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 3, titre: 'Formateur Resp. Secteur', etp: 1, salaire: 3647, segur: 238, role: 'responsable', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 4, titre: 'Formateur/Chargé développement', etp: 1, salaire: 2549, segur: 238, role: 'formateur', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' },
-      { id: 5, titre: 'Secrétaire Administrative', etp: 1, salaire: 2277, segur: 0, role: 'administratif', rqth: false, anneeNaissance: 0, typeContrat: 'CDI', nbJoursRTT: 0, joursConges: 25, dateFinContrat: '' }
-    ],
-    vacataires: []
-  },
-  defaultServiceRecherche,
-  defaultServicePrevention
-];
+// Services par défaut : un seul service vide
+export const defaultServices = [createEmptyService(1, 'Service 1')];
 
 // Fonction pour calculer le total d'étudiants d'une promo
 export const calculerEffectifActuel = (promo) => {
