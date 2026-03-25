@@ -1815,7 +1815,7 @@ const BudgetTool = () => {
                                   <button disabled={pIdx===0} onClick={() => { const a=[...direction.personnel]; a.splice(pIdx-1,0,a.splice(pIdx,1)[0]); setDirection({...direction,personnel:a}); }} className={`p-0.5 rounded ${pIdx===0?'opacity-20':'hover:bg-teal-100'}`}><ChevronUp size={10}/></button>
                                   <button disabled={pIdx===direction.personnel.length-1} onClick={() => { const a=[...direction.personnel]; a.splice(pIdx+1,0,a.splice(pIdx,1)[0]); setDirection({...direction,personnel:a}); }} className={`p-0.5 rounded ${pIdx===direction.personnel.length-1?'opacity-20':'hover:bg-teal-100'}`}><ChevronDown size={10}/></button>
                                 </div>
-                                <input className={`font-bold text-sm flex-1 outline-none bg-transparent ${darkMode ? 'text-white' : ''}`} value={p.titre} onChange={(e) => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, titre: e.target.value} : x)})} />
+                                <input className={`font-bold text-sm flex-1 outline-none bg-transparent ${darkMode ? 'text-white' : ''} ${privacyMode ? 'blur-sm select-none pointer-events-none' : ''}`} value={p.titre} onChange={(e) => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, titre: e.target.value} : x)})} />
                                 <button onClick={() => navigateToRHAgent(p.id)} className={`no-print p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${darkMode ? 'hover:bg-gray-500 text-teal-400' : 'hover:bg-teal-50 text-teal-600'}`} title="Voir dans RH"><ExternalLink size={12} /></button>
                               </div>
                               <div className="grid grid-cols-2 gap-2 text-xs mb-1">
@@ -2086,7 +2086,7 @@ const BudgetTool = () => {
                             <div key={p.id} id={`agent-budget-${p.id}`} className={`p-3 rounded-xl border group relative transition-all duration-700 ${focusedAgentId === p.id ? (darkMode ? 'ring-2 ring-yellow-400 bg-yellow-900/30' : 'ring-2 ring-yellow-400 bg-yellow-50') : (darkMode ? 'bg-gray-600 border-gray-500' : 'bg-slate-50 border-slate-200')}`}>
                               <button onClick={() => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.filter(x => x.id !== p.id)})} className="absolute -top-2.5 -right-2.5 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 no-print"><Trash2 size={14} /></button>
                               <div className="flex items-center gap-1 mb-2">
-                                <input className={`font-bold text-sm flex-1 outline-none bg-transparent ${darkMode ? 'text-white' : ''}`} value={p.titre} onChange={(e) => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, titre: e.target.value} : x)})} />
+                                <input className={`font-bold text-sm flex-1 outline-none bg-transparent ${darkMode ? 'text-white' : ''} ${privacyMode ? 'blur-sm select-none pointer-events-none' : ''}`} value={p.titre} onChange={(e) => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, titre: e.target.value} : x)})} />
                                 <button onClick={() => navigateToRHAgent(p.id)} className={`no-print p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${darkMode ? 'hover:bg-gray-500 text-cyan-400' : 'hover:bg-cyan-50 text-cyan-600'}`} title="Voir dans RH"><ExternalLink size={12} /></button>
                               </div>
                               <div className="grid grid-cols-2 gap-2 text-xs mb-1">
@@ -3137,7 +3137,7 @@ const BudgetTool = () => {
                               <button disabled={pIdx===0} onClick={() => { const a=[...service.personnel]; a.splice(pIdx-1,0,a.splice(pIdx,1)[0]); setServices(services.map(s=>s.id===service.id?{...s,personnel:a}:s)); }} className={`p-0.5 rounded ${pIdx===0?'opacity-20':'hover:bg-slate-100'}`}><ChevronUp size={10}/></button>
                               <button disabled={pIdx===service.personnel.length-1} onClick={() => { const a=[...service.personnel]; a.splice(pIdx+1,0,a.splice(pIdx,1)[0]); setServices(services.map(s=>s.id===service.id?{...s,personnel:a}:s)); }} className={`p-0.5 rounded ${pIdx===service.personnel.length-1?'opacity-20':'hover:bg-slate-100'}`}><ChevronDown size={10}/></button>
                             </div>
-                            <input className={`font-bold text-sm flex-1 outline-none bg-transparent ${darkMode ? 'text-white' : ''}`} value={p.titre} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, titre: e.target.value} : x)} : s))} />
+                            <input className={`font-bold text-sm flex-1 outline-none bg-transparent ${darkMode ? 'text-white' : ''} ${privacyMode ? 'blur-sm select-none pointer-events-none' : ''}`} value={p.titre} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, titre: e.target.value} : x)} : s))} />
                             <button onClick={() => navigateToRHAgent(p.id)} className={`no-print p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${darkMode ? 'hover:bg-gray-500 text-teal-400' : 'hover:bg-teal-50 text-teal-600'}`} title="Voir dans RH"><ExternalLink size={12} /></button>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-xs mb-1">
@@ -4002,7 +4002,7 @@ const BudgetTool = () => {
                         <tr key={idx} id={`agent-rh-${p.id}`} className={`border-t transition-all duration-700 ${focusedAgentId === p.id ? (darkMode ? 'bg-yellow-900/40' : 'bg-yellow-50') : (darkMode ? 'border-gray-700' : 'border-slate-100')} ${isDir ? (darkMode ? 'bg-violet-900/10' : 'bg-violet-50/50') : ''}`}>
                           <td className={`py-1.5 pl-1 font-bold max-w-[180px]`}>
                             <button onClick={() => navigateToBudgetAgent(p.id)} className={`group/link flex items-center gap-1 text-left font-bold truncate max-w-full ${darkMode ? 'text-white hover:text-teal-300' : 'text-slate-800 hover:text-teal-600'} transition-colors`} title={`Voir ${p.titre} dans Budget`}>
-                              <span className="truncate">{p.titre}</span>
+                              <span className={`truncate ${privacyMode ? 'blur-sm select-none' : ''}`}>{p.titre}</span>
                               <ExternalLink size={10} className="opacity-0 group-hover/link:opacity-100 shrink-0 transition-opacity" />
                             </button>
                           </td>
