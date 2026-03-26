@@ -31,6 +31,7 @@ import StartupGate from './components/StartupGate';
 import ModalHardReset from './components/ModalHardReset';
 import StressTestBar from './components/StressTestBar';
 import PoolRHManager from './components/PoolRHManager';
+import TabRepartitionTemps from './components/TabRepartitionTemps';
 import SnapshotManager, { loadSnapshot } from './components/SnapshotManager';
 import AICopilot from './components/AICopilot';
 import DashboardCard from './components/ui/DashboardCard';
@@ -236,6 +237,7 @@ const SidebarNav = ({ services, darkMode, isOpen, onToggle, activeTab, onTabChan
       items: [
         { id: 'budget',     label: 'Budget',           icon: Building2 },
         { id: 'rh',         label: 'RH',               icon: Users },
+        { id: 'temps',      label: 'Temps de travail', icon: Clock },
         { id: 'formation',  label: 'Formation',        icon: GraduationCap },
         { id: 'vacataires', label: 'Vacataires',       icon: UserCheck },
       ]
@@ -512,6 +514,7 @@ const BudgetTool = () => {
   const [slideIndex, setSlideIndex] = useState(0);
   const [planningAbsences, setPlanningAbsences] = useState(() => loadFromStorage('assoc_planning_absences', {}));
   const [benevoles, setBenevoles] = useState(() => loadFromStorage('assoc_benevoles', []));
+  const [repartitionTemps, setRepartitionTemps] = useState(() => loadFromStorage('assoc_repartition_temps', {}));
   // Sauvegarde groupée et atomique de toutes les données métier (debounce 300ms)
   useEffect(() => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -527,10 +530,11 @@ const BudgetTool = () => {
       localStorage.setItem('assoc_reporting_fc', JSON.stringify(reportingFC));
       localStorage.setItem('assoc_donnees_n1', JSON.stringify(donneesN1));
       localStorage.setItem('assoc_benevoles', JSON.stringify(benevoles));
+      localStorage.setItem('assoc_repartition_temps', JSON.stringify(repartitionTemps));
       triggerSaveIndicator();
     }, 300);
     return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [globalParams, direction, services, poolRH, poleSupport, pilotageSites, planningAbsences, enveloppeFormation, reportingFC, donneesN1, benevoles]);
+  }, [globalParams, direction, services, poolRH, poleSupport, pilotageSites, planningAbsences, enveloppeFormation, reportingFC, donneesN1, benevoles, repartitionTemps]);
   // Sauvegardes UI (non-critiques, immédiates)
   useEffect(() => { localStorage.setItem('assoc_direction_position', JSON.stringify(directionPosition)); }, [directionPosition]);
   useEffect(() => { localStorage.setItem('assoc_pole_support_position', JSON.stringify(poleSupportPosition)); }, [poleSupportPosition]);
@@ -604,6 +608,8 @@ const BudgetTool = () => {
     setPlanningAbsences({});
     localStorage.removeItem('assoc_benevoles');
     setBenevoles([]);
+    localStorage.removeItem('assoc_repartition_temps');
+    setRepartitionTemps({});
     setDarkMode(false);
     setPoolRH([]);
     localStorage.removeItem('assoc_pool_rh');
@@ -720,7 +726,7 @@ const BudgetTool = () => {
       version: '2.1', type: 'association', date: new Date().toISOString(),
       globalParams, direction, services, poleSupport, poolRH,
       enveloppeFormation, reportingFC, donneesN1, planningAbsences,
-      benevoles,
+      benevoles, repartitionTemps,
       pilotageSites, directionPosition, poleSupportPosition
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -753,6 +759,7 @@ const BudgetTool = () => {
       if (snap.donneesN1)   setDonneesN1(snap.donneesN1);
       if (snap.planningAbsences) setPlanningAbsences(snap.planningAbsences);
       if (snap.benevoles) setBenevoles(snap.benevoles);
+      if (snap.repartitionTemps) setRepartitionTemps(snap.repartitionTemps);
       alert(`Backup du ${d} restauré avec succès.`);
     } catch { alert('Erreur lors de la restauration du backup.'); }
   };
@@ -774,6 +781,7 @@ const BudgetTool = () => {
           if (data.donneesN1) setDonneesN1(data.donneesN1);
           if (data.planningAbsences) setPlanningAbsences(data.planningAbsences);
           if (data.benevoles) setBenevoles(data.benevoles);
+          if (data.repartitionTemps) setRepartitionTemps(data.repartitionTemps);
           if (data.pilotageSites) setPilotageSites(data.pilotageSites);
           if (data.directionPosition !== undefined) setDirectionPosition(data.directionPosition);
           if (data.poleSupportPosition !== undefined) setPoleSupportPosition(data.poleSupportPosition);
@@ -1106,6 +1114,7 @@ const BudgetTool = () => {
             { id: 'budget',      label: 'Budget',           icon: <Building2 size={15}/> },
             { id: 'analyse',     label: 'Analyse',          icon: <BarChart3 size={15}/> },
             { id: 'rh',          label: 'RH',               icon: <Users size={15}/> },
+            { id: 'temps',       label: 'Temps',            icon: <Clock size={15}/> },
             { id: 'formation',   label: 'Formation',        icon: <GraduationCap size={15}/> },
             { id: 'vacataires',  label: 'Vacataires',       icon: <Users size={15}/> },
             { id: 'subvention',  label: 'Subvention',       icon: <Landmark size={15}/> },
@@ -4803,6 +4812,18 @@ const BudgetTool = () => {
 
 
         {/* ─── FORMATION : PILOTAGE FINANCIER ─── */}
+        {/* ─── ONGLET TEMPS DE TRAVAIL ─── */}
+        {activeTab === 'temps' && (
+          <TabRepartitionTemps
+            direction={direction}
+            poleSupport={poleSupport}
+            services={services}
+            darkMode={darkMode}
+            repartitionTemps={repartitionTemps}
+            setRepartitionTemps={setRepartitionTemps}
+          />
+        )}
+
         {activeTab === 'formation' && <>
         {/* PILOTAGE FINANCIER */}
         <PilotageFinancier
