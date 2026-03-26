@@ -4,7 +4,8 @@ import {
   calculerPartPoolRH,
   calculerTresorerieMensuelle,
   calculerSalaireAnnuel,
-  calculerIFC
+  calculerIFC,
+  appliquerStressTest
 } from './calculations';
 import { PRIME_SEGUR } from './constants';
 
@@ -118,6 +119,100 @@ describe('Tests de Transversalité des données', () => {
     // Si on augmente le Ségur, la provision IFC doit augmenter car basée sur le brut total
     const ifcHaute = calculerIFC(direction, [], null, 2026, 62, 10, 500);
     expect(ifcHaute.totalProvision).toBeGreaterThan(ifcInitial.totalProvision);
+  });
+
+});
+
+describe('Stress Test — Simulateur d\'aléas subventions', () => {
+
+  const recettes = [
+    { id: 'r1', nom: 'Subvention Région',       montant: 10000 }, // 120 000 €/an — subvention
+    { id: 'r2', nom: 'Subvention État',          montant: 5000  }, // 60 000 €/an  — subvention
+    { id: 'r3', nom: 'Frais de scolarité',       montant: 3000  }, // 36 000 €/an  — pédagogique (non touché)
+    { id: 'r4', nom: 'Droits d\'inscription',    montant: 1000  }, // 12 000 €/an  — pédagogique (non touché)
+    { id: 'r5', nom: 'OPCO financement',         montant: 2000  }, // 24 000 €/an  — subvention
+  ];
+
+  const totalAnnuel      = (10000 + 5000 + 3000 + 1000 + 2000) * 12; // 252 000
+  const subventionsAnnuel = (10000 + 5000 + 2000) * 12;               // 204 000
+  const pedagogiquesAnnuel = (3000 + 1000) * 12;                      //  48 000
+
+  it('stressTest = 0 : renvoie la somme annuelle sans modification', () => {
+    const result = appliquerStressTest(recettes, 0);
+    expect(result).toBe(totalAnnuel);
+  });
+
+  it('stressTest = null : équivalent à 0', () => {
+    const result = appliquerStressTest(recettes, null);
+    expect(result).toBe(totalAnnuel);
+  });
+
+  it('stressTest = -20 : réduit les subventions de 20%, laisse les recettes pédagogiques intactes', () => {
+    const result = appliquerStressTest(recettes, -20);
+    const expected = subventionsAnnuel * 0.80 + pedagogiquesAnnuel;
+    expect(result).toBeCloseTo(expected, 0);
+  });
+
+  it('stressTest = +20 : augmente les subventions de 20%, laisse les recettes pédagogiques intactes', () => {
+    const result = appliquerStressTest(recettes, 20);
+    const expected = subventionsAnnuel * 1.20 + pedagogiquesAnnuel;
+    expect(result).toBeCloseTo(expected, 0);
+  });
+
+  it('stressTest = -20 : résultat inférieur à stressTest = 0', () => {
+    const base    = appliquerStressTest(recettes, 0);
+    const stresse = appliquerStressTest(recettes, -20);
+    expect(stresse).toBeLessThan(base);
+    // L'impact en € doit être exactement 20% des subventions
+    expect(base - stresse).toBeCloseTo(subventionsAnnuel * 0.20, 0);
+  });
+
+  it('stressTest = +10 : impact proportionnel et symétrique à -10', () => {
+    const base = appliquerStressTest(recettes, 0);
+    const plus  = appliquerStressTest(recettes, 10);
+    const minus = appliquerStressTest(recettes, -10);
+    expect(plus - base).toBeCloseTo(base - minus, 0);
+  });
+
+  it('liste sans subvention : stressTest n\'a aucun effet', () => {
+    const recettesPures = [
+      { id: 'x1', nom: 'Frais de scolarité', montant: 5000 },
+      { id: 'x2', nom: 'Droits d\'inscription', montant: 2000 },
+    ];
+    const base  = appliquerStressTest(recettesPures, 0);
+    const stresse = appliquerStressTest(recettesPures, -20);
+    expect(stresse).toBe(base);
+  });
+
+  it('liste 100% subventions : stressTest -20 réduit tout de 20%', () => {
+    const toutSubv = [
+      { id: 's1', nom: 'Subvention CPOM', montant: 8000 },
+      { id: 's2', nom: 'Subvention département', montant: 4000 },
+    ];
+    const base   = appliquerStressTest(toutSubv, 0);
+    const stresse = appliquerStressTest(toutSubv, -20);
+    expect(stresse).toBeCloseTo(base * 0.80, 0);
+  });
+
+  it('recettes vides : renvoie 0 quelle que soit la valeur du stress', () => {
+    expect(appliquerStressTest([], 0)).toBe(0);
+    expect(appliquerStressTest([], -20)).toBe(0);
+    expect(appliquerStressTest([], 20)).toBe(0);
+  });
+
+  it('détection par mots-clés : "région", "opco", "cpom", "département" sont bien des subventions', () => {
+    const mockedKeywords = [
+      { id: 'k1', nom: 'Financement Région',    montant: 1000 },
+      { id: 'k2', nom: 'Aide OPCO 2025',        montant: 1000 },
+      { id: 'k3', nom: 'CPOM ARS',              montant: 1000 },
+      { id: 'k4', nom: 'Aide du Département',   montant: 1000 },
+      { id: 'k5', nom: 'Recette pédagogique',   montant: 1000 }, // pas une subvention
+    ];
+    const base   = appliquerStressTest(mockedKeywords, 0);   // 5 × 12 000 = 60 000
+    const stresse = appliquerStressTest(mockedKeywords, -50); // 4 subv × 12 000 × 0,5 + 12 000 péda
+    const subvAnnuel = 4 * 1000 * 12;
+    const pedaAnnuel = 1 * 1000 * 12;
+    expect(stresse).toBeCloseTo(subvAnnuel * 0.50 + pedaAnnuel, 0);
   });
 
 });
