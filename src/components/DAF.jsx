@@ -10,40 +10,15 @@ import {
   GraduationCap, Building2, Search, Info, Calculator,
   Percent, Link, Link2Off, RefreshCw, Target,
 } from 'lucide-react';
+import {
+  DAF_TAUX_INIT, DAF_FORMATIONS_INIT, DAF_COST_LINES, DAF_TRANSVERSAL_INIT,
+  calculerStatsFormation,
+} from '../utils/constants';
+import { formatEuro } from '../utils/formatting';
+import { AlertTriangle } from 'lucide-react';
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
-
-const FORMATIONS_INIT = [
-  { id: 'es',       nom: 'FI Éducateur Spécialisé (ES)',             duree: 3, effectif: 0 },
-  { id: 'me',       nom: 'FI Moniteur Éducateur (ME)',               duree: 2, effectif: 0 },
-  { id: 'caferuis', nom: 'CAFERUIS (Cadres intermédiaires)',          duree: 2, effectif: 0 },
-  { id: 'cafdes',   nom: 'CAFDES (Directeurs)',                       duree: 2, effectif: 0 },
-  { id: 'aes',      nom: 'AES (Accompagnant Éducatif et Social)',     duree: 1, effectif: 0 },
-];
-
-const COST_LINES = [
-  { key: 'personnel', label: 'Personnel (salaires + charges)' },
-  { key: 'materiel',  label: 'Matériel pédagogique' },
-  { key: 'locaux',    label: 'Locaux / Infrastructure' },
-  { key: 'admin',     label: 'Frais administratifs' },
-  { key: 'autres',    label: 'Autres charges' },
-];
-
-const TRANSVERSAL_INIT = [
-  { id: 't1', nom: 'Communication',        coutTotal: 0, cleRep: 80 },
-  { id: 't2', nom: 'Documentation',        coutTotal: 0, cleRep: 80 },
-  { id: 't3', nom: 'Informatique',         coutTotal: 0, cleRep: 70 },
-  { id: 't4', nom: 'Comptabilité',         coutTotal: 0, cleRep: 50 },
-  { id: 't5', nom: 'Ressources Humaines',  coutTotal: 0, cleRep: 60 },
-  { id: 't6', nom: 'Direction générale',   coutTotal: 0, cleRep: 60 },
-];
-
-const TAUX_INIT = { fi: 70, transversal: 60, recherche: 30 };
-
-const fmt = (n) =>
-  new Intl.NumberFormat('fr-FR', {
-    style: 'currency', currency: 'EUR', maximumFractionDigits: 0,
-  }).format(n || 0);
+// Alias local pour compatibilité interne (même signature que l'ancienne fmt)
+const fmt = (n) => formatEuro(typeof n === 'number' ? n : 0);
 
 // ─── Composant principal ──────────────────────────────────────────────────────
 
@@ -52,15 +27,19 @@ export default function DAF({
   services                = [],
   direction               = null,
   poleSupport             = null,
+  globalParams            = null,
   calculerBudgetService,
   calculerBudgetDirection,
   calculerBudgetPoleSupport,
 }) {
+  // Taux par défaut : globalParams > localStorage > DAF_TAUX_INIT
+  const tauxDefaut = globalParams?.tauxSubventionDAF ?? DAF_TAUX_INIT;
+
   // ── State ──────────────────────────────────────────────────────────────────
 
   const [taux, setTaux] = useState(() => {
-    try { return { ...TAUX_INIT, ...JSON.parse(localStorage.getItem('daf_taux') || '{}') }; }
-    catch { return TAUX_INIT; }
+    try { return { ...tauxDefaut, ...JSON.parse(localStorage.getItem('daf_taux') || '{}') }; }
+    catch { return tauxDefaut; }
   });
 
   const [formations, setFormations] = useState(() => {
@@ -68,7 +47,7 @@ export default function DAF({
       const saved = JSON.parse(localStorage.getItem('daf_formations') || 'null');
       if (saved) return saved;
     } catch {}
-    return FORMATIONS_INIT.map(f => ({
+    return DAF_FORMATIONS_INIT.map(f => ({
       ...f,
       couts: { personnel: 0, materiel: 0, locaux: 0, admin: 0, autres: 0 },
     }));
@@ -79,7 +58,7 @@ export default function DAF({
       const saved = JSON.parse(localStorage.getItem('daf_transversal') || 'null');
       if (saved) return saved;
     } catch {}
-    return TRANSVERSAL_INIT;
+    return DAF_TRANSVERSAL_INIT;
   });
 
   const [recherche, setRecherche] = useState(() => {
@@ -98,6 +77,17 @@ export default function DAF({
     try { return JSON.parse(localStorage.getItem('daf_budget_link') || 'false'); }
     catch { return false; }
   });
+
+  // Liens formation → service (par ID) pour la synchronisation budgétaire
+  const [serviceLinks, setServiceLinks] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('daf_service_links') || '{}'); }
+    catch { return {}; }
+  });
+  const setServiceLink = (formationId, serviceId) => {
+    const n = { ...serviceLinks, [formationId]: serviceId || null };
+    setServiceLinks(n);
+    localStorage.setItem('daf_service_links', JSON.stringify(n));
+  };
 
   // ── Calcul budgets existants (si lien activé) ──────────────────────────────
   const budgets = useMemo(() => {
@@ -143,9 +133,28 @@ export default function DAF({
 
   // ── Calculs ────────────────────────────────────────────────────────────────
   const rowsFormations = useMemo(() => formations.map(f => {
-    const coutTotal = COST_LINES.reduce((s, { key }) => s + (parseFloat(f.couts[key]) || 0), 0);
-    return { ...f, coutTotal, coutEligible: coutTotal, subvention: coutTotal * (taux.fi / 100) };
-  }), [formations, taux.fi]);
+    let coeff = { ...f };
+
+    // Synchronisation depuis le service lié (si lien budget actif)
+    if (useBudgetLink && serviceLinks[f.id]) {
+      const srv = services.find(s => s.id === serviceLinks[f.id]);
+      if (srv) {
+        // Effectif actuel depuis promos (net d'abandons)
+        const stats = calculerStatsFormation(srv);
+        const effectifActuel = stats.effectifActuel;
+        if (effectifActuel > 0) coeff = { ...coeff, effectif: effectifActuel };
+
+        // Coût personnel depuis budget
+        if (calculerBudgetService) {
+          const b = calculerBudgetService(srv);
+          coeff = { ...coeff, couts: { ...coeff.couts, personnel: Math.round(b.salaires) } };
+        }
+      }
+    }
+
+    const coutTotal = DAF_COST_LINES.reduce((s, { key }) => s + (parseFloat(coeff.couts[key]) || 0), 0);
+    return { ...coeff, coutTotal, coutEligible: coutTotal, subvention: coutTotal * (taux.fi / 100) };
+  }), [formations, taux.fi, useBudgetLink, serviceLinks, services, calculerBudgetService]);
 
   const rowsTransversal = useMemo(() => {
     const rows = transversal.map(t => {
@@ -158,14 +167,18 @@ export default function DAF({
     if (useBudgetLink) {
       if (budgets['direction']) {
         const b = budgets['direction'];
-        const cleRep = 60;
+        const cleRep = direction?.repartition
+          ? Math.min(100, Object.values(direction.repartition).reduce((s, v) => s + (parseFloat(v) || 0), 0))
+          : 60;
         const ci = b.total * (cleRep / 100);
         rows.push({ id: '_dir', nom: 'Direction & Siège (budget)', coutTotal: b.total,
                     cleRep, coutImputable: ci, subvention: ci * (taux.transversal / 100), fromBudget: true });
       }
       if (budgets['poleSupport']) {
         const b = budgets['poleSupport'];
-        const cleRep = 50;
+        const cleRep = poleSupport?.repartition
+          ? Math.min(100, Object.values(poleSupport.repartition).reduce((s, v) => s + (parseFloat(v) || 0), 0))
+          : 50;
         const ci = b.total * (cleRep / 100);
         rows.push({ id: '_ps', nom: 'Pôle Ressource (budget)', coutTotal: b.total,
                     cleRep, coutImputable: ci, subvention: ci * (taux.transversal / 100), fromBudget: true });
@@ -174,11 +187,30 @@ export default function DAF({
     return rows;
   }, [transversal, taux.transversal, budgets, useBudgetLink]);
 
+  // Services de type Recherche (liés depuis l'onglet Budget)
+  const servicesRecherche = useMemo(
+    () => services.filter(s => s.type === 'recherche'),
+    [services]
+  );
+
   const rowRecherche = useMemo(() => {
-    const coutTotal    = parseFloat(recherche.coutTotal) || 0;
+    let coutTotal;
+    if (servicesRecherche.length > 0 && calculerBudgetService) {
+      // Source de vérité : budgets calculés des services Recherche
+      coutTotal = servicesRecherche.reduce((sum, s) => sum + (calculerBudgetService(s)?.total || 0), 0);
+    } else {
+      // Fallback : saisie manuelle legacy
+      coutTotal = parseFloat(recherche.coutTotal) || 0;
+    }
     const coutEligible = coutTotal * ((parseFloat(recherche.partElig) || 0) / 100);
-    return { coutTotal, coutEligible, subvention: coutEligible * (taux.recherche / 100) };
-  }, [recherche, taux.recherche]);
+    return {
+      coutTotal,
+      coutEligible,
+      subvention: coutEligible * (taux.recherche / 100),
+      isLinked: servicesRecherche.length > 0,
+      servicesRecherche,
+    };
+  }, [recherche, taux.recherche, servicesRecherche, calculerBudgetService]);
 
   const totF = useMemo(() => ({
     coutTotal:    rowsFormations.reduce((s, r) => s + r.coutTotal,    0),
@@ -198,21 +230,27 @@ export default function DAF({
     subvention:   totF.subvention   + totT.subvention   + rowRecherche.subvention,
   };
 
+  // Budget prévisionnel total depuis l'application (somme de toutes les entités)
+  const totalBudgetApp = useMemo(() => {
+    if (!useBudgetLink) return 0;
+    return Object.values(budgets).reduce((s, b) => s + (b?.total || 0), 0);
+  }, [budgets, useBudgetLink]);
+
   // ── Export Excel ──────────────────────────────────────────────────────────
   const exportExcel = () => {
     const wb = XLSX.utils.book_new();
 
     // Onglet 1 – Détail formations
     const hF = ['Formation', 'Durée (ans)', 'Effectif',
-      ...COST_LINES.map(c => c.label), 'Coût total (€)', `Subvention (${taux.fi}%)`];
+      ...DAF_COST_LINES.map(c => c.label), 'Coût total (€)', `Subvention (${taux.fi}%)`];
     const rowsF = rowsFormations.map(f => [
       f.nom, f.duree, f.effectif,
-      ...COST_LINES.map(({ key }) => Math.round(parseFloat(f.couts[key]) || 0)),
+      ...DAF_COST_LINES.map(({ key }) => Math.round(parseFloat(f.couts[key]) || 0)),
       Math.round(f.coutTotal), Math.round(f.subvention),
     ]);
     rowsF.push([
       'TOTAL', '', '',
-      ...COST_LINES.map(({ key }) => Math.round(formations.reduce((s, f) => s + (parseFloat(f.couts[key]) || 0), 0))),
+      ...DAF_COST_LINES.map(({ key }) => Math.round(rowsFormations.reduce((s, f) => s + (parseFloat(f.couts[key]) || 0), 0))),
       Math.round(totF.coutTotal), Math.round(totF.subvention),
     ]);
     const wsF = XLSX.utils.aoa_to_sheet([hF, ...rowsF]);
@@ -432,11 +470,37 @@ export default function DAF({
               {/* Détail des coûts */}
               {openFormation[f.id] && (
                 <div className="p-4 space-y-4">
+                  {/* Lien au service budgétaire (si budget link actif) */}
+                  {useBudgetLink && (
+                    <div className={`flex items-center gap-3 p-3 rounded-xl border ${dm ? 'bg-teal-900/20 border-teal-700/40' : 'bg-teal-50 border-teal-200'}`}>
+                      <Link size={14} className="text-teal-500 flex-shrink-0"/>
+                      <label className={`text-xs font-semibold flex-shrink-0 ${dm ? 'text-teal-300' : 'text-teal-700'}`}>Service lié :</label>
+                      <select
+                        value={serviceLinks[f.id] || ''}
+                        onChange={e => setServiceLink(f.id, e.target.value)}
+                        className={`flex-1 rounded-lg border px-2 py-1 text-xs focus:ring-2 focus:ring-teal-400 outline-none ${cl.inp}`}
+                      >
+                        <option value="">— Aucun lien (saisie manuelle) —</option>
+                        {services.map(s => (
+                          <option key={s.id} value={s.id}>{s.nom}</option>
+                        ))}
+                      </select>
+                      {serviceLinks[f.id] && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${dm ? 'bg-teal-800 text-teal-200' : 'bg-teal-100 text-teal-700'}`}>
+                          Effectif &amp; personnel auto
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   {/* Paramètres formation */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className={`block text-xs font-semibold mb-1.5 ${cl.muted}`}>Effectif stagiaires</label>
                       <NumInput step="1" value={f.effectif} onChange={v => updateFormation(f.id, x => ({ ...x, effectif: v }))}/>
+                      {useBudgetLink && serviceLinks[f.id] && (
+                        <span className={`text-[10px] mt-1 block ${dm ? 'text-teal-400' : 'text-teal-600'}`}>⟵ calculé depuis les promos du service</span>
+                      )}
                     </div>
                     <div>
                       <label className={`block text-xs font-semibold mb-1.5 ${cl.muted}`}>Durée (ans)</label>
@@ -454,17 +518,29 @@ export default function DAF({
                       </tr>
                     </thead>
                     <tbody>
-                      {COST_LINES.map(({ key, label }) => {
+                      {DAF_COST_LINES.map(({ key, label }) => {
                         const val  = parseFloat(f.couts[key]) || 0;
                         const part = f.coutTotal > 0 ? Math.round(val / f.coutTotal * 100) : 0;
+                        const autoPersonnel = key === 'personnel' && useBudgetLink && serviceLinks[f.id];
                         return (
                           <tr key={key} className={`border-b ${cl.td}`}>
-                            <td className="p-2">{label}</td>
+                            <td className="p-2">
+                              {label}
+                              {autoPersonnel && (
+                                <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${dm ? 'bg-teal-800 text-teal-300' : 'bg-teal-100 text-teal-700'}`}>auto</span>
+                              )}
+                            </td>
                             <td className="p-2 w-44">
-                              <NumInput
-                                value={f.couts[key]}
-                                onChange={v => updateFormation(f.id, x => ({ ...x, couts: { ...x.couts, [key]: v } }))}
-                              />
+                              {autoPersonnel ? (
+                                <span className={`block text-right font-semibold text-sm px-2 py-1.5 rounded-lg ${dm ? 'bg-teal-900/30 text-teal-300' : 'bg-teal-50 text-teal-700'}`}>
+                                  {fmt(parseFloat(f.couts[key]) || 0)}
+                                </span>
+                              ) : (
+                                <NumInput
+                                  value={f.couts[key]}
+                                  onChange={v => updateFormation(f.id, x => ({ ...x, couts: { ...x.couts, [key]: v } }))}
+                                />
+                              )}
                             </td>
                             <td className={`p-2 text-right text-xs font-medium ${cl.muted}`}>
                               {part > 0 ? `${part}%` : '—'}
@@ -602,27 +678,66 @@ export default function DAF({
       />
       {open.recherche && (
         <div className={`rounded-2xl border ${cl.card} shadow p-5`}>
-          <div className="grid grid-cols-3 gap-4 items-end">
-            <div>
-              <label className={`block text-xs font-semibold mb-1.5 ${cl.muted}`}>Coût total de la recherche (€)</label>
-              <NumInput value={recherche.coutTotal} onChange={v => setRechercheP({ coutTotal: v })}/>
-            </div>
-            <div>
-              <label className={`block text-xs font-semibold mb-1.5 ${cl.muted}`}>Part éligible à la subvention (%)</label>
-              <div className="flex items-center gap-2">
-                <PctInput value={recherche.partElig} onChange={v => setRechercheP({ partElig: v })}/>
-                <span className={`text-sm ${cl.muted}`}>→ {fmt(rowRecherche.coutEligible)}</span>
+          {rowRecherche.isLinked ? (
+            /* ── Mode lié : données calculées depuis les services Recherche ── */
+            <div className="space-y-3">
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold ${dm ? 'bg-purple-900/30 text-purple-300 border border-purple-800/30' : 'bg-purple-100 text-purple-700 border border-purple-200'}`}>
+                <Link size={13}/> Lié au{rowRecherche.servicesRecherche.length > 1 ? 'x' : ''} service{rowRecherche.servicesRecherche.length > 1 ? 's' : ''} Recherche : {rowRecherche.servicesRecherche.map(s => s.nom).join(', ')}
+              </div>
+              {rowRecherche.servicesRecherche.map(s => {
+                const b = calculerBudgetService(s);
+                return (
+                  <div key={s.id} className={`rounded-xl p-3 text-sm ${dm ? 'bg-gray-700' : 'bg-slate-50 border border-slate-200'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`font-bold ${dm ? 'text-white' : 'text-slate-700'}`}>{s.nom}</span>
+                      <span className={`font-black ${dm ? 'text-purple-300' : 'text-purple-700'}`}>{fmt(b?.total || 0)}</span>
+                    </div>
+                    <div className={`text-xs mt-1 ${cl.muted}`}>
+                      Salaires : {fmt(b?.salaires || 0)} · Exploitation : {fmt(b?.exploitation || 0)}
+                    </div>
+                  </div>
+                );
+              })}
+              <div className="grid grid-cols-2 gap-4 items-end mt-2">
+                <div>
+                  <label className={`block text-xs font-semibold mb-1.5 ${cl.muted}`}>Part éligible à la subvention (%)</label>
+                  <div className="flex items-center gap-2">
+                    <PctInput value={recherche.partElig} onChange={v => setRechercheP({ partElig: v })}/>
+                    <span className={`text-sm ${cl.muted}`}>→ {fmt(rowRecherche.coutEligible)}</span>
+                  </div>
+                </div>
+                <div className={`rounded-xl p-3 ${dm ? 'bg-purple-900/20 border border-purple-800/30' : 'bg-purple-50 border border-purple-200'}`}>
+                  <div className={`text-xs font-semibold mb-1 ${dm ? 'text-purple-400' : 'text-purple-600'}`}>Subvention recherche ({taux.recherche}%)</div>
+                  <div className={`text-xl font-extrabold ${dm ? 'text-purple-300' : 'text-purple-700'}`}>{fmt(rowRecherche.subvention)}</div>
+                </div>
               </div>
             </div>
-            <div className={`rounded-xl p-3 ${dm ? 'bg-purple-900/20 border border-purple-800/30' : 'bg-purple-50 border border-purple-200'}`}>
-              <div className={`text-xs font-semibold mb-1 ${dm ? 'text-purple-400' : 'text-purple-600'}`}>
-                Subvention recherche ({taux.recherche}%)
+          ) : (
+            /* ── Mode manuel legacy (aucun service Recherche) ── */
+            <div className="space-y-3">
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${dm ? 'bg-gray-700 text-gray-400' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                <Info size={13}/>
+                Créez un service de type « Recherche » dans l'onglet Budget pour lier automatiquement ses coûts.
               </div>
-              <div className={`text-xl font-extrabold ${dm ? 'text-purple-300' : 'text-purple-700'}`}>
-                {fmt(rowRecherche.subvention)}
+              <div className="grid grid-cols-3 gap-4 items-end">
+                <div>
+                  <label className={`block text-xs font-semibold mb-1.5 ${cl.muted}`}>Coût total de la recherche (€)</label>
+                  <NumInput value={recherche.coutTotal} onChange={v => setRechercheP({ coutTotal: v })}/>
+                </div>
+                <div>
+                  <label className={`block text-xs font-semibold mb-1.5 ${cl.muted}`}>Part éligible à la subvention (%)</label>
+                  <div className="flex items-center gap-2">
+                    <PctInput value={recherche.partElig} onChange={v => setRechercheP({ partElig: v })}/>
+                    <span className={`text-sm ${cl.muted}`}>→ {fmt(rowRecherche.coutEligible)}</span>
+                  </div>
+                </div>
+                <div className={`rounded-xl p-3 ${dm ? 'bg-purple-900/20 border border-purple-800/30' : 'bg-purple-50 border border-purple-200'}`}>
+                  <div className={`text-xs font-semibold mb-1 ${dm ? 'text-purple-400' : 'text-purple-600'}`}>Subvention recherche ({taux.recherche}%)</div>
+                  <div className={`text-xl font-extrabold ${dm ? 'text-purple-300' : 'text-purple-700'}`}>{fmt(rowRecherche.subvention)}</div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -744,6 +859,26 @@ export default function DAF({
               </div>
             </div>
           )}
+          {/* Alerte écart > 10% entre dossier DAF et budget prévisionnel */}
+          {useBudgetLink && totalBudgetApp > 0 && grand.coutTotal > 0 && (() => {
+            const ecart = (grand.coutTotal - totalBudgetApp) / totalBudgetApp;
+            if (Math.abs(ecart) <= 0.10) return null;
+            const surEval = ecart > 0;
+            return (
+              <div className={`p-3 border-t flex items-start gap-2 text-sm ${dm ? 'border-amber-700/40 bg-amber-900/20' : 'border-amber-200 bg-amber-50'}`}>
+                <AlertTriangle size={16} className="text-amber-500 mt-0.5 shrink-0"/>
+                <div>
+                  <span className={`font-bold ${dm ? 'text-amber-300' : 'text-amber-700'}`}>
+                    Écart de {Math.round(Math.abs(ecart) * 100)}% — {surEval ? 'Dossier DAF supérieur' : 'Dossier DAF inférieur'} au budget prévisionnel
+                  </span>
+                  <span className={`ml-2 ${dm ? 'text-amber-400/80' : 'text-amber-600'}`}>
+                    Dossier : {fmt(grand.coutTotal)} vs Budget app : {fmt(totalBudgetApp)}
+                    {surEval ? ' — Risque de sur-financement apparent.' : ' — Vérifier les coûts non imputés.'}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

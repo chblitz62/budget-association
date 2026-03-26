@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Zap, AlertTriangle } from 'lucide-react';
 import { calculerSalaireAnnuel } from '../../utils/calculations';
+import HelpIcon from '../ui/HelpIcon';
+import { FINANCIAL_HELP as H } from '../../utils/constants';
 
 const moisKeysFI = ['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];
 const moisLabelsFI = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'];
@@ -16,6 +18,12 @@ const PRESETS = [
 
 const ModalFI = ({ fiDialog, setFiDialog, services, setServices, msETP, darkMode }) => {
   const [confirme100, setConfirme100] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') setFiDialog(null); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [setFiDialog]);
 
   if (!fiDialog) return null;
 
@@ -55,10 +63,18 @@ const ModalFI = ({ fiDialog, setFiDialog, services, setServices, msETP, darkMode
             <div>
               <h3 className={`text-lg font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Répartition FI mensuelle</h3>
               <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{agent.titre} — {svc.nom}</p>
-              <p className={`text-xs mt-0.5 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
-                Salaire {agent.salaire.toLocaleString()} €/mois · {agent.etp} ETP
+              <p className={`text-xs mt-0.5 flex items-center gap-1.5 flex-wrap ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+                <span className="flex items-center gap-1">
+                  Salaire {agent.salaire.toLocaleString()} €/mois
+                  <HelpIcon {...H.chargesPatronales} darkMode={darkMode} position="bottom" />
+                </span>
+                · {agent.etp} ETP
+                <HelpIcon {...H.etp} darkMode={darkMode} position="bottom" />
                 {sal.tauxCharges !== undefined && sal.tauxCharges < 0.42 && (
-                  <span className="ml-1 text-emerald-500 font-bold">(charges {Math.round(sal.tauxCharges * 100)}% — allègement Fillon)</span>
+                  <span className="flex items-center gap-1 text-emerald-500 font-bold">
+                    (charges {Math.round(sal.tauxCharges * 100)}% — allègement Fillon)
+                    <HelpIcon {...H.allégementFillon} darkMode={darkMode} position="bottom" />
+                  </span>
                 )}
                 · Coût annuel {Math.round(sal.total).toLocaleString()} €
               </p>
@@ -131,7 +147,10 @@ const ModalFI = ({ fiDialog, setFiDialog, services, setServices, msETP, darkMode
 
         <div className={`grid grid-cols-3 gap-3 mb-4 p-4 rounded-2xl ${darkMode ? 'bg-gray-700/60' : 'bg-amber-50'}`}>
           <div className="text-center">
-            <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Moyenne annuelle FI</div>
+            <div className={`text-xs font-bold mb-1 flex items-center justify-center gap-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+              Moyenne annuelle FI
+              <HelpIcon {...H.repartitionFI} darkMode={darkMode} position="top" />
+            </div>
             <div className={`text-2xl font-black ${estPlein ? 'text-red-500' : pctMoyen > 80 ? 'text-orange-500' : darkMode ? 'text-amber-300' : 'text-amber-700'}`}>{pctTotal}%</div>
           </div>
           <div className="text-center">
@@ -180,7 +199,7 @@ const ModalFI = ({ fiDialog, setFiDialog, services, setServices, msETP, darkMode
           className={`w-full py-3 font-black rounded-2xl transition-all ${
             peutValider
               ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : darkMode ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }`}
         >
           {estPlein && !confirme100 ? 'Cochez la case de confirmation pour valider' : 'Valider'}

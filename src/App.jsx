@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus, Banknote, TrendingDown, CheckCircle, AlertTriangle, FileSpreadsheet, Key, Eye, EyeOff, HelpCircle, X, AlertCircle, Clock, BarChart3, Search, Menu, ChevronLeft, ChevronRight, Home, Shield, Wallet, Building, Layers, Calculator, RotateCcw, Target, Gauge, Bell, GripVertical, ChevronDown, ChevronUp, UserCheck, UserX, Zap, Monitor, Cog, ExternalLink, Camera, GitCompare, Leaf, Brain } from 'lucide-react';
+import { Plus, Trash2, Download, Building2, Users, Landmark, Settings, Calendar, TrendingUp, Euro, Save, Upload, Printer, Moon, Sun, Lock, LogOut, GraduationCap, MapPin, UserMinus, Banknote, TrendingDown, CheckCircle, AlertTriangle, FileSpreadsheet, Key, Eye, EyeOff, HelpCircle, X, AlertCircle, Clock, BarChart3, Search, Menu, ChevronLeft, ChevronRight, Home, Shield, Wallet, Building, Layers, Calculator, RotateCcw, Target, Gauge, Bell, GripVertical, ChevronDown, ChevronUp, UserCheck, UserX, Zap, Monitor, Cog, ExternalLink, Camera, GitCompare, Leaf, Brain, Heart, Tag } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
 import { exportToExcel, exportReportingFC } from './utils/excelExport';
 import { exportToPDF, exportReportingFCPdf } from './utils/pdfExport';
@@ -44,6 +44,7 @@ import {
   JOURS_OUVRES_AN,
   JOURS_CONGES_LEGAL,
   CHARGES_VACATAIRE,
+  SMIC_MENSUEL,
   SEUIL_HEURES_VACATAIRE,
   SEUIL_RATIO_VACATAIRE,
   COMPTES_IMMO,
@@ -496,8 +497,7 @@ const BudgetTool = () => {
 
   // Sauvegarde automatique avec notification
   const triggerSaveIndicator = () => window.dispatchEvent(new Event('storage-save'));
-  useEffect(() => { localStorage.setItem('assoc_globalParams', JSON.stringify(globalParams)); triggerSaveIndicator(); }, [globalParams]);
-  useEffect(() => { localStorage.setItem('assoc_direction', JSON.stringify(direction)); triggerSaveIndicator(); }, [direction]);
+  const saveTimerRef = useRef(null);
   const [enveloppeFormation, setEnveloppeFormation] = useState(() => loadFromStorage('assoc_enveloppe_formation', { budget: 0, actions: [] }));
   const [reportingFC, setReportingFC] = useState(() => loadFromStorage('assoc_reporting_fc', []));
   const [donneesN1, setDonneesN1] = useState(() => loadFromStorage('assoc_donnees_n1', null));
@@ -511,17 +511,30 @@ const BudgetTool = () => {
   const [presentationMode, setPresentationMode] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
   const [planningAbsences, setPlanningAbsences] = useState(() => loadFromStorage('assoc_planning_absences', {}));
-  useEffect(() => { localStorage.setItem('assoc_planning_absences', JSON.stringify(planningAbsences)); }, [planningAbsences]);
-  useEffect(() => { localStorage.setItem('assoc_services', JSON.stringify(services)); triggerSaveIndicator(); }, [services]);
-  useEffect(() => { localStorage.setItem('assoc_pool_rh', JSON.stringify(poolRH)); triggerSaveIndicator(); }, [poolRH]);
-  useEffect(() => { localStorage.setItem('assoc_pole_support', JSON.stringify(poleSupport)); triggerSaveIndicator(); }, [poleSupport]);
-  useEffect(() => { localStorage.setItem('assoc_pilotage_sites', JSON.stringify(pilotageSites)); triggerSaveIndicator(); }, [pilotageSites]);
+  const [benevoles, setBenevoles] = useState(() => loadFromStorage('assoc_benevoles', []));
+  // Sauvegarde groupée et atomique de toutes les données métier (debounce 300ms)
+  useEffect(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      localStorage.setItem('assoc_globalParams', JSON.stringify(globalParams));
+      localStorage.setItem('assoc_direction', JSON.stringify(direction));
+      localStorage.setItem('assoc_services', JSON.stringify(services));
+      localStorage.setItem('assoc_pool_rh', JSON.stringify(poolRH));
+      localStorage.setItem('assoc_pole_support', JSON.stringify(poleSupport));
+      localStorage.setItem('assoc_pilotage_sites', JSON.stringify(pilotageSites));
+      localStorage.setItem('assoc_planning_absences', JSON.stringify(planningAbsences));
+      localStorage.setItem('assoc_enveloppe_formation', JSON.stringify(enveloppeFormation));
+      localStorage.setItem('assoc_reporting_fc', JSON.stringify(reportingFC));
+      localStorage.setItem('assoc_donnees_n1', JSON.stringify(donneesN1));
+      localStorage.setItem('assoc_benevoles', JSON.stringify(benevoles));
+      triggerSaveIndicator();
+    }, 300);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [globalParams, direction, services, poolRH, poleSupport, pilotageSites, planningAbsences, enveloppeFormation, reportingFC, donneesN1, benevoles]);
+  // Sauvegardes UI (non-critiques, immédiates)
   useEffect(() => { localStorage.setItem('assoc_direction_position', JSON.stringify(directionPosition)); }, [directionPosition]);
   useEffect(() => { localStorage.setItem('assoc_pole_support_position', JSON.stringify(poleSupportPosition)); }, [poleSupportPosition]);
   useEffect(() => { localStorage.setItem('assoc_darkMode', JSON.stringify(darkMode)); }, [darkMode]);
-  useEffect(() => { localStorage.setItem('assoc_enveloppe_formation', JSON.stringify(enveloppeFormation)); triggerSaveIndicator(); }, [enveloppeFormation]);
-  useEffect(() => { localStorage.setItem('assoc_reporting_fc', JSON.stringify(reportingFC)); triggerSaveIndicator(); }, [reportingFC]);
-  useEffect(() => { localStorage.setItem('assoc_donnees_n1', JSON.stringify(donneesN1)); triggerSaveIndicator(); }, [donneesN1]);
   useEffect(() => { localStorage.setItem('assoc_active_tab', activeTab); }, [activeTab]);
 
   // Auto-backup toutes les 10 minutes (protection contre perte de données)
@@ -531,7 +544,7 @@ const BudgetTool = () => {
         const snapshot = {
           ts: new Date().toISOString(),
           globalParams, direction, services, poleSupport, poolRH,
-          enveloppeFormation, reportingFC, donneesN1, planningAbsences, pilotageSites
+          enveloppeFormation, reportingFC, donneesN1, planningAbsences, benevoles, pilotageSites
         };
         // Rotation sur 3 slots
         const slot = ((parseInt(localStorage.getItem('assoc_backup_slot') || '0') % 3) + 1);
@@ -542,7 +555,7 @@ const BudgetTool = () => {
     };
     const id = setInterval(doBackup, 10 * 60 * 1000);
     return () => clearInterval(id);
-  }, [globalParams, direction, services, poleSupport, poolRH, enveloppeFormation, reportingFC, donneesN1, planningAbsences, pilotageSites]);
+  }, [globalParams, direction, services, poleSupport, poolRH, enveloppeFormation, reportingFC, donneesN1, planningAbsences, benevoles, pilotageSites]);
 
   // Navigation inter-onglets RH ↔ Budget
   const [focusedAgentId, setFocusedAgentId] = useState(null);
@@ -589,6 +602,8 @@ const BudgetTool = () => {
     setDonneesN1(null);
     localStorage.removeItem('assoc_planning_absences');
     setPlanningAbsences({});
+    localStorage.removeItem('assoc_benevoles');
+    setBenevoles([]);
     setDarkMode(false);
     setPoolRH([]);
     localStorage.removeItem('assoc_pool_rh');
@@ -622,9 +637,10 @@ const BudgetTool = () => {
   const msETP = globalParams.montantSegurETP ?? PRIME_SEGUR;
 
   // Fonctions budget — useCallback pour stabiliser les références (évite re-renders en cascade dans SubventionRegion/DAF)
-  const getBudgetDirection   = useCallback(() => calculerBudgetDirection(direction, planningAbsences, 2026, msETP, poolRH),   [direction, planningAbsences, msETP, poolRH]);
-  const getBudgetPoleSupport = useCallback(() => calculerBudgetPoleSupport(poleSupport, planningAbsences, 2026, msETP, poolRH), [poleSupport, planningAbsences, msETP, poolRH]);
-  const getBudgetService     = useCallback((service) => calculerBudgetService(service, planningAbsences, 2026, msETP, poolRH),  [planningAbsences, msETP, poolRH]);
+  const tvaParams = globalParams.gestionTVA ? { gestionTVA: true, tauxTVAMoyen: globalParams.tauxTVAMoyen ?? 20 } : null;
+  const getBudgetDirection   = useCallback(() => calculerBudgetDirection(direction, planningAbsences, 2026, msETP, poolRH, tvaParams),   [direction, planningAbsences, msETP, poolRH, tvaParams]);
+  const getBudgetPoleSupport = useCallback(() => calculerBudgetPoleSupport(poleSupport, planningAbsences, 2026, msETP, poolRH, tvaParams), [poleSupport, planningAbsences, msETP, poolRH, tvaParams]);
+  const getBudgetService     = useCallback((service) => calculerBudgetService(service, planningAbsences, 2026, msETP, poolRH, tvaParams),  [planningAbsences, msETP, poolRH, tvaParams]);
   const getProvisions        = useCallback(() => calculerProvisions(direction, services, globalParams, poleSupport, poolRH),    [direction, services, globalParams, poleSupport, poolRH]);
   const getBFR               = useCallback(() => calculerBFR(direction, services, globalParams, poleSupport, poolRH),           [direction, services, globalParams, poleSupport, poolRH]);
   const getFondRoulement     = useCallback(() => calculerFondRoulement(direction, services, globalParams),                      [direction, services, globalParams]);
@@ -702,6 +718,7 @@ const BudgetTool = () => {
       version: '2.1', type: 'association', date: new Date().toISOString(),
       globalParams, direction, services, poleSupport, poolRH,
       enveloppeFormation, reportingFC, donneesN1, planningAbsences,
+      benevoles,
       pilotageSites, directionPosition, poleSupportPosition
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -733,6 +750,7 @@ const BudgetTool = () => {
       if (snap.reportingFC) setReportingFC(snap.reportingFC);
       if (snap.donneesN1)   setDonneesN1(snap.donneesN1);
       if (snap.planningAbsences) setPlanningAbsences(snap.planningAbsences);
+      if (snap.benevoles) setBenevoles(snap.benevoles);
       alert(`Backup du ${d} restauré avec succès.`);
     } catch { alert('Erreur lors de la restauration du backup.'); }
   };
@@ -753,6 +771,7 @@ const BudgetTool = () => {
           if (data.reportingFC) setReportingFC(data.reportingFC);
           if (data.donneesN1) setDonneesN1(data.donneesN1);
           if (data.planningAbsences) setPlanningAbsences(data.planningAbsences);
+          if (data.benevoles) setBenevoles(data.benevoles);
           if (data.pilotageSites) setPilotageSites(data.pilotageSites);
           if (data.directionPosition !== undefined) setDirectionPosition(data.directionPosition);
           if (data.poleSupportPosition !== undefined) setPoleSupportPosition(data.poleSupportPosition);
@@ -803,7 +822,8 @@ const BudgetTool = () => {
   const bfrData = getBFR(); const frData = getFondRoulement();
   if (bfrData.bfr > 0 && frData.fondRoulement < bfrData.bfr)
     alertes.push({ lvl: 'warning', msg: `BFR (${Math.round(bfrData.bfr).toLocaleString()} €) supérieur au Fonds de Roulement (${Math.round(frData.fondRoulement).toLocaleString()} €) — risque trésorerie` });
-  if (tauxCouverture > 0 && tauxCouverture < 90)
+  const seuilCouverture = globalParams.seuilCouverture ?? 90;
+  if (tauxCouverture > 0 && tauxCouverture < seuilCouverture)
     alertes.push({ lvl: 'info', msg: `Taux de couverture faible : ${tauxCouverture.toFixed(1)}% (objectif ≥ 100%)` });
   if (totalProvisions === 0)
     alertes.push({ lvl: 'info', msg: 'Aucune provision constituée — vérifier les taux dans le bloc Provisions' });
@@ -1389,7 +1409,7 @@ const BudgetTool = () => {
                   </div>
                   <div>
                     <div className={`text-[10px] font-bold uppercase ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Couverture</div>
-                    <div className={`text-lg font-black ${tauxCouverture >= 100 ? 'text-emerald-500' : tauxCouverture >= 90 ? 'text-amber-500' : 'text-rose-500'}`}>{Math.round(tauxCouverture)}%</div>
+                    <div className={`text-lg font-black ${tauxCouverture >= 100 ? 'text-emerald-500' : tauxCouverture >= seuilCouverture ? 'text-amber-500' : 'text-rose-500'}`}>{Math.round(tauxCouverture)}%</div>
                   </div>
                 </div>
               </div>
@@ -1903,6 +1923,25 @@ const BudgetTool = () => {
                                       onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, dateDebutPrevue: e.target.value} : x)})} />
                                   </div>
                                 )}
+                                <div className="flex items-center gap-1">
+                                  <span className={`text-xs font-semibold ${p.moisPrime ? (darkMode ? 'text-purple-400' : 'text-purple-600') : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>Prime</span>
+                                  <select className={`rounded px-1 py-0.5 text-xs ${p.moisPrime ? (darkMode ? 'bg-purple-900/40 border border-purple-600 text-purple-300' : 'bg-purple-50 border border-purple-300 text-purple-700') : (darkMode ? 'bg-gray-500 text-white' : 'bg-white border')}`}
+                                    value={p.moisPrime || ''}
+                                    onChange={e => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, moisPrime: e.target.value ? parseInt(e.target.value) : null, montantPrime: e.target.value ? (x.montantPrime || 0) : 0} : x)})}>
+                                    <option value="">Aucune</option>
+                                    {['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'].map((m, idx) => (
+                                      <option key={idx + 1} value={idx + 1}>{m}</option>
+                                    ))}
+                                  </select>
+                                  {p.moisPrime && (
+                                    <>
+                                      <NumericInput className={`w-20 rounded px-1 py-0.5 text-xs font-bold ${darkMode ? 'bg-purple-900/40 border border-purple-600 text-purple-300' : 'bg-purple-50 border border-purple-300 text-purple-700'}`}
+                                        value={p.montantPrime || 0}
+                                        onChange={v => setDirection({...direction, personnel: direction.personnel.map(x => x.id === p.id ? {...x, montantPrime: v} : x)})} />
+                                      <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€ brut</span>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                               {/* Absences */}
                               <details className="mt-2">
@@ -1960,10 +1999,29 @@ const BudgetTool = () => {
                                 </div>
                                 <input className={`font-bold text-sm flex-1 outline-none bg-transparent ${darkMode ? 'text-white' : ''}`} value={c.nom} onChange={e => setDirection({ ...direction, chargesSiege: direction.chargesSiege.map(x => x.id === c.id ? { ...x, nom: e.target.value } : x) })} />
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <Euro className="text-teal-500" size={16} />
                                 <input type="number" className={`w-28 text-right font-black text-lg rounded-lg px-3 py-1.5 outline-none ${darkMode ? 'bg-gray-500 text-white' : 'bg-white'}`} value={c.montant} onChange={e => setDirection({ ...direction, chargesSiege: direction.chargesSiege.map(x => x.id === c.id ? { ...x, montant: validerMontant(e.target.value) } : x) })} />
                                 <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>/mois</span>
+                                {globalParams.gestionTVA && (
+                                  <>
+                                    <button title="Basculer HT / TTC" onClick={() => setDirection({...direction, chargesSiege: direction.chargesSiege.map(x => x.id === c.id ? {...x, saisieType: (c.saisieType||'HT')==='HT'?'TTC':'HT'} : x)})}
+                                      className={`text-[10px] font-black px-1 py-0.5 rounded border ${(c.saisieType||'HT')==='TTC'?(darkMode?'bg-amber-900/40 border-amber-600 text-amber-300':'bg-amber-100 border-amber-400 text-amber-700'):(darkMode?'bg-gray-600 border-gray-500 text-gray-300':'bg-white border-slate-300 text-slate-500')}`}>
+                                      {c.saisieType||'HT'}
+                                    </button>
+                                    <button title="TVA récupérable / non récupérable" onClick={() => setDirection({...direction, chargesSiege: direction.chargesSiege.map(x => x.id === c.id ? {...x, tvaRecuperable: c.tvaRecuperable===false?true:false} : x)})}
+                                      className={`text-[10px] font-black px-1 py-0.5 rounded border ${c.tvaRecuperable===false?(darkMode?'bg-red-900/40 border-red-600 text-red-300':'bg-red-100 border-red-400 text-red-700'):(darkMode?'bg-green-900/40 border-green-600 text-green-300':'bg-green-100 border-green-400 text-green-700')}`}>
+                                      {c.tvaRecuperable===false?'TVA✗':'TVA♻'}
+                                    </button>
+                                  </>
+                                )}
+                                <Tag size={11} className={`${darkMode ? 'text-zinc-500' : 'text-slate-300'}`} />
+                                <input
+                                  placeholder="tag projet"
+                                  className={`text-[11px] w-24 rounded px-1.5 py-0.5 outline-none border ${darkMode ? 'bg-zinc-700 border-zinc-600 text-zinc-300 placeholder-zinc-600' : 'bg-slate-50 border-slate-200 text-slate-600 placeholder-slate-300'} ${c.tagProjet ? (darkMode ? 'border-violet-600 text-violet-300' : 'border-violet-300 text-violet-700') : ''}`}
+                                  value={c.tagProjet || ''}
+                                  onChange={e => setDirection({...direction, chargesSiege: direction.chargesSiege.map(x => x.id === c.id ? {...x, tagProjet: e.target.value} : x)})}
+                                />
                               </div>
                             </div>
                           ))}
@@ -1992,6 +2050,12 @@ const BudgetTool = () => {
                                 <TrendingUp className="text-emerald-500" size={16} />
                                 <input type="number" className={`w-28 text-right font-black text-lg rounded-lg px-3 py-1.5 outline-none ${darkMode ? 'bg-gray-500 text-white' : 'bg-white'}`} value={r.montant} onChange={e => setDirection({ ...direction, recettes: (direction.recettes || []).map(x => x.id === r.id ? { ...x, montant: validerMontant(e.target.value) } : x) })} />
                                 <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>/mois</span>
+                                <button
+                                  title={r.fondsDedie ? 'Fonds dédiés (reportable) — cliquer pour désactiver' : 'Marquer comme Fonds dédiés (subvention reportable)'}
+                                  onClick={() => setDirection({...direction, recettes: (direction.recettes||[]).map(x => x.id === r.id ? {...x, fondsDedie: !r.fondsDedie} : x)})}
+                                  className={`text-[10px] font-black px-1 py-0.5 rounded border no-print ${r.fondsDedie ? (darkMode ? 'bg-indigo-900/40 border-indigo-600 text-indigo-300' : 'bg-indigo-100 border-indigo-400 text-indigo-700') : (darkMode ? 'text-gray-600 border-gray-600 hover:text-gray-400' : 'text-slate-300 border-slate-200 hover:text-slate-500')}`}>
+                                  FD
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -2181,6 +2245,25 @@ const BudgetTool = () => {
                                       onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, dateDebutPrevue: e.target.value} : x)})} />
                                   </div>
                                 )}
+                                <div className="flex items-center gap-1">
+                                  <span className={`text-xs font-semibold ${p.moisPrime ? (darkMode ? 'text-purple-400' : 'text-purple-600') : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>Prime</span>
+                                  <select className={`rounded px-1 py-0.5 text-xs ${p.moisPrime ? (darkMode ? 'bg-purple-900/40 border border-purple-600 text-purple-300' : 'bg-purple-50 border border-purple-300 text-purple-700') : (darkMode ? 'bg-gray-500 text-white' : 'bg-white border')}`}
+                                    value={p.moisPrime || ''}
+                                    onChange={e => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, moisPrime: e.target.value ? parseInt(e.target.value) : null, montantPrime: e.target.value ? (x.montantPrime || 0) : 0} : x)})}>
+                                    <option value="">Aucune</option>
+                                    {['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'].map((m, idx) => (
+                                      <option key={idx + 1} value={idx + 1}>{m}</option>
+                                    ))}
+                                  </select>
+                                  {p.moisPrime && (
+                                    <>
+                                      <NumericInput className={`w-20 rounded px-1 py-0.5 text-xs font-bold ${darkMode ? 'bg-purple-900/40 border border-purple-600 text-purple-300' : 'bg-purple-50 border border-purple-300 text-purple-700'}`}
+                                        value={p.montantPrime || 0}
+                                        onChange={v => setPoleSupport({...poleSupport, personnel: poleSupport.personnel.map(x => x.id === p.id ? {...x, montantPrime: v} : x)})} />
+                                      <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€ brut</span>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                               {/* Absences */}
                               <details className="mt-2">
@@ -2236,6 +2319,25 @@ const BudgetTool = () => {
                               <input className={`font-bold text-xs flex-1 outline-none bg-transparent ${darkMode ? 'text-white' : ''}`} value={c.nom} onChange={e => setPoleSupport({...poleSupport, exploitation: poleSupport.exploitation.map(x => x.id === c.id ? {...x, nom: e.target.value} : x)})} />
                               <input type="number" className={`w-24 text-right text-xs font-bold rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={c.montant} onChange={e => setPoleSupport({...poleSupport, exploitation: poleSupport.exploitation.map(x => x.id === c.id ? {...x, montant: validerMontant(e.target.value)} : x)})} />
                               <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>/mois</span>
+                              {globalParams.gestionTVA && (
+                                <>
+                                  <button title="Basculer HT / TTC" onClick={() => setPoleSupport({...poleSupport, exploitation: poleSupport.exploitation.map(x => x.id === c.id ? {...x, saisieType: (c.saisieType||'HT')==='HT'?'TTC':'HT'} : x)})}
+                                    className={`text-[10px] font-black px-1 py-0.5 rounded border ${(c.saisieType||'HT')==='TTC'?(darkMode?'bg-amber-900/40 border-amber-600 text-amber-300':'bg-amber-100 border-amber-400 text-amber-700'):(darkMode?'bg-gray-600 border-gray-500 text-gray-300':'bg-white border-slate-300 text-slate-500')}`}>
+                                    {c.saisieType||'HT'}
+                                  </button>
+                                  <button title="TVA récupérable / non récupérable" onClick={() => setPoleSupport({...poleSupport, exploitation: poleSupport.exploitation.map(x => x.id === c.id ? {...x, tvaRecuperable: c.tvaRecuperable===false?true:false} : x)})}
+                                    className={`text-[10px] font-black px-1 py-0.5 rounded border ${c.tvaRecuperable===false?(darkMode?'bg-red-900/40 border-red-600 text-red-300':'bg-red-100 border-red-400 text-red-700'):(darkMode?'bg-green-900/40 border-green-600 text-green-300':'bg-green-100 border-green-400 text-green-700')}`}>
+                                    {c.tvaRecuperable===false?'TVA✗':'TVA♻'}
+                                  </button>
+                                </>
+                              )}
+                              <Tag size={10} className={`${darkMode ? 'text-zinc-500' : 'text-slate-300'}`} />
+                              <input
+                                placeholder="tag"
+                                className={`text-[10px] w-20 rounded px-1 py-0.5 outline-none border ${darkMode ? 'bg-zinc-700 border-zinc-600 text-zinc-300 placeholder-zinc-600' : 'bg-slate-50 border-slate-200 text-slate-600 placeholder-slate-300'} ${c.tagProjet ? (darkMode ? 'border-violet-600 text-violet-300' : 'border-violet-300 text-violet-700') : ''}`}
+                                value={c.tagProjet || ''}
+                                onChange={e => setPoleSupport({...poleSupport, exploitation: poleSupport.exploitation.map(x => x.id === c.id ? {...x, tagProjet: e.target.value} : x)})}
+                              />
                             </div>
                           ))}
                           {(poleSupport.exploitation||[]).length === 0 && <p className={`text-xs text-center py-3 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Aucune charge</p>}
@@ -2253,6 +2355,12 @@ const BudgetTool = () => {
                                 <input className={`font-bold text-xs flex-1 outline-none bg-transparent ${darkMode ? 'text-white' : ''}`} value={r.nom} onChange={e => setPoleSupport({...poleSupport, recettes: poleSupport.recettes.map(x => x.id === r.id ? {...x, nom: e.target.value} : x)})} />
                                 <input type="number" className={`w-24 text-right text-xs font-bold rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-white border'}`} value={r.montant} onChange={e => setPoleSupport({...poleSupport, recettes: poleSupport.recettes.map(x => x.id === r.id ? {...x, montant: validerMontant(e.target.value)} : x)})} />
                                 <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>/mois</span>
+                                <button
+                                  title={r.fondsDedie ? 'Fonds dédiés (reportable) — cliquer pour désactiver' : 'Marquer comme Fonds dédiés'}
+                                  onClick={() => setPoleSupport({...poleSupport, recettes: poleSupport.recettes.map(x => x.id === r.id ? {...x, fondsDedie: !r.fondsDedie} : x)})}
+                                  className={`text-[10px] font-black px-1 py-0.5 rounded border no-print ${r.fondsDedie ? (darkMode ? 'bg-indigo-900/40 border-indigo-600 text-indigo-300' : 'bg-indigo-100 border-indigo-400 text-indigo-700') : (darkMode ? 'text-gray-600 border-gray-600 hover:text-gray-400' : 'text-slate-300 border-slate-200 hover:text-slate-500')}`}>
+                                  FD
+                                </button>
                               </div>
                             ))}
                             {(poleSupport.recettes||[]).length === 0 && <p className={`text-xs text-center py-2 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Aucune recette</p>}
@@ -3157,6 +3265,25 @@ const BudgetTool = () => {
                           <input className={`flex-1 text-xs font-bold bg-transparent outline-none ${darkMode ? 'text-white' : ''}`} value={item.nom} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, exploitation: s.exploitation.map(exp => exp.id === item.id ? {...exp, nom: e.target.value} : exp)} : s))} />
                           <input type="number" className={`w-20 text-right text-xs font-black rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50'}`} value={item.montant} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, exploitation: s.exploitation.map(exp => exp.id === item.id ? {...exp, montant: validerMontant(e.target.value)} : exp)} : s))} />
                           <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-400'}`}>€/m</span>
+                          {globalParams.gestionTVA && (
+                            <>
+                              <button title="Basculer HT / TTC" onClick={() => setServices(services.map(s => s.id === service.id ? {...s, exploitation: s.exploitation.map(exp => exp.id === item.id ? {...exp, saisieType: (item.saisieType || 'HT') === 'HT' ? 'TTC' : 'HT'} : exp)} : s))}
+                                className={`text-[10px] font-black px-1 py-0.5 rounded border ${(item.saisieType || 'HT') === 'TTC' ? (darkMode ? 'bg-amber-900/40 border-amber-600 text-amber-300' : 'bg-amber-100 border-amber-400 text-amber-700') : (darkMode ? 'bg-gray-600 border-gray-500 text-gray-300' : 'bg-white border-slate-300 text-slate-500')}`}>
+                                {item.saisieType || 'HT'}
+                              </button>
+                              <button title="TVA récupérable / non récupérable" onClick={() => setServices(services.map(s => s.id === service.id ? {...s, exploitation: s.exploitation.map(exp => exp.id === item.id ? {...exp, tvaRecuperable: item.tvaRecuperable === false ? true : false} : exp)} : s))}
+                                className={`text-[10px] font-black px-1 py-0.5 rounded border ${item.tvaRecuperable === false ? (darkMode ? 'bg-red-900/40 border-red-600 text-red-300' : 'bg-red-100 border-red-400 text-red-700') : (darkMode ? 'bg-green-900/40 border-green-600 text-green-300' : 'bg-green-100 border-green-400 text-green-700')}`}>
+                                {item.tvaRecuperable === false ? 'TVA✗' : 'TVA♻'}
+                              </button>
+                            </>
+                          )}
+                          <Tag size={10} className={`${darkMode ? 'text-zinc-500' : 'text-slate-300'}`} />
+                          <input
+                            placeholder="tag"
+                            className={`text-[10px] w-20 rounded px-1 py-0.5 outline-none border ${darkMode ? 'bg-zinc-700 border-zinc-600 text-zinc-300 placeholder-zinc-600' : 'bg-slate-50 border-slate-200 text-slate-600 placeholder-slate-300'} ${item.tagProjet ? (darkMode ? 'border-violet-600 text-violet-300' : 'border-violet-300 text-violet-700') : ''}`}
+                            value={item.tagProjet || ''}
+                            onChange={e => setServices(services.map(s => s.id === service.id ? {...s, exploitation: s.exploitation.map(exp => exp.id === item.id ? {...exp, tagProjet: e.target.value} : exp)} : s))}
+                          />
                           <input type="number" placeholder="réel" title="Montant réalisé (€/mois)" className={`w-16 text-right text-xs rounded px-2 py-1 border ${item.realise != null ? (darkMode ? 'bg-blue-900/40 border-blue-600 text-blue-200' : 'bg-blue-50 border-blue-300 text-blue-800') : (darkMode ? 'bg-gray-700 border-gray-600 text-gray-500' : 'bg-white border-slate-200 text-slate-400')}`} value={item.realise ?? ''} onChange={(e) => { const v = e.target.value === '' ? null : validerMontant(e.target.value); setServices(services.map(s => s.id === service.id ? {...s, exploitation: s.exploitation.map(exp => exp.id === item.id ? {...exp, realise: v} : exp)} : s)); }} />
                           {item.realise != null && (() => { const ecart = (item.realise - item.montant); return <span className={`text-[10px] font-bold ${ecart > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{ecart > 0 ? '+' : ''}{Math.round(ecart).toLocaleString()}€</span>; })()}
                         </div>
@@ -3284,6 +3411,25 @@ const BudgetTool = () => {
                                   onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, dateDebutPrevue: e.target.value} : x)} : s))} />
                               </div>
                             )}
+                            <div className="flex items-center gap-1">
+                              <span className={`text-xs font-semibold ${p.moisPrime ? (darkMode ? 'text-purple-400' : 'text-purple-600') : (darkMode ? 'text-gray-400' : 'text-slate-400')}`}>Prime</span>
+                              <select className={`rounded px-1 py-0.5 text-xs ${p.moisPrime ? (darkMode ? 'bg-purple-900/40 border border-purple-600 text-purple-300' : 'bg-purple-50 border border-purple-300 text-purple-700') : (darkMode ? 'bg-gray-500 text-white' : 'bg-teal-50 border')}`}
+                                value={p.moisPrime || ''}
+                                onChange={e => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, moisPrime: e.target.value ? parseInt(e.target.value) : null, montantPrime: e.target.value ? (x.montantPrime || 0) : 0} : x)} : s))}>
+                                <option value="">Aucune</option>
+                                {['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'].map((m, idx) => (
+                                  <option key={idx + 1} value={idx + 1}>{m}</option>
+                                ))}
+                              </select>
+                              {p.moisPrime && (
+                                <>
+                                  <NumericInput className={`w-20 rounded px-1 py-0.5 text-xs font-bold ${darkMode ? 'bg-purple-900/40 border border-purple-600 text-purple-300' : 'bg-purple-50 border border-purple-300 text-purple-700'}`}
+                                    value={p.montantPrime || 0}
+                                    onChange={v => setServices(services.map(s => s.id === service.id ? {...s, personnel: s.personnel.map(x => x.id === p.id ? {...x, montantPrime: v} : x)} : s))} />
+                                  <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€ brut</span>
+                                </>
+                              )}
+                            </div>
                           </div>
                           {/* Absences */}
                           <details className="mt-1.5">
@@ -3598,6 +3744,12 @@ const BudgetTool = () => {
                           <input className={`flex-1 text-xs font-bold bg-transparent outline-none ${darkMode ? 'text-white' : ''}`} value={item.nom} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, recettes: s.recettes.map(rec => rec.id === item.id ? {...rec, nom: e.target.value} : rec)} : s))} />
                           <input type="number" className={`w-20 text-right text-xs font-black rounded px-2 py-1 ${darkMode ? 'bg-gray-500 text-white' : 'bg-green-50'}`} value={item.montant} onChange={(e) => setServices(services.map(s => s.id === service.id ? {...s, recettes: s.recettes.map(rec => rec.id === item.id ? {...rec, montant: validerMontant(e.target.value)} : rec)} : s))} />
                           <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-400'}`}>€/m</span>
+                          <button
+                            title={item.fondsDedie ? 'Fonds dédiés (reportable) — cliquer pour désactiver' : 'Marquer comme Fonds dédiés (subvention reportable)'}
+                            onClick={() => setServices(services.map(s => s.id === service.id ? {...s, recettes: s.recettes.map(rec => rec.id === item.id ? {...rec, fondsDedie: !rec.fondsDedie} : rec)} : s))}
+                            className={`text-[10px] font-black px-1 py-0.5 rounded border no-print ${item.fondsDedie ? (darkMode ? 'bg-indigo-900/40 border-indigo-600 text-indigo-300' : 'bg-indigo-100 border-indigo-400 text-indigo-700') : (darkMode ? 'text-gray-600 border-gray-600 hover:text-gray-400' : 'text-slate-300 border-slate-200 hover:text-slate-500')}`}>
+                            FD
+                          </button>
                           <input type="number" placeholder="réel" title="Montant réalisé (€/mois)" className={`w-16 text-right text-xs rounded px-2 py-1 border ${item.realise != null ? (darkMode ? 'bg-blue-900/40 border-blue-600 text-blue-200' : 'bg-blue-50 border-blue-300 text-blue-800') : (darkMode ? 'bg-gray-700 border-gray-600 text-gray-500' : 'bg-white border-slate-200 text-slate-400')}`} value={item.realise ?? ''} onChange={(e) => { const v = e.target.value === '' ? null : validerMontant(e.target.value); setServices(services.map(s => s.id === service.id ? {...s, recettes: s.recettes.map(rec => rec.id === item.id ? {...rec, realise: v} : rec)} : s)); }} />
                           {item.realise != null && (() => { const ecart = (item.realise - item.montant); return <span className={`text-[10px] font-bold ${ecart >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{ecart >= 0 ? '+' : ''}{Math.round(ecart).toLocaleString()}€</span>; })()}
                           <button
@@ -3942,7 +4094,7 @@ const BudgetTool = () => {
           const agentsMS = calculerPresenceEquipe(tousP, planningAbsences, 2026);
           const total = tousP.reduce((acc, p) => {
             const segurResolu = p.segur === true ? msETP : (parseFloat(p.segur) || 0);
-            const s = calculerSalaireAnnuel(p.salaire, p.etp, segurResolu);
+            const s = calculerSalaireAnnuel(p.salaire, p.etp, segurResolu, p.typeContrat, p.tauxChargesManuel);
             return acc + s.total;
           }, 0);
           const totalETPReelMS = agentsMS.reduce((s, a) => s + a.presence.etpReel, 0);
@@ -3967,7 +4119,7 @@ const BudgetTool = () => {
           tousP.forEach(p => {
             const r = p.role || 'autre';
             const segurResolu = p.segur === true ? msETP : (parseFloat(p.segur) || 0);
-            const s = calculerSalaireAnnuel(p.salaire, p.etp, segurResolu);
+            const s = calculerSalaireAnnuel(p.salaire, p.etp, segurResolu, p.typeContrat, p.tauxChargesManuel);
             parRole[r] = (parRole[r] || 0) + s.total;
           });
 
@@ -4053,7 +4205,7 @@ const BudgetTool = () => {
                   <tbody>
                     {agentsMS.map((p, idx) => {
                       const segurResolu = p.segur === true ? msETP : (parseFloat(p.segur) || 0);
-                      const s = calculerSalaireAnnuel(p.salaire, p.etp, segurResolu);
+                      const s = calculerSalaireAnnuel(p.salaire, p.etp, segurResolu, p.typeContrat, p.tauxChargesManuel);
                       const isDir = p.source === 'Direction';
                       const etpReel = p.presence.etpReel;
                       const etpDelta = parseFloat(p.etp) - etpReel;
@@ -4437,6 +4589,192 @@ const BudgetTool = () => {
         })()}
 
         {/* ═══════════════════════════════════════════════════════
+            TAGS PROJETS — Synthèse des charges par tag
+            ═══════════════════════════════════════════════════════ */}
+        {(() => {
+          const tagMap = {};
+          const addToTag = (tag, montant, source) => {
+            if (!tag) return;
+            const k = tag.trim().toLowerCase();
+            if (!k) return;
+            if (!tagMap[k]) tagMap[k] = { label: tag.trim(), total: 0, lignes: [] };
+            tagMap[k].total += (parseFloat(montant) || 0) * 12;
+            tagMap[k].lignes.push(source);
+          };
+          (direction.chargesSiege || []).forEach(c => addToTag(c.tagProjet, c.montant, `Siège — ${c.nom}`));
+          (poleSupport.exploitation || []).forEach(c => addToTag(c.tagProjet, c.montant, `Pôle Support — ${c.nom}`));
+          services.forEach(s => (s.exploitation || []).forEach(c => addToTag(c.tagProjet, c.montant, `${s.nom} — ${c.nom}`)));
+          const tags = Object.values(tagMap).sort((a, b) => b.total - a.total);
+          if (tags.length === 0) return null;
+          return (
+            <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-slate-200'}`}>
+              <h2 className={`text-lg font-black flex items-center gap-2 mb-5 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <Tag size={20} className="text-violet-500" /> Synthèse par Tag Projet
+              </h2>
+              <div className="space-y-3">
+                {tags.map(tag => (
+                  <div key={tag.label} className={`rounded-xl p-4 border ${darkMode ? 'bg-zinc-700/50 border-zinc-600' : 'bg-violet-50 border-violet-100'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className={`font-black text-sm flex items-center gap-1.5 ${darkMode ? 'text-violet-200' : 'text-violet-800'}`}>
+                        <Tag size={13} /> {tag.label}
+                      </span>
+                      <span className={`font-black text-base ${darkMode ? 'text-violet-300' : 'text-violet-700'}`}>
+                        {Math.round(tag.total).toLocaleString()} €/an
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {tag.lignes.map((l, i) => (
+                        <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full border ${darkMode ? 'bg-zinc-800 border-zinc-600 text-zinc-400' : 'bg-white border-violet-200 text-slate-600'}`}>{l}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <div className={`pt-3 flex justify-between font-black text-sm border-t ${darkMode ? 'border-zinc-700 text-zinc-200' : 'border-violet-200 text-slate-700'}`}>
+                  <span>{tags.length} tag{tags.length > 1 ? 's' : ''}</span>
+                  <span>{tags.reduce((s, t) => s + t.total, 0).toLocaleString()} €/an total tagué</span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ═══════════════════════════════════════════════════════
+            VALORISATION DU BÉNÉVOLAT — Comptes 86/87
+            ═══════════════════════════════════════════════════════ */}
+        {(() => {
+          // Taux horaire SMIC chargé = SMIC mensuel / (35h × 52/12 semaines) × (1 + 42% charges)
+          const tauxHoraireBenevole = SMIC_MENSUEL / (35 * 52 / 12) * 1.42;
+          const totalHeures = benevoles.reduce((s, b) => s + (parseFloat(b.heures) || 0), 0);
+          const totalValorisation = totalHeures * tauxHoraireBenevole;
+          return (
+            <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-slate-200'}`}>
+              <div className="flex items-center justify-between mb-5">
+                <h2 className={`text-lg font-black flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                  <Heart size={20} className="text-rose-500" /> Valorisation du Bénévolat
+                  <span className={`text-xs font-normal ml-2 ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Comptes 86 (emplois) / 87 (ressources)</span>
+                </h2>
+                <button
+                  onClick={() => setBenevoles([...benevoles, { id: Date.now(), nom: 'Bénévole', categorie: 'Animation', heures: 0 }])}
+                  className="bg-rose-500 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-sm font-bold no-print"
+                >
+                  <Plus size={16} /> Ajouter
+                </button>
+              </div>
+              <div className={`mb-4 p-3 rounded-xl text-xs ${darkMode ? 'bg-zinc-700/50 text-zinc-400' : 'bg-rose-50 text-rose-700'}`}>
+                Taux de valorisation : <strong>{tauxHoraireBenevole.toFixed(2)} €/h</strong>
+                {' '}(SMIC brut {SMIC_MENSUEL.toLocaleString()} €/mois ÷ 151,67 h × 1,42 charges)
+              </div>
+              {benevoles.length > 0 ? (
+                <div className="space-y-2 mb-4">
+                  <div className={`grid grid-cols-12 gap-2 text-xs font-bold uppercase tracking-wide pb-1 border-b ${darkMode ? 'text-zinc-400 border-zinc-700' : 'text-slate-500 border-slate-200'}`}>
+                    <span className="col-span-4">Nom / rôle</span>
+                    <span className="col-span-3">Catégorie</span>
+                    <span className="col-span-2 text-right">Heures/an</span>
+                    <span className="col-span-3 text-right">Valorisation</span>
+                  </div>
+                  {benevoles.map(b => {
+                    const h = parseFloat(b.heures) || 0;
+                    const val = h * tauxHoraireBenevole;
+                    return (
+                      <div key={b.id} className={`grid grid-cols-12 gap-2 items-center py-1.5 rounded-lg px-2 group relative ${darkMode ? 'hover:bg-zinc-700/50' : 'hover:bg-rose-50/50'}`}>
+                        <button onClick={() => setBenevoles(benevoles.filter(x => x.id !== b.id))} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 no-print"><Trash2 size={10} /></button>
+                        <input
+                          className={`col-span-4 text-sm font-semibold bg-transparent outline-none ${darkMode ? 'text-white' : 'text-slate-800'}`}
+                          value={b.nom} placeholder="Nom / rôle"
+                          onChange={e => setBenevoles(benevoles.map(x => x.id === b.id ? {...x, nom: e.target.value} : x))}
+                        />
+                        <input
+                          className={`col-span-3 text-xs bg-transparent outline-none ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}
+                          value={b.categorie} placeholder="Catégorie"
+                          onChange={e => setBenevoles(benevoles.map(x => x.id === b.id ? {...x, categorie: e.target.value} : x))}
+                        />
+                        <input
+                          type="number" min="0"
+                          className={`col-span-2 text-right text-sm font-bold rounded px-2 py-0.5 ${darkMode ? 'bg-zinc-700 text-white' : 'bg-slate-50 border border-slate-200'}`}
+                          value={b.heures}
+                          onChange={e => setBenevoles(benevoles.map(x => x.id === b.id ? {...x, heures: parseFloat(e.target.value) || 0} : x))}
+                        />
+                        <span className={`col-span-3 text-right text-sm font-bold ${darkMode ? 'text-rose-300' : 'text-rose-700'}`}>
+                          {Math.round(val).toLocaleString()} €
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className={`text-sm text-center py-6 ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>
+                  Aucun bénévole — cliquez Ajouter pour valoriser les heures de bénévolat
+                </p>
+              )}
+              {benevoles.length > 0 && (
+                <div className={`pt-3 border-t flex items-center justify-between ${darkMode ? 'border-zinc-700' : 'border-rose-200'}`}>
+                  <div className={`text-sm ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>
+                    <span className="font-bold">{totalHeures.toLocaleString()} h</span> bénévoles
+                    {' · '}Cpte <span className="font-mono font-bold">8600</span> Emplois en nature
+                    {' / '}Cpte <span className="font-mono font-bold">8700</span> Ressources en nature
+                  </div>
+                  <div className={`text-lg font-black ${darkMode ? 'text-rose-300' : 'text-rose-700'}`}>
+                    {Math.round(totalValorisation).toLocaleString()} €
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* ═══════════════════════════════════════════════════════
+            FONDS DÉDIÉS — Synthèse des recettes reportables
+            ═══════════════════════════════════════════════════════ */}
+        {(() => {
+          const allRecettes = [
+            ...(direction.recettes || []).map(r => ({ ...r, source: 'Direction / Siège' })),
+            ...(poleSupport.recettes || []).map(r => ({ ...r, source: 'Pôle Support' })),
+            ...services.flatMap(s => (s.recettes || []).map(r => ({ ...r, source: s.nom }))),
+          ];
+          const fd = allRecettes.filter(r => r.fondsDedie);
+          const totalFD = fd.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0);
+          const totalOrdinaires = allRecettes.filter(r => !r.fondsDedie).reduce((s, r) => s + (parseFloat(r.montant) || 0), 0);
+          if (fd.length === 0) return null;
+          return (
+            <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-slate-200'}`}>
+              <h2 className={`text-lg font-black flex items-center gap-2 mb-5 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <Wallet size={20} className="text-indigo-500" /> Fonds Dédiés — Recettes reportables
+              </h2>
+              <div className="space-y-2 mb-4">
+                {fd.map(r => (
+                  <div key={r.id} className={`flex items-center justify-between rounded-xl px-4 py-2 ${darkMode ? 'bg-indigo-900/20 border border-indigo-800' : 'bg-indigo-50 border border-indigo-100'}`}>
+                    <div>
+                      <span className={`text-sm font-bold ${darkMode ? 'text-indigo-200' : 'text-indigo-800'}`}>{r.nom}</span>
+                      <span className={`ml-2 text-xs ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>{r.source}</span>
+                    </div>
+                    <span className={`font-black ${darkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>
+                      {((parseFloat(r.montant) || 0) * 12).toLocaleString()} €/an
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className={`pt-3 border-t grid grid-cols-3 gap-4 text-center ${darkMode ? 'border-zinc-700' : 'border-indigo-200'}`}>
+                <div>
+                  <div className={`text-xl font-black ${darkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>{(totalFD * 12).toLocaleString()} €</div>
+                  <div className={`text-xs mt-0.5 ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Fonds dédiés / an</div>
+                </div>
+                <div>
+                  <div className={`text-xl font-black ${darkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>{(totalOrdinaires * 12).toLocaleString()} €</div>
+                  <div className={`text-xs mt-0.5 ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Recettes ordinaires / an</div>
+                </div>
+                <div>
+                  <div className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{Math.round(totalFD / (totalFD + totalOrdinaires) * 100)}%</div>
+                  <div className={`text-xs mt-0.5 ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Part fonds dédiés</div>
+                </div>
+              </div>
+              <p className={`mt-3 text-xs ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>
+                Les fonds dédiés sont isolés du résultat net — ils représentent des subventions affectées reportables d'un exercice à l'autre (Cpte 19).
+              </p>
+            </div>
+          );
+        })()}
+
+        {/* ═══════════════════════════════════════════════════════
             POOL RH — AGENTS PARTAGÉS
             ═══════════════════════════════════════════════════════ */}
         <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-slate-200'}`}>
@@ -4620,8 +4958,62 @@ const BudgetTool = () => {
                   </div>
                   <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Montant brut ajouté au salaire des agents éligibles</p>
                 </div>
+                <div className={`rounded-2xl p-4 border col-span-2 ${globalParams.taxeSalaires ? (darkMode ? 'bg-rose-900/20 border-rose-700' : 'bg-rose-50 border-rose-200') : (darkMode ? 'bg-gray-700/30 border-gray-600' : 'bg-slate-50 border-slate-200')}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <InfoTooltip content="Taxe sur les salaires (CGI art. 231) : due par les associations non assujetties à la TVA sur tout ou partie de leur activité. Taux progressif : 4,25 % jusqu'à 8 985 €, 8,50 % de 8 986 à 17 936 €, 13,60 % au-delà. Saisir le taux moyen effectif de votre structure." darkMode={darkMode} position="top">
+                      <label className={`text-xs font-bold uppercase tracking-widest cursor-help ${globalParams.taxeSalaires ? (darkMode ? 'text-rose-400' : 'text-rose-600') : (darkMode ? 'text-gray-400' : 'text-slate-500')}`}>Taxe sur les salaires</label>
+                    </InfoTooltip>
+                    <button
+                      onClick={() => setGlobalParams({...globalParams, taxeSalaires: !globalParams.taxeSalaires})}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${globalParams.taxeSalaires ? 'bg-rose-500 text-white' : (darkMode ? 'bg-gray-600 text-gray-300' : 'bg-slate-200 text-slate-600')}`}
+                    >
+                      {globalParams.taxeSalaires ? 'Active' : 'Inactive'}
+                    </button>
+                  </div>
+                  {globalParams.taxeSalaires && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <input type="number" step="0.01" min="0" max="20"
+                        value={globalParams.tauxTaxeSalaires ?? 4.25}
+                        onChange={e => setGlobalParams({...globalParams, tauxTaxeSalaires: validerTaux(e.target.value)})}
+                        className={`rounded-xl px-3 py-2 font-black text-2xl outline-none w-24 border ${darkMode ? 'bg-gray-700 text-rose-300 border-rose-700' : 'bg-white text-rose-700 border-rose-200'}`}
+                      />
+                      <span className={`text-lg font-black ${darkMode ? 'text-rose-400' : 'text-rose-600'}`}>%</span>
+                      <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>appliqué à la masse salariale totale — taux moyen effectif de la structure</span>
+                    </div>
+                  )}
+                  {!globalParams.taxeSalaires && (
+                    <p className={`text-xs mt-1 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Activez si votre association est non assujettie à la TVA (ou partiellement) — impacte trésorerie et synthèse annuelle</p>
+                  )}
+                </div>
               </div>
-              <div className={`mt-4 rounded-2xl p-4 border flex items-center justify-between ${darkMode ? 'bg-gray-700/40 border-gray-600' : 'bg-slate-50 border-slate-200'}`}>
+              <div className={`mt-4 rounded-2xl p-4 border ${globalParams.gestionTVA ? (darkMode ? 'bg-amber-900/20 border-amber-700' : 'bg-amber-50 border-amber-200') : (darkMode ? 'bg-gray-700/30 border-gray-600' : 'bg-slate-50 border-slate-200')}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <InfoTooltip content="Active la gestion TVA sur les lignes d'exploitation. Chaque charge peut être saisie HT ou TTC, avec indication si la TVA est récupérable (déductible) ou non récupérable (coût définitif pour l'asso). Le coût réel intégré dans les budgets est ajusté automatiquement." darkMode={darkMode} position="top">
+                    <p className={`font-bold cursor-help ${globalParams.gestionTVA ? (darkMode ? 'text-amber-300' : 'text-amber-700') : (darkMode ? 'text-white' : 'text-slate-800')}`}>Gestion TVA sur les charges</p>
+                  </InfoTooltip>
+                  <button
+                    onClick={() => setGlobalParams({...globalParams, gestionTVA: !globalParams.gestionTVA})}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${globalParams.gestionTVA ? 'bg-amber-500 text-white' : (darkMode ? 'bg-gray-600 text-gray-300' : 'bg-slate-200 text-slate-600')}`}
+                  >
+                    {globalParams.gestionTVA ? 'Active' : 'Inactive'}
+                  </button>
+                </div>
+                {globalParams.gestionTVA ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Taux TVA moyen</span>
+                    <input type="number" step="0.1" min="0" max="30"
+                      value={globalParams.tauxTVAMoyen ?? 20}
+                      onChange={e => setGlobalParams({...globalParams, tauxTVAMoyen: validerTaux(e.target.value)})}
+                      className={`rounded-lg px-2 py-1 font-black text-lg outline-none w-16 border ${darkMode ? 'bg-gray-700 text-amber-300 border-amber-700' : 'bg-white text-amber-700 border-amber-300'}`}
+                    />
+                    <span className={`text-lg font-black ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>%</span>
+                    <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>utilisé si non précisé sur la ligne</span>
+                  </div>
+                ) : (
+                  <p className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Activez pour préciser HT/TTC et récupérabilité TVA sur chaque charge d'exploitation</p>
+                )}
+              </div>
+              <div className={`mt-3 rounded-2xl p-4 border flex items-center justify-between ${darkMode ? 'bg-gray-700/40 border-gray-600' : 'bg-slate-50 border-slate-200'}`}>
                 <div>
                   <p className={`font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>Mode sombre</p>
                   <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Basculer entre thème clair et sombre</p>

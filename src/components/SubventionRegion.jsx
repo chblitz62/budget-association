@@ -45,6 +45,7 @@ export default function SubventionRegion({
   calculerBudgetService,
   calculerBudgetDirection,
   calculerBudgetPoleSupport,
+  personnelEligible  = [],   // agents cochés "Subv." dans RH/Budget → liaison automatique
 }) {
 
   // Taux de financement régional (persistés)
@@ -149,10 +150,18 @@ export default function SubventionRegion({
     coutEligible: rowsTransversal.reduce((s, r) => s + r.coutEligible, 0),
     subvention:   rowsTransversal.reduce((s, r) => s + r.subvention,   0),
   }), [rowsTransversal]);
+  // ── Masse salariale RH éligible (agents cochés "Subv." depuis l'onglet Budget) ──
+  const totRH = useMemo(() => {
+    const total     = personnelEligible.reduce((s, p) => s + (p.coutAnnuel || 0), 0);
+    const eligible  = personnelEligible.reduce((s, p) => s + (p.coutSubventionnable || 0), 0);
+    const subv      = eligible * (taux.fi / 100);
+    return { coutTotal: total, coutEligible: eligible, subvention: subv };
+  }, [personnelEligible, taux.fi]);
+
   const grand = {
-    coutTotal:    totF.coutTotal    + totT.coutTotal,
-    coutEligible: totF.coutEligible + totT.coutEligible,
-    subvention:   totF.subvention   + totT.subvention,
+    coutTotal:    totF.coutTotal    + totT.coutTotal    + totRH.coutTotal,
+    coutEligible: totF.coutEligible + totT.coutEligible + totRH.coutEligible,
+    subvention:   totF.subvention   + totT.subvention   + totRH.subvention,
   };
 
   // ── Export Excel ──────────────────────────────────────────────────────────
@@ -460,6 +469,57 @@ export default function SubventionRegion({
           </>
         )}
       </div>
+
+      {/* Personnel RH éligible (liaison automatique depuis onglet Budget) */}
+      {personnelEligible.length > 0 && (
+        <div className={card}>
+          <div className="flex items-center gap-2 mb-4">
+            <span className={`p-2 rounded-xl ${sectionIconCls('purple')}`}><Zap size={18}/></span>
+            <div>
+              <h3 className={`font-black text-base ${darkMode ? 'text-white' : 'text-slate-800'}`}>Masse salariale RH éligible</h3>
+              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Agents cochés « Subv. » dans l'onglet Budget — liaison automatique</p>
+            </div>
+            <span className={`ml-auto px-3 py-1 rounded-full text-xs font-bold ${darkMode ? 'bg-violet-900/40 text-violet-300' : 'bg-violet-100 text-violet-700'}`}>
+              {personnelEligible.length} agent{personnelEligible.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className={darkMode ? 'bg-gray-700' : 'bg-slate-50'}>
+                  <th className={th}>Agent</th>
+                  <th className={th}>Service</th>
+                  <th className={`${th} text-right`}>Coût annuel</th>
+                  <th className={`${th} text-right`}>% FI</th>
+                  <th className={`${th} text-right`}>Coût subventionnable</th>
+                  <th className={`${th} text-right`}>Subvention ({taux.fi}%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {personnelEligible.map(p => (
+                  <tr key={p.id} className={`border-b ${darkMode ? 'border-gray-700' : 'border-slate-100'}`}>
+                    <td className={td}>{p.titre || 'Sans nom'}</td>
+                    <td className={`${td} text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{p._source}</td>
+                    <td className={tdR}>{fmt(p.coutAnnuel)}</td>
+                    <td className={`${tdR} text-xs`}>{p.pctFI}%</td>
+                    <td className={tdR}>{fmt(p.coutSubventionnable)}</td>
+                    <td className={`${tdR} font-black ${darkMode ? 'text-violet-300' : 'text-violet-700'}`}>{fmt(p.coutSubventionnable * taux.fi / 100)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className={`font-black ${darkMode ? 'bg-violet-900/20 text-violet-300' : 'bg-violet-50 text-violet-800'}`}>
+                  <td className={td} colSpan={2}>Sous-total Personnel RH éligible</td>
+                  <td className={tdR}>{fmt(totRH.coutTotal)}</td>
+                  <td />
+                  <td className={tdR}>{fmt(totRH.coutEligible)}</td>
+                  <td className={tdR}>{fmt(totRH.subvention)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Récapitulatif */}
       <div className={card}>

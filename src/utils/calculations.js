@@ -1,4 +1,4 @@
-import { CHARGES_PATRONALES, TAUX_CHARGE_TOTAL, PRIME_SEGUR, JOURS_ANNEE, JOURS_OUVRES_AN, JOURS_CONGES_LEGAL, JOURS_CARENCE_MALADIE, CHARGES_VACATAIRE, SEUIL_HEURES_VACATAIRE, SEUIL_RATIO_VACATAIRE, calculerStatsFormation, SMIC_MENSUEL, TAUX_FILLON_MAX, TAUX_CHARGES_APPRENTI } from './constants';
+import { CHARGES_PATRONALES, TAUX_CHARGE_TOTAL, PRIME_SEGUR, JOURS_ANNEE, JOURS_OUVRES_AN, JOURS_CONGES_LEGAL, JOURS_CARENCE_MALADIE, CHARGES_VACATAIRE, SEUIL_HEURES_VACATAIRE, SEUIL_RATIO_VACATAIRE, calculerStatsFormation, SMIC_MENSUEL, TAUX_FILLON_MAX, TAUX_CHARGES_APPRENTI, TAUX_TAXE_SALAIRES } from './constants';
 
 // Normalise une saisie en notation française (2.500 → 2500, 2 500,50 → 2500.5)
 const parseLocaleNumber = (valeur) => {
@@ -114,7 +114,7 @@ export const calculerTauxCharges = (salaireAnnuelBrut, etp, typeContrat = 'CDI')
  *  segur           : coût Ségur total employeur (brut + charges patronales sur Ségur)
  *  total           : coût employeur complet = brut + charges + segur
  */
-export const calculerSalaireAnnuel = (salaire, etp, segur, typeContrat = 'CDI', tauxChargesManuel = null, dateDebutPrevue = null) => {
+export const calculerSalaireAnnuel = (salaire, etp, segur, typeContrat = 'CDI', tauxChargesManuel = null, dateDebutPrevue = null, moisPrime = null, montantPrime = 0) => {
   const etpNum             = parseFloat(etp) || 0;
   const salaireNum         = parseFloat(salaire) || 0;
 
@@ -141,13 +141,21 @@ export const calculerSalaireAnnuel = (salaire, etp, segur, typeContrat = 'CDI', 
   const tauxManuelNum       = parseFloat(tauxChargesManuel);
   const tauxChargesAuto     = !(tauxManuelNum > 0);
   const tauxCharges         = tauxChargesAuto
-    ? calculerTauxCharges(baseCharges, etpNum, typeContrat)
+    ? calculerTauxCharges(baseCharges, etpNum * coeffPresence, typeContrat)
     : tauxManuelNum / 100;
 
   const charges             = baseCharges * tauxCharges;
 
   // Coût Ségur total employeur = Ségur brut + charges patronales sur Ségur
   const segurEmployeur      = brutSegur * (1 + tauxCharges);
+
+  // Prime exceptionnelle / saisonnière (versée une fois dans l'année)
+  const moisPrimeNum        = moisPrime ? parseInt(moisPrime, 10) : null;
+  const primeMontantNum     = parseFloat(montantPrime) || 0;
+  const primeBrute          = (moisPrimeNum >= 1 && moisPrimeNum <= 12 && primeMontantNum > 0)
+    ? primeMontantNum * etpNum * coeffPresence
+    : 0;
+  const primeEmployeur      = primeBrute * (1 + tauxCharges);
 
   return {
     brut:            salaireAnnuel,
@@ -156,7 +164,10 @@ export const calculerSalaireAnnuel = (salaire, etp, segur, typeContrat = 'CDI', 
     tauxCharges:     tauxCharges,
     tauxChargesAuto: tauxChargesAuto,
     segur:           segurEmployeur,
-    total:           salaireAnnuel + charges + brutSegur
+    primeBrute,
+    primeEmployeur,
+    moisPrime:       moisPrimeNum,
+    total:           salaireAnnuel + charges + brutSegur + primeEmployeur,
   };
 };
 
@@ -228,9 +239,9 @@ export const calculerAmortissementEtInterets = (investissement) => {
 };
 
 // Calcul du budget Direction (avec impact absences si planningAbsences fourni)
-export const calculerBudgetDirection = (direction, planningAbsences = null, annee = 2026, montantSegurETP = PRIME_SEGUR, poolRH = []) => {
+export const calculerBudgetDirection = (direction, planningAbsences = null, annee = 2026, montantSegurETP = PRIME_SEGUR, poolRH = [], tvaParams = null) => {
   const detailsSalaires = (direction.personnel || []).map(p => {
-    const sal = calculerSalaireAnnuel(p.salaire, p.etp, resolveSegur(p.segur, montantSegurETP), p.typeContrat, p.tauxChargesManuel, p.estPosteAPourvoir ? p.dateDebutPrevue : null);
+    const sal = calculerSalaireAnnuel(p.salaire, p.etp, resolveSegur(p.segur, montantSegurETP), p.typeContrat, p.tauxChargesManuel, p.estPosteAPourvoir ? p.dateDebutPrevue : null, p.moisPrime, p.montantPrime);
     const presence = planningAbsences
       ? calculerPresenceAgent(p, 'Direction', planningAbsences, annee)
       : null;
@@ -255,10 +266,10 @@ export const calculerBudgetDirection = (direction, planningAbsences = null, anne
 
   // Exploitation = chargesSiege[] (legacy) + exploitation[] (nouveau) + anciens champs loyer/charges
   const chargesSiegeLeg = direction.chargesSiege
-    ? direction.chargesSiege.reduce((sum, c) => sum + (parseFloat(c.montant) || 0), 0) * 12
+    ? direction.chargesSiege.reduce((sum, c) => sum + _montantReelExploitation(c, tvaParams) * 12, 0)
     : ((direction.loyer || 0) + (direction.charges || 0) + (direction.autresCharges || 0)) * 12;
   const exploitationSup = (direction.exploitation || [])
-    .reduce((sum, c) => sum + (parseFloat(c.montant) || 0), 0) * 12;
+    .reduce((sum, c) => sum + _montantReelExploitation(c, tvaParams) * 12, 0);
   const exploitation = chargesSiegeLeg + exploitationSup;
 
   // Recettes propres de la direction
@@ -294,9 +305,9 @@ export const calculerBudgetDirection = (direction, planningAbsences = null, anne
 
 // Calcul du budget Service (remplace calculerBudgetLieu)
 // planningAbsences optionnel : si fourni, intègre l'impact des arrêts maladie (coût carence)
-export const calculerBudgetService = (service, planningAbsences = null, annee = 2026, montantSegurETP = PRIME_SEGUR, poolRH = []) => {
+export const calculerBudgetService = (service, planningAbsences = null, annee = 2026, montantSegurETP = PRIME_SEGUR, poolRH = [], tvaParams = null) => {
   const detailsSalaires = (service.personnel || []).map(p => {
-    const sal = calculerSalaireAnnuel(p.salaire, p.etp, resolveSegur(p.segur, montantSegurETP), p.typeContrat, p.tauxChargesManuel, p.estPosteAPourvoir ? p.dateDebutPrevue : null);
+    const sal = calculerSalaireAnnuel(p.salaire, p.etp, resolveSegur(p.segur, montantSegurETP), p.typeContrat, p.tauxChargesManuel, p.estPosteAPourvoir ? p.dateDebutPrevue : null, p.moisPrime, p.montantPrime);
     const presence = planningAbsences
       ? calculerPresenceAgent(p, service.nom, planningAbsences, annee)
       : null;
@@ -355,7 +366,7 @@ export const calculerBudgetService = (service, planningAbsences = null, annee = 
     return sum + sal.total * pctMoyen / 100;
   }, 0);
 
-  const exploitation = service.exploitation.reduce((sum, item) => sum + item.montant * 12, 0);
+  const exploitation = service.exploitation.reduce((sum, item) => sum + _montantReelExploitation(item, tvaParams) * 12, 0);
   const exploitationRealisee = service.exploitation.reduce((sum, item) => item.realise != null ? sum + item.realise * 12 : sum, 0);
 
   // Calcul des recettes annuelles
@@ -461,9 +472,9 @@ export const calculerBudgetService = (service, planningAbsences = null, annee = 
 export const calculerBudgetLieu = calculerBudgetService;
 
 // Calcul du budget Pôle Support
-export const calculerBudgetPoleSupport = (poleSupport, planningAbsences = null, annee = 2026, montantSegurETP = PRIME_SEGUR, poolRH = []) => {
+export const calculerBudgetPoleSupport = (poleSupport, planningAbsences = null, annee = 2026, montantSegurETP = PRIME_SEGUR, poolRH = [], tvaParams = null) => {
   const detailsSalaires = (poleSupport.personnel || []).map(p => {
-    const sal = calculerSalaireAnnuel(p.salaire, p.etp, resolveSegur(p.segur, montantSegurETP), p.typeContrat, p.tauxChargesManuel, p.estPosteAPourvoir ? p.dateDebutPrevue : null);
+    const sal = calculerSalaireAnnuel(p.salaire, p.etp, resolveSegur(p.segur, montantSegurETP), p.typeContrat, p.tauxChargesManuel, p.estPosteAPourvoir ? p.dateDebutPrevue : null, p.moisPrime, p.montantPrime);
     const presence = planningAbsences
       ? calculerPresenceAgent(p, 'Pôle Support', planningAbsences, annee)
       : null;
@@ -482,7 +493,7 @@ export const calculerBudgetPoleSupport = (poleSupport, planningAbsences = null, 
   const etpReel = detailsSalaires.reduce((s, d) => s + (d.presence ? d.presence.etpReel : parseFloat(d.etp || 0)), 0);
   const partPool = calculerPartPoolRH(poolRH, 'poleSupport', null, montantSegurETP);
   const salaires = salairesPermanents + partPool.totalSalaires;
-  const exploitation = (poleSupport.exploitation || []).reduce((sum, item) => sum + (parseFloat(item.montant) || 0) * 12, 0);
+  const exploitation = (poleSupport.exploitation || []).reduce((sum, item) => sum + _montantReelExploitation(item, tvaParams) * 12, 0);
   const recettes = (poleSupport.recettes || []).reduce((sum, item) => sum + (parseFloat(item.montant) || 0) * 12, 0);
 
   // Amortissements (si investissements renseignés)
@@ -505,20 +516,21 @@ export const calculerBudgetPoleSupport = (poleSupport, planningAbsences = null, 
 // Calcul des provisions (dynamique avec catégories personnalisables)
 export const calculerProvisions = (direction, services, globalParams, poleSupport = null, poolRH = []) => {
   const msETP = globalParams.montantSegurETP ?? PRIME_SEGUR;
-  const budgetDir = calculerBudgetDirection(direction, null, 2026, msETP, poolRH);
+  const tvaParams = globalParams?.gestionTVA ? { gestionTVA: true, tauxTVAMoyen: globalParams.tauxTVAMoyen ?? 20 } : null;
+  const budgetDir = calculerBudgetDirection(direction, null, 2026, msETP, poolRH, tvaParams);
   let totalSalaires = budgetDir.salaires;
   let totalInvestissements = 0;
   let chiffreAffaires = 0;
 
   services.forEach(s => {
-    const bService = calculerBudgetService(s, null, 2026, msETP, poolRH);
+    const bService = calculerBudgetService(s, null, 2026, msETP, poolRH, tvaParams);
     totalSalaires += bService.salaires;
     totalInvestissements += bService.totalInvestissements;
     chiffreAffaires += bService.recettes; // CA = recettes, pas les charges totales
   });
 
   if (poleSupport) {
-    const bPS = calculerBudgetPoleSupport(poleSupport, null, 2026, msETP, poolRH);
+    const bPS = calculerBudgetPoleSupport(poleSupport, null, 2026, msETP, poolRH, tvaParams);
     totalSalaires += bPS.salaires;
   }
 
@@ -559,20 +571,21 @@ export const calculerProvisions = (direction, services, globalParams, poleSuppor
 // Calcul du BFR
 export const calculerBFR = (direction, services, globalParams, poleSupport = null, poolRH = []) => {
   const msETP = globalParams?.montantSegurETP ?? PRIME_SEGUR;
+  const tvaParams = globalParams?.gestionTVA ? { gestionTVA: true, tauxTVAMoyen: globalParams.tauxTVAMoyen ?? 20 } : null;
   let chiffreAffaires = 0;
   let achatsExploitation = 0;
 
-  const budgetDir = calculerBudgetDirection(direction, null, 2026, msETP, poolRH);
+  const budgetDir = calculerBudgetDirection(direction, null, 2026, msETP, poolRH, tvaParams);
   achatsExploitation += budgetDir.chargesSiege;
 
   services.forEach(s => {
-    const bService = calculerBudgetService(s, null, 2026, msETP, poolRH);
+    const bService = calculerBudgetService(s, null, 2026, msETP, poolRH, tvaParams);
     chiffreAffaires += bService.recettes;
     achatsExploitation += bService.exploitation;
   });
 
   if (poleSupport) {
-    const bPS = calculerBudgetPoleSupport(poleSupport, null, 2026, msETP, poolRH);
+    const bPS = calculerBudgetPoleSupport(poleSupport, null, 2026, msETP, poolRH, tvaParams);
     achatsExploitation += bPS.exploitation;
   }
 
@@ -631,8 +644,9 @@ export const calculerFondRoulement = (direction, services, globalParams) => {
 // Calcul synthèse 3 ans
 export const calculerSynthese3Ans = (direction, services, globalParams, poleSupport = null, poolRH = []) => {
   const msETP = globalParams?.montantSegurETP ?? PRIME_SEGUR;
-  const bServices = services.map(s => calculerBudgetService(s, null, 2026, msETP, poolRH));
-  const bPoleSupport = poleSupport ? calculerBudgetPoleSupport(poleSupport, null, 2026, msETP, poolRH) : null;
+  const tvaParams = globalParams?.gestionTVA ? { gestionTVA: true, tauxTVAMoyen: globalParams.tauxTVAMoyen ?? 20 } : null;
+  const bServices = services.map(s => calculerBudgetService(s, null, 2026, msETP, poolRH, tvaParams));
+  const bPoleSupport = poleSupport ? calculerBudgetPoleSupport(poleSupport, null, 2026, msETP, poolRH, tvaParams) : null;
 
   return [1, 2, 3].map(annee => {
     const indexAnnee = annee - 1;
@@ -652,7 +666,7 @@ export const calculerSynthese3Ans = (direction, services, globalParams, poleSupp
       return 'autres';
     };
 
-    const budgetDir = calculerBudgetDirection(direction, null, 2026, msETP, poolRH);
+    const budgetDir = calculerBudgetDirection(direction, null, 2026, msETP, poolRH, tvaParams);
     const budgetDirAjuste = budgetDir.salaires * augmentation * gvtCoeff + budgetDir.chargesSiege * augmentation;
     const budgetPSAjuste = bPoleSupport
       ? bPoleSupport.salaires * augmentation * gvtCoeff + bPoleSupport.exploitation * augmentation
@@ -711,10 +725,50 @@ export const calculerSynthese3Ans = (direction, services, globalParams, poleSupp
   });
 };
 
+// ─── HELPER INTERNE : coût réel d'une ligne d'exploitation selon régime TVA ──
+//
+// Modèle retenu (DAF médico-social) :
+//   saisieType = 'HT' | 'TTC'  — comment le montant a été saisi
+//   tvaRecuperable = true | false — TVA déductible ou à la charge définitive de l'asso
+//   tauxTVA = null → utilise tvaParams.tauxTVAMoyen
+//
+// Coût réel = HT si TVA récupérable, TTC si TVA non récupérable.
+const _montantReelExploitation = (item, tvaParams) => {
+  const montant = parseFloat(item.montant) || 0;
+  if (!tvaParams?.gestionTVA) return montant;
+
+  const taux = ((item.tauxTVA != null ? item.tauxTVA : (tvaParams.tauxTVAMoyen ?? 20)) / 100);
+  const saisieType = item.saisieType || 'HT';
+  const tvaRecup = item.tvaRecuperable !== false; // true par défaut
+
+  const montantHT = saisieType === 'TTC' ? montant / (1 + taux) : montant;
+  return tvaRecup ? montantHT : montantHT * (1 + taux);
+};
+
+// ─── HELPER INTERNE : distribution mensuelle des primes ──────────────────────
+// Retourne un tableau de 12 valeurs (coût employeur prime par mois).
+// Les agents sans prime (moisPrime absent ou nul) contribuent 0.
+const _calculerPrimesMensuelles = (agents, montantSegurETP = PRIME_SEGUR) => {
+  const arr = Array(12).fill(0);
+  (agents || []).forEach(p => {
+    const mois = parseInt(p.moisPrime, 10);
+    const montant = parseFloat(p.montantPrime) || 0;
+    if (mois >= 1 && mois <= 12 && montant > 0) {
+      const etpNum = parseFloat(p.etp) || 0;
+      const sal = calculerSalaireAnnuel(p.salaire, etpNum, resolveSegur(p.segur, montantSegurETP), p.typeContrat, p.tauxChargesManuel);
+      arr[mois - 1] += montant * etpNum * (1 + sal.tauxCharges);
+    }
+  });
+  return arr;
+};
+
 // Calcul budget annuel détaillé par mois
 export const calculerBudgetAnnuelMensuel = (direction, services, globalParams, poleSupport = null, poolRH = []) => {
   const msETP = globalParams?.montantSegurETP ?? PRIME_SEGUR;
-  const budgetDir = calculerBudgetDirection(direction, null, 2026, msETP, poolRH);
+  const tvaParams = globalParams?.gestionTVA
+    ? { gestionTVA: true, tauxTVAMoyen: globalParams.tauxTVAMoyen ?? 20 }
+    : null;
+  const budgetDir = calculerBudgetDirection(direction, null, 2026, msETP, poolRH, tvaParams);
 
   let totalSalaires = budgetDir.salaires;
   let totalExploitation = budgetDir.chargesSiege;
@@ -722,7 +776,7 @@ export const calculerBudgetAnnuelMensuel = (direction, services, globalParams, p
   let totalInterets = 0;
 
   services.forEach(s => {
-    const bService = calculerBudgetService(s, null, 2026, msETP, poolRH);
+    const bService = calculerBudgetService(s, null, 2026, msETP, poolRH, tvaParams);
     totalSalaires += bService.salaires;
     totalExploitation += bService.exploitation;
     totalAmortissements += bService.amortissements;
@@ -730,12 +784,27 @@ export const calculerBudgetAnnuelMensuel = (direction, services, globalParams, p
   });
 
   if (poleSupport) {
-    const bPS = calculerBudgetPoleSupport(poleSupport, null, 2026, msETP, poolRH);
+    const bPS = calculerBudgetPoleSupport(poleSupport, null, 2026, msETP, poolRH, tvaParams);
     totalSalaires += bPS.salaires;
     totalExploitation += bPS.exploitation;
   }
 
-  const total = totalSalaires + totalExploitation + totalAmortissements + totalInterets;
+  // ── Taxe sur les salaires (associations non assujetties TVA) ────────────────
+  const taxeSalairesActive = globalParams?.taxeSalaires === true;
+  const tauxTaxe = taxeSalairesActive ? ((globalParams.tauxTaxeSalaires ?? 4.25) / 100) : 0;
+  const taxeSalaires = totalSalaires * tauxTaxe;
+
+  const total = totalSalaires + totalExploitation + totalAmortissements + totalInterets + taxeSalaires;
+
+  // ── Primes saisonnalisées (un pic mensuel par agent ayant moisPrime) ────────
+  const allAgents = [
+    ...(direction?.personnel || []),
+    ...(poleSupport?.personnel || []),
+    ...services.flatMap(s => s.personnel || []),
+  ];
+  const primesMensuelles = _calculerPrimesMensuelles(allAgents, msETP);
+  const totalPrimesAnnuelles = primesMensuelles.reduce((a, b) => a + b, 0);
+  const totalSalairesBase = totalSalaires - totalPrimesAnnuelles;
 
   // ── Recettes mensualisées (saisonnalisées si repartitionMensuelle définie) ──
   const recettesMensuelles = Array(12).fill(0);
@@ -760,17 +829,18 @@ export const calculerBudgetAnnuelMensuel = (direction, services, globalParams, p
   const recettesPS_mois = (poleSupport?.recettes || []).reduce((s, r) => s + (r.montant || 0), 0);
   for (let i = 0; i < 12; i++) recettesMensuelles[i] += recettesDirMois + recettesPS_mois;
 
-  // Charges : salaires et exploitation uniformes (versements mensuels fixes)
-  // Amortissements et intérêts : uniformes
+  // ── Charges mensualisées : base uniforme + pic prime dans le bon mois ───────
   const mois = [];
   for (let i = 0; i < 12; i++) {
-    const chargesMois = totalSalaires / 12 + totalExploitation / 12 + totalAmortissements / 12 + totalInterets / 12;
+    const salMois = totalSalairesBase / 12 + primesMensuelles[i];
+    const chargesMois = salMois + totalExploitation / 12 + totalAmortissements / 12 + totalInterets / 12 + taxeSalaires / 12;
     mois.push({
       mois: i + 1,
-      salaires: totalSalaires / 12,
+      salaires: salMois,
       exploitation: totalExploitation / 12,
       amortissements: totalAmortissements / 12,
       interets: totalInterets / 12,
+      taxeSalaires: taxeSalaires / 12,
       total: chargesMois,
       recettes: recettesMensuelles[i],
       solde: recettesMensuelles[i] - chargesMois
@@ -785,6 +855,7 @@ export const calculerBudgetAnnuelMensuel = (direction, services, globalParams, p
     exploitation: totalExploitation,
     amortissements: totalAmortissements,
     interets: totalInterets,
+    taxeSalaires,
     totalRecettes,
     mois
   };
@@ -1285,7 +1356,10 @@ const calculerFacteursMoisService = (service) => {
  */
 export const calculerTresorerieMensuelle = (direction, services, globalParams, poleSupport = null, poolRH = []) => {
   const msETP = globalParams?.montantSegurETP ?? PRIME_SEGUR;
-  const budgetDir = calculerBudgetDirection(direction, null, 2026, msETP, poolRH);
+  const tvaParams = globalParams?.gestionTVA
+    ? { gestionTVA: true, tauxTVAMoyen: globalParams.tauxTVAMoyen ?? 20 }
+    : null;
+  const budgetDir = calculerBudgetDirection(direction, null, 2026, msETP, poolRH, tvaParams);
 
   // ── DÉCAISSEMENTS ──────────────────────────────────────────────────────────
 
@@ -1305,7 +1379,7 @@ export const calculerTresorerieMensuelle = (direction, services, globalParams, p
   for (let i = 0; i < 12; i++) exploitationMensuels[i] += budgetDir.chargesSiege / 12;
 
   services.forEach(s => {
-    const b = calculerBudgetService(s, null, 2026, msETP, poolRH);
+    const b = calculerBudgetService(s, null, 2026, msETP, poolRH, tvaParams);
     totalSalairesAnnuels += b.salaires;
     totalInteretsAnnuels += b.interets; // intérêts financiers année 1 (décaissés)
 
@@ -1316,26 +1390,43 @@ export const calculerTresorerieMensuelle = (direction, services, globalParams, p
       }
     });
 
-    // Exploitation du service — saisonnalisable
+    // Exploitation du service — saisonnalisable (montant réel TVA-ajusté)
     (s.exploitation || []).forEach(item => {
-      const annuel = (item.montant || 0) * 12;
+      const annuel = _montantReelExploitation(item, tvaParams) * 12;
       const mensuel = repartirSur12Mois(annuel, item);
       for (let i = 0; i < 12; i++) exploitationMensuels[i] += mensuel[i];
     });
   });
 
   if (poleSupport) {
-    const bPS = calculerBudgetPoleSupport(poleSupport, null, 2026, msETP, poolRH);
+    const bPS = calculerBudgetPoleSupport(poleSupport, null, 2026, msETP, poolRH, tvaParams);
     totalSalairesAnnuels += bPS.salaires;
     (poleSupport.exploitation || []).forEach(item => {
-      const annuel = (item.montant || 0) * 12;
+      const annuel = _montantReelExploitation(item, tvaParams) * 12;
       const mensuel = repartirSur12Mois(annuel, item);
       for (let i = 0; i < 12; i++) exploitationMensuels[i] += mensuel[i];
     });
   }
 
-  // Charges fixes décaissées chaque mois : salaires + annuité d'emprunt (÷ 12)
-  const chargesFixesParMois = (totalSalairesAnnuels + totalInteretsAnnuels + capitalRembourseAnnuel) / 12;
+  // ── Primes saisonnalisées ────────────────────────────────────────────────────
+  const allAgentsTreso = [
+    ...(direction?.personnel || []),
+    ...(poleSupport?.personnel || []),
+    ...services.flatMap(s => s.personnel || []),
+  ];
+  const primesMensuellesTreso = _calculerPrimesMensuelles(allAgentsTreso, msETP);
+  const totalPrimesAnnuelles = primesMensuellesTreso.reduce((a, b) => a + b, 0);
+  const totalSalairesBase = totalSalairesAnnuels - totalPrimesAnnuelles;
+
+  // ── Taxe sur les salaires ────────────────────────────────────────────────────
+  const taxeSalairesActive = globalParams?.taxeSalaires === true;
+  const taxeSalaires = taxeSalairesActive
+    ? totalSalairesAnnuels * ((globalParams.tauxTaxeSalaires ?? 4.25) / 100)
+    : 0;
+
+  // Charges fixes décaissées chaque mois : salaires base + annuité d'emprunt (÷ 12)
+  // Les primes s'ajoutent mois par mois selon _calculerPrimesMensuelles
+  const chargesFixesParMois = (totalSalairesBase + totalInteretsAnnuels + capitalRembourseAnnuel) / 12;
 
   // ── ENCAISSEMENTS ──────────────────────────────────────────────────────────
 
@@ -1364,21 +1455,21 @@ export const calculerTresorerieMensuelle = (direction, services, globalParams, p
   const alertesMois = [];
   const mois = MOIS_LABELS.map((nom, i) => {
     const encaissements = encaissementsMensuels[i];
-    const decaissements = chargesFixesParMois + exploitationMensuels[i];
+    const decaissements = chargesFixesParMois + primesMensuellesTreso[i] + exploitationMensuels[i] + taxeSalaires / 12;
     const solde = encaissements - decaissements;
     soldeCumule += solde;
     if (soldeCumule < 0) alertesMois.push(i);
     return { nom, encaissements, decaissements, solde, soldeCumule };
   });
 
-  const totalDecaissements = chargesFixesParMois * 12 + exploitationMensuels.reduce((s, v) => s + v, 0);
+  const totalDecaissements = chargesFixesParMois * 12 + totalPrimesAnnuelles + exploitationMensuels.reduce((s, v) => s + v, 0) + taxeSalaires;
 
   return {
     mois,
     totalEncaissements: encaissementsMensuels.reduce((s, v) => s + v, 0),
     totalDecaissements,
-    // Détail pour audit : permet de vérifier la décomposition dans l'UI
-    _debug: { totalSalairesAnnuels, totalInteretsAnnuels, capitalRembourseAnnuel },
+    taxeSalaires,
+    _debug: { totalSalairesAnnuels, totalInteretsAnnuels, capitalRembourseAnnuel, totalPrimesAnnuelles },
     alertesMois,
   };
 };

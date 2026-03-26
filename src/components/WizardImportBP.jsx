@@ -419,6 +419,20 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
 
   const { groups: previewGroups, tresGroups: previewTresGroups } = step >= 4 ? buildPreview() : { groups: {}, tresGroups: {} };
 
+  // Détecte si un agent importé est un doublon probable dans l'entité cible
+  const checkDuplicate = (agent) => {
+    if (agent.assignedTo === 'ignore') return false;
+    let targetPersonnel = [];
+    if (agent.assignedTo === 'direction') targetPersonnel = direction.personnel || [];
+    else if (agent.assignedTo === 'poleSupport') targetPersonnel = poleSupport.personnel || [];
+    else if (agent.assignedTo.startsWith('service_')) {
+      const idx = parseInt(agent.assignedTo.split('_')[1]);
+      targetPersonnel = services[idx]?.personnel || [];
+    }
+    const emploiNorm = normalizeStr(agent.emploi);
+    return targetPersonnel.some(p => normalizeStr(p.titre).includes(emploiNorm.substring(0, 8)));
+  };
+
   const cardCls = darkMode ? 'bg-gray-800' : 'bg-white';
   const textCls = darkMode ? 'text-white' : 'text-slate-800';
   const subCls = darkMode ? 'text-gray-400' : 'text-slate-500';
@@ -522,10 +536,19 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
                       </tr>
                     </thead>
                     <tbody>
-                      {agents.map((a, i) => (
-                        <tr key={a.idx} className={i % 2 === 0 ? rowEven : rowOdd}>
+                      {agents.map((a, i) => {
+                        const isDuplicate = checkDuplicate(a);
+                        return (
+                        <tr key={a.idx} className={`${i % 2 === 0 ? rowEven : rowOdd} ${isDuplicate ? (darkMode ? 'bg-amber-900/20' : 'bg-amber-50') : ''}`}>
                           <td className={`px-3 py-2 font-bold ${subCls}`}>Agent #{a.idx}</td>
-                          <td className={`px-3 py-2 ${textCls}`}>{a.emploi}</td>
+                          <td className={`px-3 py-2 ${textCls}`}>
+                            {a.emploi}
+                            {isDuplicate && (
+                              <span className={`ml-2 text-xs font-bold px-1.5 py-0.5 rounded ${darkMode ? 'bg-amber-800/60 text-amber-300' : 'bg-amber-100 text-amber-700'}`} title="Un agent avec un emploi similaire existe déjà dans l'entité cible — sera ignoré à l'import">
+                                doublon probable
+                              </span>
+                            )}
+                          </td>
                           <td className={`px-3 py-2 text-right font-mono ${textCls}`}>{fmt(a.salaireMensuel)}</td>
                           <td className={`px-3 py-2 text-right font-mono ${subCls}`}>{fmt(a.chargesAnnuelles)}</td>
                           <td className="px-3 py-2">
@@ -538,7 +561,8 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
                             </select>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

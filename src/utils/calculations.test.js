@@ -10,14 +10,17 @@ import {
   validerJours,
   calculerMensualitePret,
   calculerSalaireAnnuel,
+  calculerTauxCharges,
   calculerTableauAmortissement,
   calculerAmortissementEtInterets,
   calculerBudgetDirection,
   calculerBudgetLieu,
   calculerProvisions,
   calculerBFR,
-  calculerSynthese3Ans
+  calculerSynthese3Ans,
+  calculerBudgetAnnuelMensuel,
 } from './calculations';
+import { calculerStatsFormation, SMIC_MENSUEL, CHARGES_PATRONALES, TAUX_CHARGES_APPRENTI } from './constants';
 
 // ============================================
 // Tests des fonctions de validation
@@ -148,6 +151,55 @@ describe('Calculs financiers', () => {
       expect(result.brut).toBe(18000);
       expect(result.charges).toBe(7560);
       expect(result.total).toBe(25560);
+    });
+
+    it('applique tauxChargesManuel en priorité sur Fillon', () => {
+      // Salaire bas → Fillon s'appliquerait normalement, mais tauxChargesManuel = 20 l'écrase
+      const basSmicSalaire = SMIC_MENSUEL * 0.9; // sous le SMIC → Fillon maximal normalement
+      const avecFillon = calculerSalaireAnnuel(basSmicSalaire, 1, false, 'CDI');
+      const avecManuel = calculerSalaireAnnuel(basSmicSalaire, 1, false, 'CDI', 20);
+      expect(avecManuel.tauxCharges).toBeCloseTo(0.20, 5);
+      expect(avecManuel.tauxChargesAuto).toBe(false);
+      expect(avecFillon.tauxChargesAuto).toBe(true);
+      expect(avecFillon.tauxCharges).toBeLessThan(avecManuel.tauxCharges);
+    });
+
+    it('apprentissage : taux de charges réduit (~12%)', () => {
+      const result = calculerSalaireAnnuel(1500, 1, false, 'Apprentissage');
+      expect(result.tauxCharges).toBeCloseTo(TAUX_CHARGES_APPRENTI, 5);
+    });
+
+    it('stage : taux de charges 0%', () => {
+      const result = calculerSalaireAnnuel(600, 1, false, 'Stage');
+      expect(result.tauxCharges).toBe(0);
+      expect(result.charges).toBe(0);
+    });
+
+    it('prime ponctuelle : augmente le total annuel du coût employeur prime', () => {
+      // Sans prime
+      const sansPrime = calculerSalaireAnnuel(3000, 1, false, 'CDI', null, null, null, 0);
+      // Avec prime de 500 € bruts en juin (mois 6)
+      const avecPrime = calculerSalaireAnnuel(3000, 1, false, 'CDI', null, null, 6, 500);
+      // primeBrute = 500 * 1 ETP = 500
+      expect(avecPrime.primeBrute).toBeCloseTo(500, 2);
+      // primeEmployeur = 500 * (1 + tauxCharges)
+      expect(avecPrime.primeEmployeur).toBeGreaterThan(500);
+      expect(avecPrime.moisPrime).toBe(6);
+      // Le total inclut la prime
+      expect(avecPrime.total).toBeCloseTo(sansPrime.total + avecPrime.primeEmployeur, 2);
+    });
+
+    it('prime sans moisPrime défini : prime nulle', () => {
+      const result = calculerSalaireAnnuel(3000, 1, false, 'CDI', null, null, null, 1000);
+      expect(result.primeBrute).toBe(0);
+      expect(result.primeEmployeur).toBe(0);
+      expect(result.total).toBeCloseTo(calculerSalaireAnnuel(3000, 1, false).total, 2);
+    });
+
+    it('prime proratisée par ETP', () => {
+      const plein = calculerSalaireAnnuel(3000, 1, false, 'CDI', null, null, 12, 600);
+      const miTemps = calculerSalaireAnnuel(3000, 0.5, false, 'CDI', null, null, 12, 600);
+      expect(miTemps.primeBrute).toBeCloseTo(plein.primeBrute / 2, 2);
     });
   });
 
@@ -380,5 +432,174 @@ describe('Provisions et BFR', () => {
       expect(result[0].detailsServices[0].nom).toBe('Lieu 1');
       expect(result[0].detailsServices[0].coutUnite).toBeGreaterThanOrEqual(0);
     });
+  });
+});
+
+// ============================================
+// Tests saisonnalité des primes & taxe sur les salaires
+// ============================================
+
+describe('Saisonnalité des primes et taxe sur les salaires', () => {
+  const mockDirection = {
+    personnel: [
+      { id: 1, titre: 'Directeur', etp: 1, salaire: 4500, segur: false, moisPrime: 6, montantPrime: 1000 },
+    ],
+    exploitation: [],
+    recettes: [],
+  };
+  const mockServices = [];
+  const mockGlobalParamsBase = {
+    montantSegurETP: 238,
+    taxeSalaires: false,
+    tauxTaxeSalaires: 4.25,
+    provisions: [],
+    fondRoulement: [],
+    stocksValeur: 0,
+    delaiPaiementClients: 30,
+    delaiPaiementFournisseurs: 30,
+  };
+
+  it('calculerBudgetAnnuelMensuel : pic de prime visible en mois 6 (juin)', () => {
+    const result = calculerBudgetAnnuelMensuel(mockDirection, mockServices, mockGlobalParamsBase);
+    const moisJuin = result.mois[5]; // index 5 = juin
+    const moisJanv = result.mois[0];
+    // Juin doit avoir un salaire mensuel plus élevé (prime employeur)
+    expect(moisJuin.salaires).toBeGreaterThan(moisJanv.salaires);
+  });
+
+  it('calculerBudgetAnnuelMensuel : somme mensuelle des salaires = total annuel salaires', () => {
+    const result = calculerBudgetAnnuelMensuel(mockDirection, mockServices, mockGlobalParamsBase);
+    const sommeMensuelle = result.mois.reduce((s, m) => s + m.salaires, 0);
+    expect(sommeMensuelle).toBeCloseTo(result.salaires, 0);
+  });
+
+  it('taxe sur les salaires : inactive par défaut — taxeSalaires = 0', () => {
+    const result = calculerBudgetAnnuelMensuel(mockDirection, mockServices, mockGlobalParamsBase);
+    expect(result.taxeSalaires).toBe(0);
+  });
+
+  it('taxe sur les salaires : active à 4,25 % — taxeSalaires > 0 et cohérent', () => {
+    const paramsAvecTaxe = { ...mockGlobalParamsBase, taxeSalaires: true, tauxTaxeSalaires: 4.25 };
+    const result = calculerBudgetAnnuelMensuel(mockDirection, mockServices, paramsAvecTaxe);
+    expect(result.taxeSalaires).toBeCloseTo(result.salaires * 0.0425, 0);
+    expect(result.totalAnnuel).toBeGreaterThan(result.salaires + result.exploitation);
+  });
+
+  it('taxe sur les salaires : impacte uniformément chaque mois (taxeSalaires/12)', () => {
+    const paramsAvecTaxe = { ...mockGlobalParamsBase, taxeSalaires: true, tauxTaxeSalaires: 4.25 };
+    const result = calculerBudgetAnnuelMensuel(mockDirection, mockServices, paramsAvecTaxe);
+    const taxeMensuelle = result.taxeSalaires / 12;
+    result.mois.forEach(m => {
+      expect(m.taxeSalaires).toBeCloseTo(taxeMensuelle, 2);
+    });
+  });
+});
+
+// ============================================
+// Tests allègement Fillon
+// ============================================
+
+describe('Allègement Fillon (calculerTauxCharges)', () => {
+  it('applique le taux plein 42% pour les hauts salaires', () => {
+    // Salaire > 1.6 × SMIC → pas d'allègement
+    const salaire = SMIC_MENSUEL * 12 * 2; // 200% du SMIC annuel
+    const taux = calculerTauxCharges(salaire, 1, 'CDI');
+    expect(taux).toBeCloseTo(CHARGES_PATRONALES, 5);
+  });
+
+  it('réduit le taux pour les bas salaires (< 1.6 SMIC)', () => {
+    const salaireBasSmic = SMIC_MENSUEL * 12 * 1.0; // 100% du SMIC
+    const taux = calculerTauxCharges(salaireBasSmic, 1, 'CDI');
+    expect(taux).toBeLessThan(CHARGES_PATRONALES);
+    expect(taux).toBeGreaterThanOrEqual(0);
+  });
+
+  it('taux est 0 pour un stage', () => {
+    expect(calculerTauxCharges(2000, 1, 'Stage')).toBe(0);
+    expect(calculerTauxCharges(2000, 1, 'Stagiaire')).toBe(0);
+  });
+
+  it('taux réduit pour apprentissage et contrat pro', () => {
+    expect(calculerTauxCharges(1600, 1, 'Apprentissage')).toBeCloseTo(TAUX_CHARGES_APPRENTI, 5);
+    expect(calculerTauxCharges(1600, 1, 'contrat_pro')).toBeCloseTo(TAUX_CHARGES_APPRENTI, 5);
+  });
+
+  it('taux non négatif même pour salaire très bas', () => {
+    const taux = calculerTauxCharges(100, 1, 'CDI');
+    expect(taux).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ============================================
+// Tests calculerStatsFormation (transversalité)
+// ============================================
+
+describe('calculerStatsFormation', () => {
+  it('retourne les unités si pas de promos', () => {
+    const service = { unites: 15 };
+    const result = calculerStatsFormation(service);
+    expect(result.totalEtudiants).toBe(15);
+    expect(result.totalAbandons).toBe(0);
+    expect(result.effectifActuel).toBe(15);
+  });
+
+  it('compte les étudiants en structure plate (promos directes)', () => {
+    const service = {
+      promos: {
+        annee1: [
+          { effectifInitial: 20, abandons: { janvier: 1, fevrier: 2 } },
+          { effectifInitial: 15, abandons: {} },
+        ]
+      }
+    };
+    const result = calculerStatsFormation(service);
+    expect(result.totalEtudiants).toBe(35);
+    expect(result.totalAbandons).toBe(3);
+    expect(result.effectifActuel).toBe(32);
+  });
+
+  it('compte les étudiants en structure filière (promos imbriquées)', () => {
+    const service = {
+      promos: {
+        annee1: [
+          {
+            promos: [
+              { effectifInitial: 10, abandons: { janvier: 1 } },
+              { effectifInitial: 12, abandons: {} },
+            ]
+          }
+        ]
+      }
+    };
+    const result = calculerStatsFormation(service);
+    expect(result.totalEtudiants).toBe(22);
+    expect(result.totalAbandons).toBe(1);
+    expect(result.effectifActuel).toBe(21);
+  });
+
+  it('ignore les items null ou malformés sans planter', () => {
+    const service = {
+      promos: {
+        annee1: [null, undefined, { effectifInitial: 5, abandons: {} }]
+      }
+    };
+    expect(() => calculerStatsFormation(service)).not.toThrow();
+    const result = calculerStatsFormation(service);
+    expect(result.totalEtudiants).toBe(5);
+  });
+
+  it('gère les abandons manquants ou null', () => {
+    const service = {
+      promos: {
+        annee1: [
+          { effectifInitial: 10 },
+          { effectifInitial: 8, abandons: { janvier: null, fevrier: undefined } },
+        ]
+      }
+    };
+    expect(() => calculerStatsFormation(service)).not.toThrow();
+    const result = calculerStatsFormation(service);
+    expect(result.totalEtudiants).toBe(18);
+    expect(result.totalAbandons).toBe(0);
   });
 });

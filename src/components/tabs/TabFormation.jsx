@@ -2,6 +2,7 @@ import React from 'react';
 import { GraduationCap, Trash2, Plus } from 'lucide-react';
 import ReportingFC from '../ReportingFC';
 import PilotageFinancier from '../PilotageFinancier';
+import ChargeFormateurs from '../ChargeFormateurs';
 import { exportReportingFC } from '../../utils/excelExport';
 import { exportReportingFCPdf } from '../../utils/pdfExport';
 
@@ -16,11 +17,20 @@ export default function TabFormation({
   setPilotageSites,
   pilotageResetKey,
   direction,
+  poleSupport,
   globalParams,
   checkPassword,
 }) {
   return (
     <>
+      {/* CHARGE DE TRAVAIL DES FORMATEURS (VUE DAF TRANSVERSALE) */}
+      <ChargeFormateurs 
+        darkMode={darkMode}
+        services={services}
+        direction={direction}
+        poleSupport={poleSupport}
+      />
+
       {/* ENVELOPPE DE FORMATION */}
       <div id="enveloppe-formation" className={`rounded-3xl shadow-lg border-2 p-8 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-emerald-900' : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-300'}`}>
         <div className="flex flex-wrap justify-between items-center mb-6 gap-4">

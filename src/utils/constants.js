@@ -180,6 +180,7 @@ export const FINANCIAL_HELP = {
 export const CHARGES_PATRONALES = 0.42;
 export const TAUX_CHARGE_TOTAL = 1 + CHARGES_PATRONALES; // 1.42
 export const PRIME_SEGUR = 238;
+export const TAUX_TAXE_SALAIRES = 0.0425; // 4,25 % — taux normal taxe sur les salaires (associations non assujetties TVA)
 export const SMIC_MENSUEL = 1801.80;        // SMIC brut mensuel 2025 (net ≈ 1426 €)
 export const TAUX_FILLON_MAX = 0.3214;      // Réduction Fillon : taux max sur bas salaires (≤ SMIC)
 export const TAUX_CHARGES_APPRENTI = 0.12;  // Charges patronales réduites apprentis / contrats pro
@@ -249,6 +250,7 @@ export const defaultGlobalParams = {
   delaiPaiementClients: 30,
   delaiPaiementFournisseurs: 30,
   montantSegurETP: 238,
+  seuilCouverture: 90,
   rolesPersonnel: [
     { id: 'direction',         label: 'Siège' },
     { id: 'directeur_adjoint', label: 'Directeur adjoint' },
@@ -274,6 +276,10 @@ export const defaultGlobalParams = {
   ],
   stocksValeur: 0,
   tauxSubventionDAF: { fi: 70, transversal: 60, recherche: 30 },
+  taxeSalaires: false,
+  tauxTaxeSalaires: 4.25,
+  gestionTVA: false,
+  tauxTVAMoyen: 20,
 };
 
 // ─── DAF — Dossier de Demande de Subvention Régionale ─────────────────────────
@@ -419,7 +425,9 @@ export const calculerEffectifActuel = (promo) => {
 };
 
 // Fonction pour calculer les stats d'un service de formation
-// Gère les deux structures : filières (useFiliere=true) et promos plates
+// Gère deux structures :
+//   - Promo directe : { effectifInitial, abandons, ... }
+//   - Filière conteneur : { promos: [{ effectifInitial, abandons, ... }] }
 export const calculerStatsFormation = (service) => {
   const unites = service.unites || 0;
   if (!service.promos) return { totalEtudiants: unites, totalAbandons: 0, effectifActuel: unites };
@@ -427,13 +435,23 @@ export const calculerStatsFormation = (service) => {
   let totalEtudiants = 0;
   let totalAbandons = 0;
 
+  const compterPromo = (promo) => {
+    if (!promo || typeof promo !== 'object') return;
+    totalEtudiants += promo.effectifInitial || 0;
+    totalAbandons += Object.values(promo.abandons || {}).reduce((sum, val) => sum + (val || 0), 0);
+  };
+
   Object.values(service.promos).forEach(items => {
+    if (!Array.isArray(items)) return;
     items.forEach(item => {
-      const promos = Array.isArray(item.promos) ? item.promos : [item];
-      promos.forEach(promo => {
-        totalEtudiants += promo.effectifInitial || 0;
-        totalAbandons += Object.values(promo.abandons || {}).reduce((sum, val) => sum + (val || 0), 0);
-      });
+      if (!item || typeof item !== 'object') return;
+      if (typeof item.effectifInitial === 'number') {
+        // Structure plate : l'item est directement une promo
+        compterPromo(item);
+      } else if (Array.isArray(item.promos)) {
+        // Structure filière : l'item contient une liste de promos
+        item.promos.forEach(compterPromo);
+      }
     });
   });
 

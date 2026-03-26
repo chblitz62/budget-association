@@ -11,7 +11,7 @@ const TAUX_CP = CHARGES_VACATAIRE / 100; // 0.15
 const fmt2 = (n) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmt0 = (n) => Math.round(n).toLocaleString('fr-FR');
 
-export default function CalculateurVacataires({ darkMode }) {
+export default function CalculateurVacataires({ darkMode, vacatairesBudget = [] }) {
   const initHeures = () => Object.fromEntries(TARIFS_VACATAIRES.map(t => [t.id, { salarie: '', prestataire: '' }]));
 
   const [heures, setHeures] = useState(() => {
@@ -305,6 +305,7 @@ export default function CalculateurVacataires({ darkMode }) {
                           value={heures[l.id]?.salarie ?? ''}
                           onChange={e => set(l.id, 'salarie', e.target.value === '' ? '' : e.target.value)}
                           placeholder="0"
+                          aria-label={`Heures réelles salarié — ${l.label}`}
                           className={`w-16 text-center rounded-lg px-2 py-1 border outline-none transition-colors ${inp}`}
                         />
                       ) : <span className={`text-xs italic ${darkMode ? 'text-gray-600' : 'text-slate-300'}`}>—</span>}
@@ -334,6 +335,7 @@ export default function CalculateurVacataires({ darkMode }) {
                           value={heures[l.id]?.prestataire ?? ''}
                           onChange={e => set(l.id, 'prestataire', e.target.value === '' ? '' : e.target.value)}
                           placeholder="0"
+                          aria-label={`Heures réelles prestataire — ${l.label}`}
                           className={`w-16 text-center rounded-lg px-2 py-1 border outline-none transition-colors ${inp}`}
                         />
                       ) : <span className={`text-xs italic ${darkMode ? 'text-gray-600' : 'text-slate-300'}`}>—</span>}
@@ -398,6 +400,67 @@ export default function CalculateurVacataires({ darkMode }) {
           Seuil légal vacataire : {SEUIL_HEURES_VACATAIRE} h/an · Charges patronales vacataires : {CHARGES_VACATAIRE}% · Les saisies sont sauvegardées automatiquement.
         </p>
       </div>
+
+      {/* ── RAPPROCHEMENT BUDGET ── */}
+      {vacatairesBudget.length > 0 && (() => {
+        const totalBudget = vacatairesBudget.reduce((s, v) => s + v.cout, 0);
+        const totalCalcule = totaux.empSalarie + totaux.brutPrestataire;
+        const ecart = totalCalcule - totalBudget;
+        return (
+          <div className={`rounded-3xl shadow-lg border-2 p-6 ${darkMode ? 'bg-gray-800 border-teal-900' : 'bg-gradient-to-br from-teal-50 to-cyan-50 border-teal-200'}`}>
+            <div className="flex items-center gap-3 mb-4">
+              <Calculator className={darkMode ? 'text-teal-400' : 'text-teal-600'} size={24} />
+              <div>
+                <h3 className={`text-lg font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Rapprochement Budget ↔ Calculateur</h3>
+                <span className={`text-xs font-bold ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>Vacataires saisis dans le budget des services</span>
+              </div>
+            </div>
+            <div className="overflow-x-auto mb-4">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className={darkMode ? 'text-gray-400' : 'text-slate-500'}>
+                    <th className="text-left py-2 px-3 font-bold">Service</th>
+                    <th className="text-left py-2 px-3 font-bold">Vacataire</th>
+                    <th className="text-right py-2 px-3 font-bold">Heures</th>
+                    <th className="text-right py-2 px-3 font-bold">Coût budgété</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vacatairesBudget.map((v, i) => (
+                    <tr key={i} className={`border-t ${darkMode ? 'border-gray-700 text-gray-200' : 'border-slate-100 text-slate-700'}`}>
+                      <td className="py-2 px-3 font-bold">{v.service}</td>
+                      <td className="py-2 px-3">{v.nom}</td>
+                      <td className="py-2 px-3 text-right tabular-nums">{Math.round(v.heures)} h</td>
+                      <td className="py-2 px-3 text-right tabular-nums font-bold">{fmt0(v.cout)} €</td>
+                    </tr>
+                  ))}
+                  <tr className={`border-t-2 font-black ${darkMode ? 'border-teal-700 text-teal-300' : 'border-teal-300 text-teal-700'}`}>
+                    <td className="py-2 px-3" colSpan={3}>Total budget vacataires</td>
+                    <td className="py-2 px-3 text-right tabular-nums">{fmt0(totalBudget)} €</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            {totalCalcule > 0 && (
+              <div className={`flex flex-wrap gap-3`}>
+                <div className={`flex-1 p-3 rounded-xl text-center ${darkMode ? 'bg-gray-700' : 'bg-white border border-teal-100'}`}>
+                  <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Coût calculé (ce tableau)</div>
+                  <div className={`text-lg font-black tabular-nums ${darkMode ? 'text-white' : 'text-slate-800'}`}>{fmt0(totalCalcule)} €</div>
+                </div>
+                <div className={`flex-1 p-3 rounded-xl text-center ${darkMode ? 'bg-gray-700' : 'bg-white border border-teal-100'}`}>
+                  <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Écart</div>
+                  <div className={`text-lg font-black tabular-nums ${ecart > 500 ? 'text-rose-500' : ecart < -500 ? 'text-amber-500' : 'text-emerald-500'}`}>
+                    {ecart >= 0 ? '+' : ''}{fmt0(ecart)} €
+                  </div>
+                  <div className={`text-[10px] mt-0.5 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+                    {Math.abs(ecart) < 500 ? 'Cohérent' : ecart > 0 ? 'Dépassement budget' : 'Sous le budget'}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
