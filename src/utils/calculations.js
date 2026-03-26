@@ -359,12 +359,19 @@ export const calculerBudgetService = (service, planningAbsences = null, annee = 
   const salaires = salairesPersonnelPermanent + coutVacataires + partPool.totalSalaires;
 
   const moisKeysFI = ['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];
-  const salairesAllouesFI = (service.personnel || []).reduce((sum, p) => {
-    if (!p.repartitionFI) return sum;
+  // repartitionFC = % mensuel du temps passé en FC (anciennement repartitionFI, sémantique inversée)
+  // salairesAllouesFC = part du salaire imputable en FC (reste dans le service)
+  // salairesAllouesFI = complément imputable en FI (extrait du budget service)
+  let salairesAllouesFC = 0;
+  let salairesAllouesFI = 0;
+  (service.personnel || []).forEach(p => {
+    const rfc = p.repartitionFC || p.repartitionFI; // backward compat
+    if (!rfc) return;
     const sal = calculerSalaireAnnuel(p.salaire, p.etp, resolveSegur(p.segur, montantSegurETP), p.typeContrat, p.tauxChargesManuel, p.estPosteAPourvoir ? p.dateDebutPrevue : null);
-    const pctMoyen = moisKeysFI.reduce((s, m) => s + (p.repartitionFI[m] || 0), 0) / 12;
-    return sum + sal.total * pctMoyen / 100;
-  }, 0);
+    const pctFC = moisKeysFI.reduce((s, m) => s + (rfc[m] || 0), 0) / 12;
+    salairesAllouesFC += sal.total * pctFC / 100;
+    salairesAllouesFI += sal.total * (1 - pctFC / 100);
+  });
 
   const exploitation = service.exploitation.reduce((sum, item) => sum + _montantReelExploitation(item, tvaParams) * 12, 0);
   const exploitationRealisee = service.exploitation.reduce((sum, item) => item.realise != null ? sum + item.realise * 12 : sum, 0);
@@ -443,6 +450,7 @@ export const calculerBudgetService = (service, planningAbsences = null, annee = 
     alerteEnveloppe,
     coutParEtudiant,
     salairesAllouesFI,
+    salairesAllouesFC,
     detailsSalaires,
     coutCarenceMaladie,
     etpContractuel,

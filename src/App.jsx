@@ -689,9 +689,11 @@ const BudgetTool = () => {
     return all.map(p => {
       const sr = p.segur === true ? msETP : (parseFloat(p.segur) || 0);
       const sal = calculerSalaireAnnuel(p.salaire, p.etp, sr, p.typeContrat, p.tauxChargesManuel);
-      const pctFI = p.repartitionFI
-        ? Math.min(1, Object.values(p.repartitionFI).reduce((s, v) => s + (parseFloat(v) || 0), 0) / 100)
-        : 1;
+      const rfc = p.repartitionFC || p.repartitionFI;
+      const pctFCraw = rfc
+        ? Math.min(1, Object.values(rfc).reduce((s, v) => s + (parseFloat(v) || 0), 0) / 1200)
+        : 0;
+      const pctFI = 1 - pctFCraw; // FI = complément du temps FC
       return { ...p, coutAnnuel: sal.total, pctFI: Math.round(pctFI * 100), coutSubventionnable: sal.total * pctFI };
     });
   }, [direction, poleSupport, services, msETP]);
@@ -2599,8 +2601,10 @@ const BudgetTool = () => {
                       </span>
                     )}
                     {bs.salairesAllouesFI > 0 && (
-                      <span className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 ${darkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700'}`}>
+                      <span className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1 ${darkMode ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-100 text-amber-700'}`}
+                        title={`Part FI extraite du budget service : ${Math.round(bs.salairesAllouesFI).toLocaleString()} € / an`}>
                         <Zap size={12} /> dont -{Math.round(bs.salairesAllouesFI).toLocaleString()} € → FI
+                        {bs.salairesAllouesFC > 0 && <span className="ml-1 opacity-60">({Math.round(bs.salairesAllouesFC).toLocaleString()} € FC)</span>}
                       </span>
                     )}
                     {stats && (
@@ -3460,16 +3464,16 @@ const BudgetTool = () => {
                           <div className="flex items-center gap-2 flex-wrap text-xs mt-1">
                             {/* Bouton ouvre modal FI% */}
                             {(() => {
-                              const rfi = p.repartitionFI || makeRepartitionFI();
-                              const pctMoyen = moisKeysFI.reduce((s, m) => s + (rfi[m] || 0), 0) / 12;
+                              const rfc = p.repartitionFC || p.repartitionFI || makeRepartitionFI();
+                              const pctMoyen = moisKeysFI.reduce((s, m) => s + (rfc[m] || 0), 0) / 12;
                               const hasData = pctMoyen > 0;
                               return (
                                 <button
                                   onClick={() => setFiDialog({ serviceId: service.id, agentId: p.id })}
                                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold no-print transition-colors ${hasData ? (darkMode ? 'bg-amber-700 text-amber-100' : 'bg-amber-200 text-amber-800') : (darkMode ? 'bg-gray-600 text-gray-300 hover:bg-amber-800/50 hover:text-amber-200' : 'bg-slate-100 text-slate-500 hover:bg-amber-100 hover:text-amber-700')}`}
-                                  title="Répartition mensuelle du salaire en Formation Initiale (FI%)"
+                                  title="Répartition mensuelle du salaire en Formation Continue (FC%) — la part restante est imputée en FI"
                                 >
-                                  <Zap size={12} /> FI% {hasData && <span className="opacity-75">{pctMoyen.toFixed(0)}% moy.</span>}
+                                  <Zap size={12} /> FC% {hasData && <span className="opacity-75">{pctMoyen.toFixed(0)}% moy.</span>}
                                 </button>
                               );
                             })()}
@@ -3720,9 +3724,15 @@ const BudgetTool = () => {
                       </div>
                     )}
                     {bs.salairesAllouesFI > 0 && (
-                      <div className={`mt-1 flex justify-between text-xs font-bold ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>
-                        <span className="flex items-center gap-1"><Zap size={11} /> dont alloué FI:</span>
-                        <span>{Math.round(bs.salairesAllouesFI).toLocaleString()} €</span>
+                      <div className={`mt-1 text-xs font-bold ${darkMode ? 'text-amber-400' : 'text-amber-700'}`}>
+                        <div className="flex justify-between">
+                          <span className="flex items-center gap-1"><Zap size={11} /> Part FC formateurs:</span>
+                          <span>{Math.round(bs.salairesAllouesFC).toLocaleString()} €</span>
+                        </div>
+                        <div className={`flex justify-between ${darkMode ? 'text-orange-400' : 'text-orange-700'}`}>
+                          <span className="flex items-center gap-1"><Zap size={11} /> Part FI (extraite):</span>
+                          <span>-{Math.round(bs.salairesAllouesFI).toLocaleString()} €</span>
+                        </div>
                       </div>
                     )}
                   </div>
