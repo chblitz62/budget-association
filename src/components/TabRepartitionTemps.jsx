@@ -69,7 +69,7 @@ function getAlloc(agent, moisKey, moisIdx, repartitionTemps) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function TabRepartitionTemps({ direction, poleSupport, services, darkMode, repartitionTemps, setRepartitionTemps }) {
+export default function TabRepartitionTemps({ direction, poleSupport, services, darkMode, repartitionTemps, setRepartitionTemps, privacyMode }) {
   const dm = darkMode;
   const [editAgent, setEditAgent] = useState(null);
   const [editData,  setEditData]  = useState({});
@@ -176,7 +176,7 @@ export default function TabRepartitionTemps({ direction, poleSupport, services, 
                 <div key={agent.id} className="flex items-center mb-1 group">
                   {/* Nom */}
                   <div className="w-44 pr-2 flex items-center justify-end gap-1 flex-shrink-0">
-                    <span className={`text-xs font-semibold truncate text-right leading-tight ${dm ? 'text-zinc-300' : 'text-slate-700'}`}>
+                    <span className={`text-xs font-semibold truncate text-right leading-tight ${dm ? 'text-zinc-300' : 'text-slate-700'} ${privacyMode ? 'blur-sm select-none' : ''}`}>
                       {agent.titre || 'Agent'}
                     </span>
                     {hasOverride && (
@@ -241,7 +241,7 @@ export default function TabRepartitionTemps({ direction, poleSupport, services, 
           className={`fixed z-50 p-3 rounded-xl shadow-2xl text-xs pointer-events-none border ${dm ? 'bg-zinc-800 border-zinc-600 text-white' : 'bg-white border-slate-200 text-slate-800'}`}
           style={{ left: Math.min(tooltip.x + 14, window.innerWidth - 210), top: Math.max(10, tooltip.y - 100) }}
         >
-          <div className="font-black mb-2">{tooltip.agent.titre} — {tooltip.mLabel}</div>
+          <div className="font-black mb-2"><span className={privacyMode ? 'blur-sm select-none' : ''}>{tooltip.agent.titre}</span> — {tooltip.mLabel}</div>
           {TYPES.filter(t => (tooltip.a[t.key] || 0) > 0.4).map(t => (
             <div key={t.key} className="flex items-center gap-2 mb-0.5">
               <div className="w-2 h-2 rounded-sm" style={{ background: t.color }} />
@@ -269,7 +269,7 @@ export default function TabRepartitionTemps({ direction, poleSupport, services, 
             <div className="flex items-center justify-between mb-5">
               <h3 className={`text-lg font-black ${dm ? 'text-white' : 'text-slate-800'}`}>
                 <Edit3 size={18} className="inline mr-2 text-teal-500" />
-                {editAgent.titre}
+                <span className={privacyMode ? 'blur-sm select-none' : ''}>{editAgent.titre}</span>
               </h3>
               <div className="flex items-center gap-2">
                 <button

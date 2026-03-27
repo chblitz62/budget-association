@@ -174,6 +174,32 @@ export const FINANCIAL_HELP = {
     type: 'info',
     text: 'Taux de marge = Marge nette ÷ Recettes × 100. Mesure l\'efficacité commerciale de la session. Cible recommandée > 15 %. Négatif = la session coûte plus qu\'elle ne rapporte.',
   },
+
+  // ── Transversalité & comptabilité associative ───────────────────────────────
+  fondsDedie: {
+    type: 'warning',
+    text: 'Fonds Dédiés (Compte 19) : recette conditionnelle affectée à un projet précis, non dépensée sur l\'exercice. Elle est reportée d\'une année sur l\'autre jusqu\'à emploi. Elle n\'entre PAS dans le résultat net de l\'exercice. Le commissaire aux comptes vérifie systématiquement le solde FD. À ne pas confondre avec une recette ordinaire.',
+  },
+  fondsDedie_solde: {
+    type: 'info',
+    text: 'Solde Fonds Dédiés = Solde N-1 + FD reçus sur l\'exercice − FD utilisés (comptabilisés en recettes quand les charges correspondantes sont engagées). Un solde positif = obligations à financer sur exercices futurs.',
+  },
+  tagProjet: {
+    type: 'info',
+    text: 'Tag Projet : libellé libre permettant de regrouper des charges (et recettes) de même nature métier à travers plusieurs entités (Siège, Pôle, services). Exemple : "Projet Région 2026", "CPOM AXE 3". La synthèse Tags calcule le solde = recettes taguées − charges taguées par projet.',
+  },
+  benevoles: {
+    type: 'info',
+    text: 'Valorisation du bénévolat (méthode SMIC horaire chargé) : Heures bénévoles × SMIC/h × 1,42 (coefficient charges). Convention comptable recommandée par le Conseil National de la Comptabilité pour les associations loi 1901. Obligatoire dans les associations reconnues d\'utilité publique. Valeur informative — n\'entre pas dans le compte de résultat, mais apparaît dans l\'annexe.',
+  },
+  repartitionFC: {
+    type: 'warning',
+    text: 'Répartition FC/FI : définit le % du coût annuel de ce formateur affecté à la Formation Continue vs Formation Initiale, mois par mois. Le % FC détermine la part du salaire imputée sur le budget FC (subvention OPCO, droits d\'inscription FC) et la part extraite vers la FI (subvention Région, droits d\'inscription FI). Impact direct sur la présentation EPRD et les clés analytiques.',
+  },
+  reservesAsso: {
+    type: 'warning',
+    text: 'Réserves = Report à nouveau + Fonds associatifs sans droit de reprise. Elles représentent le "matelas" accumulé sur les exercices précédents. Si l\'exercice est déficitaire, les réserves diminuent. "Durée de vie des réserves" = Réserves ÷ Déficit annuel. En dessous de 2 ans : situation fragile. En dessous de 1 an : urgence.',
+  },
 };
 
 
@@ -275,6 +301,7 @@ export const defaultGlobalParams = {
     { id: 'subventionsInvest', nom: 'Subventions d\'investissement', montant: 0 }
   ],
   stocksValeur: 0,
+  soldeFDOuverture: 0,   // Solde Fonds Dédiés au 01/01/N (Compte 19)
   tauxSubventionDAF: { fi: 70, transversal: 60, recherche: 30 },
   taxeSalaires: false,
   tauxTaxeSalaires: 4.25,

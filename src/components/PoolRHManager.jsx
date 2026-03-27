@@ -252,7 +252,7 @@ export default function PoolRHManager({ poolRH, setPoolRH, services, direction, 
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                       <div>
                         <label className={`block text-xs mb-1 ${label}`}>Nom / Poste</label>
-                        <input className={input} value={data.titre || ''} onChange={e => setField('titre', e.target.value)} placeholder="Ex. Chargé RH" />
+                        <input className={input} value={data.titre || ''} onChange={e => setField('titre', e.target.value)} placeholder="Ex. Chargé RH" autoFocus />
                       </div>
                       <div>
                         <label className={`block text-xs mb-1 ${label}`}>Salaire brut mensuel (€)</label>

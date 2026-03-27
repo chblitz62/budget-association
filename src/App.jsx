@@ -32,6 +32,7 @@ import ModalHardReset from './components/ModalHardReset';
 import StressTestBar from './components/StressTestBar';
 import PoolRHManager from './components/PoolRHManager';
 import TabRepartitionTemps from './components/TabRepartitionTemps';
+import DashboardDG from './components/DashboardDG';
 import SnapshotManager, { loadSnapshot } from './components/SnapshotManager';
 import AICopilot from './components/AICopilot';
 import DashboardCard from './components/ui/DashboardCard';
@@ -48,6 +49,7 @@ import {
   SMIC_MENSUEL,
   SEUIL_HEURES_VACATAIRE,
   SEUIL_RATIO_VACATAIRE,
+  FINANCIAL_HELP,
   COMPTES_IMMO,
   COMPTES_EXPLOITATION,
   COMPTES_RECETTES,
@@ -1140,6 +1142,16 @@ const BudgetTool = () => {
         <div key={activeTab} className="animate-in fade-in duration-500">
         {activeTab === 'dashboard' && <>
 
+        {/* ─── TABLEAU DE BORD DG ─── */}
+        <DashboardDG
+          direction={direction}
+          poleSupport={poleSupport}
+          services={services}
+          poolRH={poolRH}
+          globalParams={globalParams}
+          darkMode={darkMode}
+        />
+
         {/* COMPARAISON BUDGET VOTÉ */}
         {compareSnapshot && (() => {
           const snap = loadSnapshot();
@@ -2033,6 +2045,8 @@ const BudgetTool = () => {
                                   value={c.tagProjet || ''}
                                   onChange={e => setDirection({...direction, chargesSiege: direction.chargesSiege.map(x => x.id === c.id ? {...x, tagProjet: e.target.value} : x)})}
                                 />
+                                <input type="number" placeholder="réel" title="Montant réalisé (€/mois)" className={`w-16 text-right text-xs rounded px-2 py-1 border no-print ${c.realise != null ? (darkMode ? 'bg-blue-900/40 border-blue-600 text-blue-200' : 'bg-blue-50 border-blue-300 text-blue-800') : (darkMode ? 'bg-gray-700 border-gray-600 text-gray-500' : 'bg-white border-slate-200 text-slate-400')}`} value={c.realise ?? ''} onChange={e => { const v = e.target.value === '' ? null : validerMontant(e.target.value); setDirection({...direction, chargesSiege: direction.chargesSiege.map(x => x.id === c.id ? {...x, realise: v} : x)}); }} />
+                                {c.realise != null && (() => { const ecart = c.realise - c.montant; return <span className={`text-[10px] font-bold no-print ${ecart > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{ecart > 0 ? '+' : ''}{Math.round(ecart).toLocaleString()}€</span>; })()}
                               </div>
                             </div>
                           ))}
@@ -2067,6 +2081,14 @@ const BudgetTool = () => {
                                   className={`text-[10px] font-black px-1 py-0.5 rounded border no-print ${r.fondsDedie ? (darkMode ? 'bg-indigo-900/40 border-indigo-600 text-indigo-300' : 'bg-indigo-100 border-indigo-400 text-indigo-700') : (darkMode ? 'text-gray-600 border-gray-600 hover:text-gray-400' : 'text-slate-300 border-slate-200 hover:text-slate-500')}`}>
                                   FD
                                 </button>
+                                <input
+                                  placeholder="tag projet"
+                                  className={`text-[11px] w-24 rounded px-1.5 py-0.5 outline-none border no-print ${darkMode ? 'bg-zinc-700 border-zinc-600 text-zinc-300 placeholder-zinc-600' : 'bg-slate-50 border-slate-200 text-slate-600 placeholder-slate-300'} ${r.tagProjet ? (darkMode ? 'border-violet-600 text-violet-300' : 'border-violet-300 text-violet-700') : ''}`}
+                                  value={r.tagProjet || ''}
+                                  onChange={e => setDirection({...direction, recettes: (direction.recettes||[]).map(x => x.id === r.id ? {...x, tagProjet: e.target.value} : x)})}
+                                />
+                                <input type="number" placeholder="réel" title="Montant réalisé (€/mois)" className={`w-16 text-right text-xs rounded px-2 py-1 border no-print ${r.realise != null ? (darkMode ? 'bg-blue-900/40 border-blue-600 text-blue-200' : 'bg-blue-50 border-blue-300 text-blue-800') : (darkMode ? 'bg-gray-700 border-gray-600 text-gray-500' : 'bg-white border-slate-200 text-slate-400')}`} value={r.realise ?? ''} onChange={e => { const v = e.target.value === '' ? null : validerMontant(e.target.value); setDirection({...direction, recettes: (direction.recettes||[]).map(x => x.id === r.id ? {...x, realise: v} : x)}); }} />
+                                {r.realise != null && (() => { const ecart = r.realise - r.montant; return <span className={`text-[10px] font-bold no-print ${ecart >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{ecart >= 0 ? '+' : ''}{Math.round(ecart).toLocaleString()}€</span>; })()}
                               </div>
                             </div>
                           ))}
@@ -2349,6 +2371,8 @@ const BudgetTool = () => {
                                 value={c.tagProjet || ''}
                                 onChange={e => setPoleSupport({...poleSupport, exploitation: poleSupport.exploitation.map(x => x.id === c.id ? {...x, tagProjet: e.target.value} : x)})}
                               />
+                              <input type="number" placeholder="réel" title="Montant réalisé (€/mois)" className={`w-16 text-right text-[10px] rounded px-1.5 py-0.5 border no-print ${c.realise != null ? (darkMode ? 'bg-blue-900/40 border-blue-600 text-blue-200' : 'bg-blue-50 border-blue-300 text-blue-800') : (darkMode ? 'bg-gray-700 border-gray-600 text-gray-500' : 'bg-white border-slate-200 text-slate-400')}`} value={c.realise ?? ''} onChange={e => { const v = e.target.value === '' ? null : validerMontant(e.target.value); setPoleSupport({...poleSupport, exploitation: poleSupport.exploitation.map(x => x.id === c.id ? {...x, realise: v} : x)}); }} />
+                              {c.realise != null && (() => { const ecart = c.realise - c.montant; return <span className={`text-[10px] font-bold no-print ${ecart > 0 ? 'text-red-500' : 'text-emerald-500'}`}>{ecart > 0 ? '+' : ''}{Math.round(ecart).toLocaleString()}€</span>; })()}
                             </div>
                           ))}
                           {(poleSupport.exploitation||[]).length === 0 && <p className={`text-xs text-center py-3 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Aucune charge</p>}
@@ -2372,6 +2396,14 @@ const BudgetTool = () => {
                                   className={`text-[10px] font-black px-1 py-0.5 rounded border no-print ${r.fondsDedie ? (darkMode ? 'bg-indigo-900/40 border-indigo-600 text-indigo-300' : 'bg-indigo-100 border-indigo-400 text-indigo-700') : (darkMode ? 'text-gray-600 border-gray-600 hover:text-gray-400' : 'text-slate-300 border-slate-200 hover:text-slate-500')}`}>
                                   FD
                                 </button>
+                                <input
+                                  placeholder="tag"
+                                  className={`text-[10px] w-20 rounded px-1 py-0.5 outline-none border no-print ${darkMode ? 'bg-zinc-700 border-zinc-600 text-zinc-300 placeholder-zinc-600' : 'bg-slate-50 border-slate-200 text-slate-600 placeholder-slate-300'} ${r.tagProjet ? (darkMode ? 'border-violet-600 text-violet-300' : 'border-violet-300 text-violet-700') : ''}`}
+                                  value={r.tagProjet || ''}
+                                  onChange={e => setPoleSupport({...poleSupport, recettes: poleSupport.recettes.map(x => x.id === r.id ? {...x, tagProjet: e.target.value} : x)})}
+                                />
+                                <input type="number" placeholder="réel" title="Montant réalisé (€/mois)" className={`w-16 text-right text-[10px] rounded px-1.5 py-0.5 border no-print ${r.realise != null ? (darkMode ? 'bg-blue-900/40 border-blue-600 text-blue-200' : 'bg-blue-50 border-blue-300 text-blue-800') : (darkMode ? 'bg-gray-700 border-gray-600 text-gray-500' : 'bg-white border-slate-200 text-slate-400')}`} value={r.realise ?? ''} onChange={e => { const v = e.target.value === '' ? null : validerMontant(e.target.value); setPoleSupport({...poleSupport, recettes: poleSupport.recettes.map(x => x.id === r.id ? {...x, realise: v} : x)}); }} />
+                                {r.realise != null && (() => { const ecart = r.realise - r.montant; return <span className={`text-[10px] font-bold no-print ${ecart >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{ecart >= 0 ? '+' : ''}{Math.round(ecart).toLocaleString()}€</span>; })()}
                               </div>
                             ))}
                             {(poleSupport.recettes||[]).length === 0 && <p className={`text-xs text-center py-2 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Aucune recette</p>}
@@ -3771,6 +3803,12 @@ const BudgetTool = () => {
                           </button>
                           <input type="number" placeholder="réel" title="Montant réalisé (€/mois)" className={`w-16 text-right text-xs rounded px-2 py-1 border ${item.realise != null ? (darkMode ? 'bg-blue-900/40 border-blue-600 text-blue-200' : 'bg-blue-50 border-blue-300 text-blue-800') : (darkMode ? 'bg-gray-700 border-gray-600 text-gray-500' : 'bg-white border-slate-200 text-slate-400')}`} value={item.realise ?? ''} onChange={(e) => { const v = e.target.value === '' ? null : validerMontant(e.target.value); setServices(services.map(s => s.id === service.id ? {...s, recettes: s.recettes.map(rec => rec.id === item.id ? {...rec, realise: v} : rec)} : s)); }} />
                           {item.realise != null && (() => { const ecart = (item.realise - item.montant); return <span className={`text-[10px] font-bold ${ecart >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>{ecart >= 0 ? '+' : ''}{Math.round(ecart).toLocaleString()}€</span>; })()}
+                          <input
+                            placeholder="tag"
+                            className={`text-[10px] w-16 rounded px-1 py-0.5 outline-none border no-print ${darkMode ? 'bg-zinc-700 border-zinc-600 text-zinc-300 placeholder-zinc-600' : 'bg-slate-50 border-slate-200 text-slate-600 placeholder-slate-300'} ${item.tagProjet ? (darkMode ? 'border-violet-600 text-violet-300' : 'border-violet-300 text-violet-700') : ''}`}
+                            value={item.tagProjet || ''}
+                            onChange={e => setServices(services.map(s => s.id === service.id ? {...s, recettes: s.recettes.map(rec => rec.id === item.id ? {...rec, tagProjet: e.target.value} : rec)} : s))}
+                          />
                           <button
                             onClick={() => setSaisonnaliteDialog({ type: 'service', entityId: service.id, recetteId: item.id })}
                             title={item.repartitionMensuelle ? 'Saisonnalité configurée — modifier' : 'Configurer la saisonnalité mensuelle'}
@@ -4611,46 +4649,86 @@ const BudgetTool = () => {
             TAGS PROJETS — Synthèse des charges par tag
             ═══════════════════════════════════════════════════════ */}
         {(() => {
-          const tagMap = {};
-          const addToTag = (tag, montant, source) => {
-            if (!tag) return;
+          // Charges par tag
+          const chargeMap = {};
+          const addCharge = (tag, montant, source) => {
+            if (!tag?.trim()) return;
             const k = tag.trim().toLowerCase();
-            if (!k) return;
-            if (!tagMap[k]) tagMap[k] = { label: tag.trim(), total: 0, lignes: [] };
-            tagMap[k].total += (parseFloat(montant) || 0) * 12;
-            tagMap[k].lignes.push(source);
+            if (!chargeMap[k]) chargeMap[k] = { label: tag.trim(), charges: 0, recettes: 0, lignesCharges: [], lignesRecettes: [] };
+            chargeMap[k].charges += (parseFloat(montant) || 0) * 12;
+            chargeMap[k].lignesCharges.push(source);
           };
-          (direction.chargesSiege || []).forEach(c => addToTag(c.tagProjet, c.montant, `Siège — ${c.nom}`));
-          (poleSupport.exploitation || []).forEach(c => addToTag(c.tagProjet, c.montant, `Pôle Support — ${c.nom}`));
-          services.forEach(s => (s.exploitation || []).forEach(c => addToTag(c.tagProjet, c.montant, `${s.nom} — ${c.nom}`)));
-          const tags = Object.values(tagMap).sort((a, b) => b.total - a.total);
+          const addRecette = (tag, montant, source) => {
+            if (!tag?.trim()) return;
+            const k = tag.trim().toLowerCase();
+            if (!chargeMap[k]) chargeMap[k] = { label: tag.trim(), charges: 0, recettes: 0, lignesCharges: [], lignesRecettes: [] };
+            chargeMap[k].recettes += (parseFloat(montant) || 0) * 12;
+            chargeMap[k].lignesRecettes.push(source);
+          };
+          (direction.chargesSiege || []).forEach(c => addCharge(c.tagProjet, c.montant, `Siège — ${c.nom}`));
+          (direction.recettes || []).forEach(r => addRecette(r.tagProjet, r.montant, `Siège — ${r.nom}`));
+          (poleSupport.exploitation || []).forEach(c => addCharge(c.tagProjet, c.montant, `Pôle Support — ${c.nom}`));
+          (poleSupport.recettes || []).forEach(r => addRecette(r.tagProjet, r.montant, `Pôle Support — ${r.nom}`));
+          services.forEach(s => {
+            (s.exploitation || []).forEach(c => addCharge(c.tagProjet, c.montant, `${s.nom} — ${c.nom}`));
+            (s.recettes || []).forEach(r => addRecette(r.tagProjet, r.montant, `${s.nom} — ${r.nom}`));
+          });
+          const tags = Object.values(chargeMap).sort((a, b) => b.charges - a.charges);
           if (tags.length === 0) return null;
           return (
             <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-slate-200'}`}>
               <h2 className={`text-lg font-black flex items-center gap-2 mb-5 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                 <Tag size={20} className="text-violet-500" /> Synthèse par Tag Projet
+                <HelpIcon {...FINANCIAL_HELP.tagProjet} darkMode={darkMode} />
               </h2>
               <div className="space-y-3">
-                {tags.map(tag => (
-                  <div key={tag.label} className={`rounded-xl p-4 border ${darkMode ? 'bg-zinc-700/50 border-zinc-600' : 'bg-violet-50 border-violet-100'}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`font-black text-sm flex items-center gap-1.5 ${darkMode ? 'text-violet-200' : 'text-violet-800'}`}>
-                        <Tag size={13} /> {tag.label}
-                      </span>
-                      <span className={`font-black text-base ${darkMode ? 'text-violet-300' : 'text-violet-700'}`}>
-                        {Math.round(tag.total).toLocaleString()} €/an
-                      </span>
+                {tags.map(tag => {
+                  const solde = tag.recettes - tag.charges;
+                  const hasRecettes = tag.recettes > 0;
+                  return (
+                    <div key={tag.label} className={`rounded-xl p-4 border ${darkMode ? 'bg-zinc-700/50 border-zinc-600' : 'bg-violet-50 border-violet-100'}`}>
+                      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                        <span className={`font-black text-sm flex items-center gap-1.5 ${darkMode ? 'text-violet-200' : 'text-violet-800'}`}>
+                          <Tag size={13} /> {tag.label}
+                        </span>
+                        <div className="flex items-center gap-3">
+                          {hasRecettes && (
+                            <span className={`text-xs font-bold ${darkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                              Recettes : +{Math.round(tag.recettes).toLocaleString()} €
+                            </span>
+                          )}
+                          <span className={`text-xs font-bold ${darkMode ? 'text-red-400' : 'text-red-700'}`}>
+                            Charges : -{Math.round(tag.charges).toLocaleString()} €
+                          </span>
+                          {hasRecettes && (
+                            <span className={`font-black text-sm px-2 py-0.5 rounded-lg ${solde >= 0 ? (darkMode ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-100 text-emerald-700') : (darkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700')}`}>
+                              Solde : {solde >= 0 ? '+' : ''}{Math.round(solde).toLocaleString()} €
+                            </span>
+                          )}
+                          {!hasRecettes && (
+                            <span className={`font-black text-base ${darkMode ? 'text-violet-300' : 'text-violet-700'}`}>
+                              {Math.round(tag.charges).toLocaleString()} €/an
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {tag.lignesCharges.map((l, i) => (
+                          <span key={`c${i}`} className={`text-[10px] px-2 py-0.5 rounded-full border ${darkMode ? 'bg-zinc-800 border-zinc-600 text-zinc-400' : 'bg-white border-violet-200 text-slate-600'}`}>{l}</span>
+                        ))}
+                        {tag.lignesRecettes.map((l, i) => (
+                          <span key={`r${i}`} className={`text-[10px] px-2 py-0.5 rounded-full border ${darkMode ? 'bg-emerald-900/30 border-emerald-700 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>+{l}</span>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-1">
-                      {tag.lignes.map((l, i) => (
-                        <span key={i} className={`text-[10px] px-2 py-0.5 rounded-full border ${darkMode ? 'bg-zinc-800 border-zinc-600 text-zinc-400' : 'bg-white border-violet-200 text-slate-600'}`}>{l}</span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
                 <div className={`pt-3 flex justify-between font-black text-sm border-t ${darkMode ? 'border-zinc-700 text-zinc-200' : 'border-violet-200 text-slate-700'}`}>
                   <span>{tags.length} tag{tags.length > 1 ? 's' : ''}</span>
-                  <span>{tags.reduce((s, t) => s + t.total, 0).toLocaleString()} €/an total tagué</span>
+                  <span>
+                    Charges taguées : {tags.reduce((s, t) => s + t.charges, 0).toLocaleString()} €/an
+                    {tags.some(t => t.recettes > 0) && ` · Recettes : ${tags.reduce((s, t) => s + t.recettes, 0).toLocaleString()} €`}
+                  </span>
                 </div>
               </div>
             </div>
@@ -4671,6 +4749,7 @@ const BudgetTool = () => {
                 <h2 className={`text-lg font-black flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                   <Heart size={20} className="text-rose-500" /> Valorisation du Bénévolat
                   <span className={`text-xs font-normal ml-2 ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Comptes 86 (emplois) / 87 (ressources)</span>
+                  <HelpIcon {...FINANCIAL_HELP.benevoles} darkMode={darkMode} />
                 </h2>
                 <button
                   onClick={() => setBenevoles([...benevoles, { id: Date.now(), nom: 'Bénévole', categorie: 'Animation', heures: 0 }])}
@@ -4751,6 +4830,10 @@ const BudgetTool = () => {
             ...services.flatMap(s => (s.recettes || []).map(r => ({ ...r, source: s.nom }))),
           ];
           const fd = allRecettes.filter(r => r.fondsDedie);
+          const totalFDEncaisses = fd.reduce((s, r) => s + (parseFloat(r.montant) || 0) * 12, 0);
+          const totalFDConsommes = fd.filter(r => r.realise != null).reduce((s, r) => s + (parseFloat(r.realise) || 0) * 12, 0);
+          const soldeFDOuverture = parseFloat(globalParams.soldeFDOuverture) || 0;
+          const soldeFDCloture = soldeFDOuverture + totalFDEncaisses - totalFDConsommes;
           const totalFD = fd.reduce((s, r) => s + (parseFloat(r.montant) || 0), 0);
           const totalOrdinaires = allRecettes.filter(r => !r.fondsDedie).reduce((s, r) => s + (parseFloat(r.montant) || 0), 0);
           if (fd.length === 0) return null;
@@ -4758,6 +4841,7 @@ const BudgetTool = () => {
             <div className={`rounded-2xl border p-6 ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-slate-200'}`}>
               <h2 className={`text-lg font-black flex items-center gap-2 mb-5 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
                 <Wallet size={20} className="text-indigo-500" /> Fonds Dédiés — Recettes reportables
+                <HelpIcon {...FINANCIAL_HELP.fondsDedie} darkMode={darkMode} />
               </h2>
               <div className="space-y-2 mb-4">
                 {fd.map(r => (
@@ -4784,6 +4868,24 @@ const BudgetTool = () => {
                 <div>
                   <div className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{Math.round(totalFD / (totalFD + totalOrdinaires) * 100)}%</div>
                   <div className={`text-xs mt-0.5 ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Part fonds dédiés</div>
+                </div>
+              </div>
+              <div className={`mt-4 p-4 rounded-xl border grid grid-cols-2 md:grid-cols-4 gap-4 ${darkMode ? 'bg-zinc-700/50 border-zinc-600' : 'bg-indigo-50 border-indigo-100'}`}>
+                <div className="text-center">
+                  <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Solde ouverture</div>
+                  <div className={`text-xl font-black ${darkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>{soldeFDOuverture.toLocaleString()} €</div>
+                </div>
+                <div className="text-center">
+                  <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>FD encaissés</div>
+                  <div className={`text-xl font-black ${darkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>+{Math.round(totalFDEncaisses).toLocaleString()} €</div>
+                </div>
+                <div className="text-center">
+                  <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>FD consommés (réel)</div>
+                  <div className={`text-xl font-black ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>-{Math.round(totalFDConsommes).toLocaleString()} €</div>
+                </div>
+                <div className="text-center">
+                  <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Solde clôture estimé</div>
+                  <div className={`text-2xl font-black ${soldeFDCloture > 0 ? (darkMode ? 'text-indigo-300' : 'text-indigo-700') : darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{Math.round(soldeFDCloture).toLocaleString()} €</div>
                 </div>
               </div>
               <p className={`mt-3 text-xs ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>
@@ -4821,6 +4923,7 @@ const BudgetTool = () => {
             darkMode={darkMode}
             repartitionTemps={repartitionTemps}
             setRepartitionTemps={setRepartitionTemps}
+            privacyMode={privacyMode}
           />
         )}
 
@@ -4988,6 +5091,11 @@ const BudgetTool = () => {
                     <span className={`text-lg font-black ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>€/mois</span>
                   </div>
                   <p className={`text-xs mt-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Montant brut ajouté au salaire des agents éligibles</p>
+                </div>
+                <div>
+                  <label className={`block text-xs font-semibold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Solde FD au 01/01 (€)</label>
+                  <input type="number" className={`w-full rounded-lg px-3 py-2 text-sm border ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-slate-300'}`} value={globalParams.soldeFDOuverture ?? 0} onChange={e => setGlobalParams({...globalParams, soldeFDOuverture: parseFloat(e.target.value)||0})} />
+                  <p className={`text-[10px] mt-0.5 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Compte 19 — report N-1</p>
                 </div>
                 <div className={`rounded-2xl p-4 border col-span-2 ${globalParams.taxeSalaires ? (darkMode ? 'bg-rose-900/20 border-rose-700' : 'bg-rose-50 border-rose-200') : (darkMode ? 'bg-gray-700/30 border-gray-600' : 'bg-slate-50 border-slate-200')}`}>
                   <div className="flex items-center justify-between mb-2">

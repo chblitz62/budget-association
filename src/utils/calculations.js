@@ -272,9 +272,22 @@ export const calculerBudgetDirection = (direction, planningAbsences = null, anne
     .reduce((sum, c) => sum + _montantReelExploitation(c, tvaParams) * 12, 0);
   const exploitation = chargesSiegeLeg + exploitationSup;
 
-  // Recettes propres de la direction
+  const exploitationRealisee = [
+    ...(direction.chargesSiege || []),
+    ...(direction.exploitation || []),
+  ].reduce((sum, c) => c.realise != null ? sum + c.realise * 12 : sum, 0);
+
+  const recettesRealisees = (direction.recettes || []).reduce((sum, r) => r.realise != null ? sum + r.realise * 12 : sum, 0);
+  const hasRealise = (direction.chargesSiege || []).some(c => c.realise != null)
+    || (direction.exploitation || []).some(c => c.realise != null)
+    || (direction.recettes || []).some(r => r.realise != null);
+
+  // Recettes propres de la direction (total + part fonds dédiés identifiée séparément)
   const recettes = (direction.recettes || [])
     .reduce((sum, r) => sum + (parseFloat(r.montant) || 0), 0) * 12;
+  const recettesFD = (direction.recettes || [])
+    .filter(r => r.fondsDedie)
+    .reduce((sum, r) => sum + (parseFloat(r.montant) || 0) * 12, 0);
 
   // Amortissements (si investissements renseignés)
   let amortissements = 0;
@@ -294,6 +307,10 @@ export const calculerBudgetDirection = (direction, planningAbsences = null, anne
     chargesSiege: exploitation,   // alias backward-compat (= exploitation complète)
     exploitation,
     recettes,
+    recettesFD,
+    recettesRealisees,
+    exploitationRealisee,
+    hasRealise,
     amortissements,
     coutCarenceMaladie,
     etpContractuel,
@@ -376,8 +393,9 @@ export const calculerBudgetService = (service, planningAbsences = null, annee = 
   const exploitation = service.exploitation.reduce((sum, item) => sum + _montantReelExploitation(item, tvaParams) * 12, 0);
   const exploitationRealisee = service.exploitation.reduce((sum, item) => item.realise != null ? sum + item.realise * 12 : sum, 0);
 
-  // Calcul des recettes annuelles
+  // Calcul des recettes annuelles (total + part fonds dédiés identifiée séparément)
   const recettes = service.recettes ? service.recettes.reduce((sum, item) => sum + item.montant * 12, 0) : 0;
+  const recettesFD = (service.recettes || []).filter(r => r.fondsDedie).reduce((sum, r) => sum + r.montant * 12, 0);
   const recettesRealisees = (service.recettes || []).reduce((sum, item) => item.realise != null ? sum + item.realise * 12 : sum, 0);
   const hasRealise = (service.recettes || []).some(r => r.realise != null) || service.exploitation.some(e => e.realise != null);
 
@@ -459,6 +477,7 @@ export const calculerBudgetService = (service, planningAbsences = null, annee = 
     exploitationRealisee,
     exploitationDetails: service.exploitation,
     recettes,
+    recettesFD,
     recettesRealisees,
     hasRealise,
     recettesDetails: service.recettes || [],
@@ -502,7 +521,12 @@ export const calculerBudgetPoleSupport = (poleSupport, planningAbsences = null, 
   const partPool = calculerPartPoolRH(poolRH, 'poleSupport', null, montantSegurETP);
   const salaires = salairesPermanents + partPool.totalSalaires;
   const exploitation = (poleSupport.exploitation || []).reduce((sum, item) => sum + _montantReelExploitation(item, tvaParams) * 12, 0);
+  const exploitationRealisee = (poleSupport.exploitation || []).reduce((sum, c) => c.realise != null ? sum + c.realise * 12 : sum, 0);
+  const recettesRealisees = (poleSupport.recettes || []).reduce((sum, r) => r.realise != null ? sum + r.realise * 12 : sum, 0);
+  const hasRealise = (poleSupport.exploitation || []).some(c => c.realise != null)
+    || (poleSupport.recettes || []).some(r => r.realise != null);
   const recettes = (poleSupport.recettes || []).reduce((sum, item) => sum + (parseFloat(item.montant) || 0) * 12, 0);
+  const recettesFD = (poleSupport.recettes || []).filter(r => r.fondsDedie).reduce((sum, r) => sum + (parseFloat(r.montant) || 0) * 12, 0);
 
   // Amortissements (si investissements renseignés)
   let amortissements = 0;
@@ -515,7 +539,8 @@ export const calculerBudgetPoleSupport = (poleSupport, planningAbsences = null, 
   const total = salaires + exploitation + amortissements + coutCarenceMaladie;
   return {
     salaires, salairesPermanents, detailsSalaires, detailsPoolRH: partPool.details,
-    exploitation, recettes, amortissements, coutCarenceMaladie, etpContractuel, etpReel,
+    exploitation, recettes, recettesFD, recettesRealisees, exploitationRealisee, hasRealise,
+    amortissements, coutCarenceMaladie, etpContractuel, etpReel,
     total,
     solde: recettes - total,
   };
