@@ -18,6 +18,7 @@ import {
   calculerAlertesRH,
   calculerIFC,
   calculerSynthese3Ans,
+  verifierCoherencePoolRH,
 } from '../utils/calculations';
 import { PRIME_SEGUR, FINANCIAL_HELP } from '../utils/constants';
 import HelpIcon from './ui/HelpIcon';
@@ -333,12 +334,89 @@ export default function DashboardDG({
         };
       });
 
+    // ── Transversalité ────────────────────────────────────────────────────
+    // Matrice Pool RH : agents × entités
+    const poolRHMatrix = (poolRH || []).map(agent => {
+      const entities = {};
+      let totalPct = 0;
+      (agent.affectations || []).forEach(aff => {
+        const label = aff.entityType === 'direction'   ? 'Siège' :
+                      aff.entityType === 'poleSupport' ? 'Pôle Support' :
+                      (services.find(s => s.id === aff.entityId)?.nom || `Service ${aff.entityId}`);
+        entities[label] = (entities[label] || 0) + (parseFloat(aff.pct) || 0);
+        totalPct += (parseFloat(aff.pct) || 0);
+      });
+      const segurAgt = agent.segur === true ? msETP : (parseFloat(agent.segur) || 0);
+      const coutTotal = calculerSalaireAnnuel(agent.salaire, agent.etp, segurAgt, agent.typeContrat, agent.tauxChargesManuel).total;
+      return { nom: agent.titre || 'Agent', entities, totalPct, ok: Math.abs(totalPct - 100) < 0.1, coutTotal };
+    });
+    const alertesPoolRH = verifierCoherencePoolRH(poolRH || []);
+
+    // Répartition frais siège → services
+    const repartSiege = direction.repartition || {};
+    const totalPctSiege = Object.values(repartSiege).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+    const siegeParService = Object.entries(repartSiege)
+      .filter(([, v]) => parseFloat(v) > 0)
+      .map(([id, pct]) => ({
+        nom: services.find(s => s.id === parseInt(id))?.nom || `Service #${id}`,
+        pct: parseFloat(pct) || 0,
+        montant: Math.round((agg.bd.salaires + agg.bd.exploitation) * (parseFloat(pct) / 100)),
+      }))
+      .sort((a, b) => b.pct - a.pct);
+
+    // Répartition Pôle Support → services
+    const repartPS = poleSupport.repartition || {};
+    const totalPctPS = Object.values(repartPS).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+    const psParService = Object.entries(repartPS)
+      .filter(([, v]) => parseFloat(v) > 0)
+      .map(([id, pct]) => ({
+        nom: services.find(s => s.id === parseInt(id))?.nom || `Service #${id}`,
+        pct: parseFloat(pct) || 0,
+        montant: Math.round((agg.bp.salaires + agg.bp.exploitation) * (parseFloat(pct) / 100)),
+      }))
+      .sort((a, b) => b.pct - a.pct);
+
+    // Analyse FC/FI par service
+    const fcfiParService = agg.bServices.map(({ service, bs }) => {
+      const totalMS = bs.salaires || 0;
+      const partFI = bs.salairesAllouesFI || 0;
+      const partFC = totalMS - partFI;
+      const agentsAvecRep = (service.personnel || []).filter(p => p.repartitionFC || p.repartitionFI);
+      const alertesFCFI = agentsAvecRep.flatMap(p => {
+        const rep = p.repartitionFC || p.repartitionFI || {};
+        return Object.entries(rep)
+          .filter(([, v]) => parseFloat(v) > 100 || parseFloat(v) < 0)
+          .map(([mois]) => `${p.titre} — ${mois} hors bornes`);
+      });
+      return {
+        nom: service.nom,
+        totalAgents: (service.personnel || []).length,
+        agentsAvecRep: agentsAvecRep.length,
+        totalMS, partFI, partFC,
+        pctFI: totalMS > 0 ? (partFI / totalMS) * 100 : 0,
+        pctFC: totalMS > 0 ? (partFC / totalMS) * 100 : 0,
+        alertesFCFI,
+      };
+    }).filter(s => s.totalMS > 0);
+
+    // Anomalies transversales consolidées
+    const anomaliesTransv = [
+      ...alertesPoolRH.map(a => ({ niveau: 'warn', msg: a.msg, cat: 'Pool RH' })),
+      ...(Math.abs(totalPctSiege - 100) > 1 && Object.keys(repartSiege).length > 0
+        ? [{ niveau: totalPctSiege > 100 ? 'error' : 'warn', cat: 'Frais siège', msg: `Répartition frais siège = ${totalPctSiege.toFixed(0)}% (attendu 100%)` }] : []),
+      ...(Math.abs(totalPctPS - 100) > 1 && Object.keys(repartPS).length > 0
+        ? [{ niveau: totalPctPS > 100 ? 'error' : 'warn', cat: 'Pôle Support', msg: `Répartition Pôle Support = ${totalPctPS.toFixed(0)}% (attendu 100%)` }] : []),
+      ...fcfiParService.flatMap(s => s.alertesFCFI.map(msg => ({ niveau: 'error', cat: 'FC/FI', msg: `${s.nom} — ${msg}` }))),
+    ];
+
     return {
       caf, totalAmort, chargesFixees, chargesVariables, pctChargesFixees, totalVacataires,
       ecartPointMort, pctAtteinte,
       totalSubventions, totalPropres, pctSubventions,
       tresorerie, bfr, statsVac, auditItems, alertesRH, ifc, pilotPeda,
       projection3ans, solvabiliteMois, ratioLiquidite,
+      poolRHMatrix, alertesPoolRH, siegeParService, totalPctSiege,
+      psParService, totalPctPS, fcfiParService, anomaliesTransv,
     };
   }, [agg, direction, poleSupport, services, poolRH, globalParams, msETP]);
 
@@ -895,6 +973,205 @@ export default function DashboardDG({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── Transversalité des données ───────────────────────────────────── */}
+      {(daf.poolRHMatrix.length > 0 || daf.siegeParService.length > 0 || daf.psParService.length > 0 || daf.fcfiParService.length > 0) && (
+        <div className={`rounded-2xl border p-5 space-y-6 ${dm ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-slate-200'}`}>
+          <h3 className={`text-sm font-black uppercase tracking-wide flex items-center gap-2 ${dm ? 'text-zinc-400' : 'text-slate-500'}`}>
+            <Activity size={14} /> Transversalité des données
+          </h3>
+
+          {/* Anomalies transversales */}
+          {daf.anomaliesTransv.length > 0 && (
+            <div className="space-y-1.5">
+              {daf.anomaliesTransv.map((a, i) => (
+                <div key={i} className={`flex items-start gap-2 rounded-xl px-4 py-3 text-xs font-semibold border ${
+                  a.niveau === 'error'
+                    ? (dm ? 'bg-red-900/30 border-red-700 text-red-300' : 'bg-red-50 border-red-200 text-red-700')
+                    : (dm ? 'bg-amber-900/30 border-amber-700 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-700')
+                }`}>
+                  <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+                  <span><strong className="mr-1.5">[{a.cat}]</strong>{a.msg}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Matrice Pool RH */}
+          {daf.poolRHMatrix.length > 0 && (() => {
+            const allEntities = [...new Set(daf.poolRHMatrix.flatMap(a => Object.keys(a.entities)))];
+            return (
+              <div>
+                <div className={`text-xs font-black uppercase tracking-wide mb-2 flex items-center gap-2 ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>
+                  <Users size={12} /> Pool RH — matrice d'affectation
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr>
+                        <th className={`text-left py-2 px-3 font-black ${dm ? 'text-zinc-400' : 'text-slate-500'}`}>Agent</th>
+                        <th className={`text-right py-2 px-2 font-black ${dm ? 'text-zinc-400' : 'text-slate-500'}`}>Coût total</th>
+                        {allEntities.map(e => (
+                          <th key={e} className={`text-right py-2 px-2 font-black ${dm ? 'text-zinc-400' : 'text-slate-500'}`}>{e}</th>
+                        ))}
+                        <th className={`text-right py-2 px-3 font-black ${dm ? 'text-zinc-400' : 'text-slate-500'}`}>Total %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {daf.poolRHMatrix.map((agent, i) => (
+                        <tr key={i} className={`${dm ? 'odd:bg-zinc-800/40' : 'odd:bg-slate-50'}`}>
+                          <td className={`py-2 px-3 font-semibold ${dm ? 'text-white' : 'text-slate-700'}`}>{agent.nom}</td>
+                          <td className={`py-2 px-2 text-right ${dm ? 'text-zinc-300' : 'text-slate-600'}`}>
+                            {Math.round(agent.coutTotal / 1000)}k€
+                          </td>
+                          {allEntities.map(e => {
+                            const pct = agent.entities[e] || 0;
+                            const cout = pct > 0 ? Math.round(agent.coutTotal * pct / 100 / 1000) : 0;
+                            return (
+                              <td key={e} className={`py-2 px-2 text-right ${pct > 0 ? (dm ? 'text-blue-300' : 'text-blue-700') : (dm ? 'text-zinc-700' : 'text-slate-300')}`}>
+                                {pct > 0 ? <span>{pct}%<span className={`ml-1 font-normal text-[10px] ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>({cout}k€)</span></span> : '—'}
+                              </td>
+                            );
+                          })}
+                          <td className={`py-2 px-3 text-right font-black ${agent.ok ? (dm ? 'text-emerald-400' : 'text-emerald-600') : (dm ? 'text-red-400' : 'text-red-600')}`}>
+                            {agent.totalPct.toFixed(0)}%
+                            {!agent.ok && <AlertTriangle size={11} className="inline ml-1" />}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Répartition frais siège + Pôle Support */}
+          {(daf.siegeParService.length > 0 || daf.psParService.length > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Frais Siège */}
+              {daf.siegeParService.length > 0 && (
+                <div>
+                  <div className={`text-xs font-black uppercase tracking-wide mb-3 flex items-center justify-between ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>
+                    <span className="flex items-center gap-1.5"><Briefcase size={12} /> Frais siège → services</span>
+                    <span className={`font-black text-xs px-2 py-0.5 rounded-full ${
+                      Math.abs(daf.totalPctSiege - 100) <= 1
+                        ? (dm ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
+                        : (dm ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-50 text-amber-700')
+                    }`}>
+                      {daf.totalPctSiege.toFixed(0)}% alloués
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {daf.siegeParService.map((s, i) => (
+                      <div key={i}>
+                        <div className="flex justify-between mb-0.5">
+                          <span className={`text-xs font-semibold truncate ${dm ? 'text-zinc-300' : 'text-slate-600'}`}>{s.nom}</span>
+                          <span className={`text-xs font-black shrink-0 ml-2 ${dm ? 'text-blue-300' : 'text-blue-700'}`}>
+                            {s.pct}% · {s.montant.toLocaleString()}€
+                          </span>
+                        </div>
+                        <div className={`h-2 rounded-full overflow-hidden ${dm ? 'bg-zinc-700' : 'bg-slate-200'}`}>
+                          <div className="h-full rounded-full bg-blue-500" style={{ width: `${Math.min(100, s.pct)}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                    {daf.totalPctSiege < 99 && (
+                      <div className={`text-[10px] mt-1 ${dm ? 'text-amber-400' : 'text-amber-600'}`}>
+                        {(100 - daf.totalPctSiege).toFixed(0)}% non ventilés ({Math.round((agg.bd.salaires + agg.bd.exploitation) * (100 - daf.totalPctSiege) / 100 / 1000)}k€)
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Pôle Support */}
+              {daf.psParService.length > 0 && (
+                <div>
+                  <div className={`text-xs font-black uppercase tracking-wide mb-3 flex items-center justify-between ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>
+                    <span className="flex items-center gap-1.5"><Users size={12} /> Pôle Support → services</span>
+                    <span className={`font-black text-xs px-2 py-0.5 rounded-full ${
+                      Math.abs(daf.totalPctPS - 100) <= 1
+                        ? (dm ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
+                        : (dm ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-50 text-amber-700')
+                    }`}>
+                      {daf.totalPctPS.toFixed(0)}% alloués
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {daf.psParService.map((s, i) => (
+                      <div key={i}>
+                        <div className="flex justify-between mb-0.5">
+                          <span className={`text-xs font-semibold truncate ${dm ? 'text-zinc-300' : 'text-slate-600'}`}>{s.nom}</span>
+                          <span className={`text-xs font-black shrink-0 ml-2 ${dm ? 'text-violet-300' : 'text-violet-700'}`}>
+                            {s.pct}% · {s.montant.toLocaleString()}€
+                          </span>
+                        </div>
+                        <div className={`h-2 rounded-full overflow-hidden ${dm ? 'bg-zinc-700' : 'bg-slate-200'}`}>
+                          <div className="h-full rounded-full bg-violet-500" style={{ width: `${Math.min(100, s.pct)}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                    {daf.totalPctPS < 99 && (
+                      <div className={`text-[10px] mt-1 ${dm ? 'text-amber-400' : 'text-amber-600'}`}>
+                        {(100 - daf.totalPctPS).toFixed(0)}% non ventilés ({Math.round((agg.bp.salaires + agg.bp.exploitation) * (100 - daf.totalPctPS) / 100 / 1000)}k€)
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Analyse FC/FI par service */}
+          {daf.fcfiParService.length > 0 && (
+            <div>
+              <div className={`text-xs font-black uppercase tracking-wide mb-3 flex items-center gap-2 ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>
+                <GraduationCap size={12} /> Répartition masse salariale FC / FI par service
+              </div>
+              <div className={`flex items-center gap-3 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider mb-1 ${dm ? 'text-zinc-600' : 'text-slate-400'}`}>
+                <span className="flex-1">Service</span>
+                <span className="w-20 text-right">Agents</span>
+                <span className="w-20 text-right">Avec répart.</span>
+                <span className="w-24 text-right">Part FC</span>
+                <span className="w-24 text-right">Part FI</span>
+                <span className="w-44">Répartition</span>
+              </div>
+              <div className="space-y-1.5">
+                {daf.fcfiParService.map((s, i) => (
+                  <div key={i} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${dm ? 'bg-zinc-800/60' : 'bg-slate-50'}`}>
+                    <span className={`flex-1 text-xs font-semibold truncate ${dm ? 'text-white' : 'text-slate-700'}`}>{s.nom}</span>
+                    <span className={`text-xs w-20 text-right ${dm ? 'text-zinc-400' : 'text-slate-500'}`}>{s.totalAgents}</span>
+                    <span className={`text-xs w-20 text-right ${s.agentsAvecRep > 0 ? (dm ? 'text-blue-300' : 'text-blue-600') : (dm ? 'text-zinc-600' : 'text-slate-300')}`}>
+                      {s.agentsAvecRep > 0 ? s.agentsAvecRep : '—'}
+                    </span>
+                    <span className={`text-xs font-bold w-24 text-right ${dm ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                      {s.partFC > 0 ? `${Math.round(s.pctFC)}% · ${Math.round(s.partFC / 1000)}k€` : '—'}
+                    </span>
+                    <span className={`text-xs font-bold w-24 text-right ${dm ? 'text-blue-300' : 'text-blue-700'}`}>
+                      {s.partFI > 0 ? `${Math.round(s.pctFI)}% · ${Math.round(s.partFI / 1000)}k€` : '—'}
+                    </span>
+                    <div className="w-44 flex items-center gap-0">
+                      <div className="flex-1 h-2.5 rounded-full overflow-hidden flex">
+                        <div className="h-full bg-emerald-500" style={{ width: `${s.pctFC}%` }} />
+                        <div className="h-full bg-blue-500" style={{ width: `${s.pctFI}%` }} />
+                      </div>
+                      {s.alertesFCFI.length > 0 && (
+                        <AlertTriangle size={12} className={`ml-1.5 shrink-0 ${dm ? 'text-red-400' : 'text-red-500'}`} title={s.alertesFCFI.join(' | ')} />
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className={`flex gap-4 mt-2 text-[10px] font-semibold ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>
+                <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm bg-emerald-500 inline-block" /> FC — Formation Continue</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-2 rounded-sm bg-blue-500 inline-block" /> FI — Formation Initiale</span>
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 
