@@ -542,6 +542,7 @@ const BudgetTool = () => {
   useEffect(() => { localStorage.setItem('assoc_pole_support_position', JSON.stringify(poleSupportPosition)); }, [poleSupportPosition]);
   useEffect(() => { localStorage.setItem('assoc_darkMode', JSON.stringify(darkMode)); }, [darkMode]);
   useEffect(() => { localStorage.setItem('assoc_active_tab', activeTab); }, [activeTab]);
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [activeTab]);
 
   // Auto-backup toutes les 10 minutes (protection contre perte de données)
   useEffect(() => {
@@ -738,15 +739,28 @@ const BudgetTool = () => {
     link.click();
   };
 
+  // Raccourci Ctrl+S / Cmd+S → sauvegarder JSON
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        sauvegarderBudget();
+        window.appToast?.('Export JSON téléchargé', 'info');
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   const restaurerBackup = () => {
     try {
       const slot = parseInt(localStorage.getItem('assoc_backup_slot') || '0');
-      if (!slot) { alert('Aucun backup automatique disponible.'); return; }
+      if (!slot) { window.appToast?.('Aucun backup automatique disponible.', 'warning'); return; }
       const snapshots = [1, 2, 3]
         .map(i => { try { return JSON.parse(localStorage.getItem(`assoc_backup_${i}`) || 'null'); } catch { return null; } })
         .filter(Boolean)
         .sort((a, b) => new Date(b.ts) - new Date(a.ts));
-      if (!snapshots.length) { alert('Aucun backup automatique disponible.'); return; }
+      if (!snapshots.length) { window.appToast?.('Aucun backup automatique disponible.', 'warning'); return; }
       const snap = snapshots[0];
       const d = new Date(snap.ts).toLocaleString('fr-FR');
       if (!confirm(`Restaurer le backup du ${d} ?\n\nCela remplacera les données actuelles.`)) return;
@@ -762,8 +776,8 @@ const BudgetTool = () => {
       if (snap.planningAbsences) setPlanningAbsences(snap.planningAbsences);
       if (snap.benevoles) setBenevoles(snap.benevoles);
       if (snap.repartitionTemps) setRepartitionTemps(snap.repartitionTemps);
-      alert(`Backup du ${d} restauré avec succès.`);
-    } catch { alert('Erreur lors de la restauration du backup.'); }
+      window.appToast?.(`Backup du ${d} restauré avec succès.`, 'success');
+    } catch { window.appToast?.('Erreur lors de la restauration du backup.', 'error'); }
   };
 
   const chargerBudget = (e) => {
@@ -787,8 +801,8 @@ const BudgetTool = () => {
           if (data.pilotageSites) setPilotageSites(data.pilotageSites);
           if (data.directionPosition !== undefined) setDirectionPosition(data.directionPosition);
           if (data.poleSupportPosition !== undefined) setPoleSupportPosition(data.poleSupportPosition);
-          alert('Budget chargé !');
-        } catch { alert('Erreur de chargement'); }
+          window.appToast?.('Budget chargé avec succès', 'success');
+        } catch { window.appToast?.('Erreur de chargement', 'error'); }
       };
       reader.readAsText(file);
     }
@@ -1008,8 +1022,8 @@ const BudgetTool = () => {
            style={{ marginLeft: sidebarOpen ? '256px' : '56px', marginRight: showAICopilot ? '320px' : '0', paddingTop: 'calc(56px + 1.5rem)' }}>
         <div className="max-w-[1600px] mx-auto">
 
-          {/* ── TABLEAU DE BORD KPI ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          {/* ── TABLEAU DE BORD KPI — masqué sur dashboard (DashboardDG a ses propres KPIs) ── */}
+          {activeTab !== 'dashboard' && <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
             {[
               { label: 'Recettes', val: `${Math.round(totalRecettes/1000)}k`, unit: '€', sub: 'annuelles', color: 'green', icon: <Banknote size={18}/>, help: 'Total des recettes annuelles : subventions Région, droits d\'inscription, produits des formations continues, contributions diverses.' },
               { label: 'Charges', val: `${Math.round(totalCharges/1000)}k`, unit: '€', sub: 'annuelles', color: 'red', icon: <TrendingDown size={18}/>, help: 'Total des charges annuelles : masse salariale (salaires bruts + charges patronales 42%) + frais d\'exploitation + amortissements.' },
@@ -1060,7 +1074,7 @@ const BudgetTool = () => {
                 </div>
               );
             })}
-          </div>
+          </div>}
 
           {/* ── ALERTES AUTOMATIQUES ── */}
           {alertes.length > 0 && (
@@ -1108,8 +1122,8 @@ const BudgetTool = () => {
 
         <ModalPassword darkMode={darkMode} showPasswordModal={showPasswordModal} setShowPasswordModal={setShowPasswordModal} />
 
-        {/* ═══ BARRE D'ONGLETS ═══ */}
-        <div className={`mb-8 p-1.5 rounded-2xl no-print backdrop-blur-md border transition-all duration-500 ${darkMode ? 'bg-zinc-900/80 border-zinc-700/40' : 'bg-slate-100/90 border-slate-200/60'}`}>
+        {/* ═══ BARRE D'ONGLETS ═══ — masquée si sidebar ouverte (navigation dupliquée) */}
+        <div className={`mb-8 p-1.5 rounded-2xl no-print backdrop-blur-md border transition-all duration-500 ${sidebarOpen ? 'hidden lg:hidden' : ''} ${darkMode ? 'bg-zinc-900/80 border-zinc-700/40' : 'bg-slate-100/90 border-slate-200/60'}`}>
           <div className="flex gap-1 overflow-x-auto scrollbar-none">
           {[
             { id: 'dashboard',   label: 'Tableau de bord', icon: <Home size={15}/> },
