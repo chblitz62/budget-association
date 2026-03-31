@@ -35,11 +35,9 @@ export default function SnapshotManager({ currentData, onToggleCompare, compareM
     setTimeout(() => setSaved(false), 2500);
   };
 
-  const handleDelete = () => {
-    if (window.confirm('Supprimer le Budget Voté enregistré ?')) {
-      deleteSnapshot();
-      if (compareMode) onToggleCompare();
-    }
+  const handleDelete = async () => {
+    const ok = await window.appConfirm?.('Supprimer le Budget Voté', 'Cette action est irréversible.', { confirmLabel: 'Supprimer' }) ?? window.confirm('Supprimer le Budget Voté enregistré ?');
+    if (ok) { deleteSnapshot(); if (compareMode) onToggleCompare(); }
   };
 
   return (

@@ -16,6 +16,7 @@ import WizardSetup from './components/WizardSetup';
 import CalculateurVacataires from './components/CalculateurVacataires';
 import NumericInput from './components/ui/NumericInput';
 import ConfirmDialog from './components/ui/ConfirmDialog';
+import ConfirmModal from './components/ui/ConfirmModal';
 import SaveIndicator from './components/ui/SaveIndicator';
 import HelpIcon from './components/ui/HelpIcon';
 import ModalFI from './components/modals/ModalFI';
@@ -592,7 +593,6 @@ const BudgetTool = () => {
 
   // Remise à zéro globale
   const [showResetModal, setShowResetModal] = useState(false);
-  const [resetSuccess, setResetSuccess] = useState(false);
   const [pilotageResetKey, setPilotageResetKey] = useState(0);
 
   const handleGlobalReset = async (resetPassword) => {
@@ -622,8 +622,7 @@ const BudgetTool = () => {
     setPoleSupport(defaultPoleSupport);
     setPilotageSites(pilotageZeroSites);
     setPilotageResetKey(k => k + 1);
-    setResetSuccess(true);
-    setTimeout(() => setResetSuccess(false), 4000);
+    window.appToast?.('Données réinitialisées avec succès', 'success');
     return null;
   };
 
@@ -752,7 +751,7 @@ const BudgetTool = () => {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  const restaurerBackup = () => {
+  const restaurerBackup = async () => {
     try {
       const slot = parseInt(localStorage.getItem('assoc_backup_slot') || '0');
       if (!slot) { window.appToast?.('Aucun backup automatique disponible.', 'warning'); return; }
@@ -763,7 +762,12 @@ const BudgetTool = () => {
       if (!snapshots.length) { window.appToast?.('Aucun backup automatique disponible.', 'warning'); return; }
       const snap = snapshots[0];
       const d = new Date(snap.ts).toLocaleString('fr-FR');
-      if (!confirm(`Restaurer le backup du ${d} ?\n\nCela remplacera les données actuelles.`)) return;
+      const ok = await window.appConfirm?.(
+        'Restaurer le backup',
+        `Restaurer le backup du ${d} ?\nCela remplacera les données actuelles.`,
+        { confirmLabel: 'Restaurer', danger: true }
+      );
+      if (!ok) return;
       if (snap.globalParams) setGlobalParams(snap.globalParams);
       if (snap.direction)   setDirection(snap.direction);
       if (snap.services)    setServices(snap.services);
@@ -888,7 +892,9 @@ const BudgetTool = () => {
         <img src="/logo.png" alt="" className={`h-7 ${darkMode ? 'brightness-200' : ''}`} onError={e => e.target.style.display='none'} />
         <div>
           <span className={`text-sm font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Budget Association</span>
-          <span className={`hidden sm:inline text-[11px] ml-2 ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>· Projection 3 ans</span>
+          <span className={`hidden sm:inline text-[11px] ml-2 ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>
+            · {({'dashboard':'Tableau de bord','budget':'Budget','analyse':'Analyse','rh':'RH','temps':'Temps de travail','formation':'Formation','vacataires':'Vacataires','subvention':'Subvention','daf':'DAF','parametres':'Paramètres','reporting':'Reporting'})[activeTab] || activeTab}
+          </span>
         </div>
       </div>
 
@@ -982,6 +988,7 @@ const BudgetTool = () => {
         darkMode={darkMode}
       />
       <SaveIndicator darkMode={darkMode} />
+      <ConfirmModal darkMode={darkMode} />
       <ImportN1Modal
         isOpen={showImportN1}
         onClose={() => setShowImportN1(false)}
@@ -1109,16 +1116,6 @@ const BudgetTool = () => {
         <ModalRoles darkMode={darkMode} showRolesModal={showRolesModal} setShowRolesModal={setShowRolesModal} roles={roles} setRoles={setRoles} />
 
         <ModalReset darkMode={darkMode} showResetModal={showResetModal} setShowResetModal={setShowResetModal} onConfirm={handleGlobalReset} />
-
-        {/* Notification remise à zéro */}
-        {resetSuccess && (
-          <div className={`mb-4 p-4 rounded-2xl flex items-center gap-3 ${darkMode ? 'bg-green-900/40 border border-green-700' : 'bg-green-50 border border-green-200'}`}>
-            <CheckCircle className="text-green-500 flex-shrink-0" size={20} />
-            <span className={`font-bold text-sm ${darkMode ? 'text-green-300' : 'text-green-700'}`}>
-              Toutes les données ont été réinitialisées avec succès.
-            </span>
-          </div>
-        )}
 
         <ModalPassword darkMode={darkMode} showPasswordModal={showPasswordModal} setShowPasswordModal={setShowPasswordModal} />
 
@@ -1769,6 +1766,22 @@ const BudgetTool = () => {
 
         {/* ─── BUDGET ─── */}
         {activeTab === 'budget' && <>
+
+        {services.length === 0 && (
+          <div className={`rounded-3xl border-2 border-dashed p-16 text-center mb-8 ${darkMode ? 'border-zinc-700 bg-zinc-900/40' : 'border-slate-200 bg-slate-50/50'}`}>
+            <Building2 size={40} className={`mx-auto mb-4 ${darkMode ? 'text-zinc-600' : 'text-slate-300'}`} />
+            <h3 className={`text-lg font-black mb-2 ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>Aucun service défini</h3>
+            <p className={`text-sm mb-6 ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>Ajoutez un service ou importez un budget prévisionnel pour commencer.</p>
+            <div className="flex gap-3 justify-center flex-wrap">
+              <button onClick={() => setShowWizardBP(true)} className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-violet-500 text-white font-bold rounded-xl text-sm shadow-md shadow-indigo-500/20 hover:-translate-y-0.5 transition-all">
+                <Upload size={15} /> Importer un BP Excel
+              </button>
+              <button onClick={() => setShowWizardSetup(true)} className={`flex items-center gap-2 px-5 py-2.5 font-bold rounded-xl text-sm border transition-all ${darkMode ? 'border-zinc-600 text-zinc-300 hover:bg-zinc-800' : 'border-slate-200 text-slate-600 hover:bg-white'}`}>
+                <Plus size={15} /> Démarrer depuis zéro
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* DIRECTION + SERVICES + PÔLE SUPPORT : section unifiée réordonnable */}
         <div id="services-section" className="space-y-8">

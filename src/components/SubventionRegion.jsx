@@ -187,8 +187,9 @@ export default function SubventionRegion({
     XLSX.writeFile(wb, `subvention_region_${new Date().toISOString().slice(0,10)}.xlsx`);
   };
 
-  const reset = () => {
-    if (!window.confirm('Réinitialiser tous les taux de la subvention ?')) return;
+  const reset = async () => {
+    const ok = await window.appConfirm?.('Réinitialiser la subvention', 'Remettre tous les taux à leurs valeurs par défaut ?', { confirmLabel: 'Réinitialiser' }) ?? window.confirm('Réinitialiser tous les taux de la subvention ?');
+    if (!ok) return;
     setTaux(TAUX_DEFAULT);       localStorage.setItem('subv_taux', JSON.stringify(TAUX_DEFAULT));
     setEligibilite(ELIG_DEFAULT);localStorage.setItem('subv_eligibilite', JSON.stringify(ELIG_DEFAULT));
     setLignesM([]);

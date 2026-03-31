@@ -1079,7 +1079,7 @@ const PilotageFinancier = ({ darkMode: dm, checkPassword, budgetPersonnel = [], 
                 <div className="flex items-center ml-1 gap-0.5">
                   <button onClick={() => setEditingName(site.id)} className={`flex items-center justify-center w-7 h-7 rounded-lg ${dm ? 'hover:bg-gray-600 text-gray-400' : 'hover:bg-slate-200 text-slate-400'}`} title="Renommer"><Edit2 size={15} /></button>
                   {sites.length > 1 && (
-                    <button onClick={() => { if (window.confirm(`Supprimer "${site.nom}" ?`)) deleteSite(site.id); }}
+                    <button onClick={async () => { const ok = await window.appConfirm?.(`Supprimer "${site.nom}"`, 'Cette action est irréversible.', { confirmLabel: 'Supprimer' }) ?? window.confirm(`Supprimer "${site.nom}" ?`); if (ok) deleteSite(site.id); }}
                       className="flex items-center justify-center w-7 h-7 rounded-lg hover:bg-red-100 text-red-400" title="Supprimer"><X size={15} /></button>
                   )}
                 </div>
