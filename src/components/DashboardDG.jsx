@@ -4,7 +4,7 @@ import {
   Clock, Shield, Zap, MapPin, Briefcase, GraduationCap, FileText, BookOpen,
   PiggyBank, Droplets, Target, AlertCircle,
 } from 'lucide-react';
-import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
+import { AreaChart, Area, BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import {
   calculerBudgetService,
   calculerBudgetDirection,
@@ -17,6 +17,7 @@ import {
   runFinancialAudit,
   calculerAlertesRH,
   calculerIFC,
+  calculerSynthese3Ans,
 } from '../utils/calculations';
 import { PRIME_SEGUR, FINANCIAL_HELP } from '../utils/constants';
 import HelpIcon from './ui/HelpIcon';
@@ -286,6 +287,35 @@ export default function DashboardDG({
     let ifc = null;
     try { ifc = calculerIFC(direction, services, poleSupport, 2026, 62, 8, msETP); } catch {}
 
+    // A — Projection 3 ans (charges via calculerSynthese3Ans, recettes projetées au même taux)
+    let synthese3ans = null;
+    let projection3ans = null;
+    try {
+      synthese3ans = calculerSynthese3Ans(direction, services, globalParams, poleSupport, poolRH);
+      const augRate = (globalParams?.augmentationAnnuelle ?? 2.5) / 100;
+      projection3ans = synthese3ans.map((s, i) => {
+        const recettesProj = agg.totalRecettes * Math.pow(1 + augRate, i);
+        const resultatProj = recettesProj - s.total;
+        return {
+          annee: `${2026 + i}`,
+          charges: Math.round(s.total),
+          recettes: Math.round(recettesProj),
+          resultat: Math.round(resultatProj),
+          caf: Math.round(resultatProj + s.amortissements),
+          amortissements: Math.round(s.amortissements),
+        };
+      });
+    } catch {}
+
+    // B — Solvabilité : réserves / charges mensuelles = X mois de fonctionnement
+    const chargesMensuelles = agg.totalCharges / 12;
+    const solvabiliteMois = chargesMensuelles > 0 && agg.reserves > 0
+      ? agg.reserves / chargesMensuelles : 0;
+
+    // C — Ratio de liquidité : trésorerie fin janvier / charges mensuelles moyennes
+    const tresoPosJan = tresorerie?.mois?.[0]?.soldeCumule ?? 0;
+    const ratioLiquidite = chargesMensuelles > 0 ? tresoPosJan / chargesMensuelles : null;
+
     // Pilotage pédagogique par service
     const pilotPeda = agg.bServices
       .filter(({ bs }) => bs.statsFormation && bs.statsFormation.totalEtudiants > 0)
@@ -308,6 +338,7 @@ export default function DashboardDG({
       ecartPointMort, pctAtteinte,
       totalSubventions, totalPropres, pctSubventions,
       tresorerie, bfr, statsVac, auditItems, alertesRH, ifc, pilotPeda,
+      projection3ans, solvabiliteMois, ratioLiquidite,
     };
   }, [agg, direction, poleSupport, services, poolRH, globalParams, msETP]);
 
@@ -476,6 +507,97 @@ export default function DashboardDG({
           help={{ title: 'Point mort', text: "Écart entre recettes et charges totales. Positif = excédent au-delà du seuil d'équilibre. Négatif = montant manquant pour couvrir les charges." }}
         />
       </div>
+
+      {/* ── Solvabilité & Liquidité ───────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-4">
+        <KpiCard
+          label="Solvabilité"
+          value={daf.solvabiliteMois > 0 ? `${daf.solvabiliteMois.toFixed(1)} mois` : '—'}
+          sub={
+            daf.solvabiliteMois >= 6 ? `Réserves couvrant ${daf.solvabiliteMois.toFixed(1)} mois de charges — situation solide` :
+            daf.solvabiliteMois >= 3 ? `Réserves couvrant ${daf.solvabiliteMois.toFixed(1)} mois de charges — vigilance` :
+            daf.solvabiliteMois > 0  ? `Réserves couvrant ${daf.solvabiliteMois.toFixed(1)} mois de charges — risque élevé` :
+            agg.reserves === 0 ? 'Réserves non renseignées dans Paramètres' : 'Calcul indisponible'
+          }
+          color={daf.solvabiliteMois >= 6 ? 'green' : daf.solvabiliteMois >= 3 ? 'amber' : daf.solvabiliteMois > 0 ? 'red' : 'slate'}
+          icon={Shield}
+          darkMode={darkMode}
+          help={{ title: 'Solvabilité', text: "Nombre de mois de fonctionnement couverts par les réserves (fonds propres). Norme associative : 3 mois minimum, 6 mois recommandés. Indépendant du résultat annuel." }}
+        />
+        <KpiCard
+          label="Ratio de liquidité"
+          value={daf.ratioLiquidite !== null && daf.ratioLiquidite > 0 ? `${daf.ratioLiquidite.toFixed(2)}` : '—'}
+          sub={
+            daf.ratioLiquidite === null ? 'Trésorerie non calculée' :
+            daf.ratioLiquidite >= 1 ? `Fin janvier : ${Math.round((daf.tresorerie?.mois?.[0]?.soldeCumule ?? 0) / 1000)}k€ — au moins 1 mois de charges couvert` :
+            daf.ratioLiquidite > 0 ? `Fin janvier : ${Math.round((daf.tresorerie?.mois?.[0]?.soldeCumule ?? 0) / 1000)}k€ — moins d'un mois de charges` :
+            'Solde trésorerie nul ou négatif en janvier'
+          }
+          color={daf.ratioLiquidite === null ? 'slate' : daf.ratioLiquidite >= 1 ? 'green' : daf.ratioLiquidite >= 0.5 ? 'amber' : 'red'}
+          icon={Droplets}
+          darkMode={darkMode}
+          help={{ title: 'Ratio de liquidité', text: "Solde de trésorerie cumulé fin janvier divisé par la charge mensuelle moyenne. Ratio ≥ 1 = au moins un mois de charges disponible en début d'année. Signal d'alerte en cas de décalage de subventions." }}
+        />
+      </div>
+
+      {/* ── Projection 3 ans ─────────────────────────────────────────────── */}
+      {daf.projection3ans && (
+        <div className={`rounded-2xl border p-5 ${dm ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-slate-200'}`}>
+          <div className="flex items-start justify-between mb-4 gap-4">
+            <h3 className={`text-sm font-black uppercase tracking-wide flex items-center gap-2 ${dm ? 'text-zinc-400' : 'text-slate-500'}`}>
+              <TrendingUp size={14} /> Projection financière 2026 — 2028
+            </h3>
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${dm ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-500'}`}>
+              Taux GVT {globalParams.tauxGVT ?? 1.5}% · inflation {globalParams.augmentationAnnuelle ?? 2.5}%/an
+            </span>
+          </div>
+
+          {/* Graphique charges vs recettes */}
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={daf.projection3ans} margin={{ top: 4, right: 8, bottom: 0, left: 8 }} barGap={4}>
+              <CartesianGrid strokeDasharray="3 3" stroke={dm ? '#3f3f46' : '#e2e8f0'} vertical={false} />
+              <XAxis dataKey="annee" tick={{ fontSize: 12, fontWeight: 700, fill: dm ? '#a1a1aa' : '#64748b' }} tickLine={false} axisLine={false} />
+              <YAxis tickFormatter={v => `${Math.round(v / 1000)}k`} tick={{ fontSize: 10, fill: dm ? '#71717a' : '#94a3b8' }} tickLine={false} axisLine={false} width={40} />
+              <Tooltip
+                contentStyle={{ background: dm ? '#18181b' : '#fff', border: `1px solid ${dm ? '#3f3f46' : '#e2e8f0'}`, borderRadius: 8, fontSize: 11 }}
+                formatter={(v, name) => [`${Math.round(v / 1000)}k€`, name === 'charges' ? 'Charges' : name === 'recettes' ? 'Recettes' : 'CAF']}
+              />
+              <Legend formatter={n => n === 'charges' ? 'Charges' : n === 'recettes' ? 'Recettes' : 'CAF'} wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="charges" fill={dm ? '#f87171' : '#fca5a5'} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="recettes" fill={dm ? '#34d399' : '#6ee7b7'} radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+
+          {/* Tableau récapitulatif */}
+          <div className="mt-4">
+            <div className={`grid grid-cols-5 gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-wider ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>
+              <span>Année</span>
+              <span className="text-right">Charges</span>
+              <span className="text-right">Recettes</span>
+              <span className="text-right">Résultat</span>
+              <span className="text-right">CAF</span>
+            </div>
+            {daf.projection3ans.map((p, i) => (
+              <div key={p.annee} className={`grid grid-cols-5 gap-2 px-3 py-2.5 rounded-xl text-xs font-bold mb-1 ${i === 0 ? (dm ? 'bg-blue-900/30 border border-blue-700' : 'bg-blue-50 border border-blue-200') : (dm ? 'bg-zinc-800/60' : 'bg-slate-50')}`}>
+                <span className={`font-black ${i === 0 ? (dm ? 'text-blue-300' : 'text-blue-700') : (dm ? 'text-zinc-300' : 'text-slate-600')}`}>
+                  {p.annee}{i === 0 ? ' ★' : ''}
+                </span>
+                <span className={`text-right ${dm ? 'text-red-400' : 'text-red-600'}`}>{Math.round(p.charges / 1000)}k€</span>
+                <span className={`text-right ${dm ? 'text-emerald-400' : 'text-emerald-600'}`}>{Math.round(p.recettes / 1000)}k€</span>
+                <span className={`text-right font-black ${p.resultat >= 0 ? (dm ? 'text-emerald-300' : 'text-emerald-700') : (dm ? 'text-red-300' : 'text-red-700')}`}>
+                  {p.resultat >= 0 ? '+' : ''}{Math.round(p.resultat / 1000)}k€
+                </span>
+                <span className={`text-right font-black ${p.caf >= 0 ? (dm ? 'text-blue-300' : 'text-blue-700') : (dm ? 'text-amber-300' : 'text-amber-700')}`}>
+                  {p.caf >= 0 ? '+' : ''}{Math.round(p.caf / 1000)}k€
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className={`text-[10px] mt-2 px-1 ${dm ? 'text-zinc-600' : 'text-slate-400'}`}>
+            * Charges projetées avec GVT + inflation différenciée (paramètres). Recettes indexées sur le taux de croissance annuel. ★ = budget prévisionnel actuel.
+          </p>
+        </div>
+      )}
 
       {/* ── Trésorerie mensuelle ──────────────────────────────────────────── */}
       {daf.tresorerie && (
