@@ -983,7 +983,7 @@ const BudgetTool = () => {
       )}
       {showWizardBP && (
         <WizardImportBP
-          onClose={() => setShowWizardBP(false)}
+          onClose={(imported) => { setShowWizardBP(false); if (imported) setActiveTab('dashboard'); }}
           services={services}
           setServices={setServices}
           poleSupport={poleSupport}

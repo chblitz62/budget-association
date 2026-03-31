@@ -768,11 +768,11 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
         {/* Navigation */}
         <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
           <button
-            onClick={() => step > 1 && !importDone ? setStep(step - 1) : onClose()}
+            onClick={() => step > 1 && !importDone ? setStep(step - 1) : onClose(importDone)}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-colors ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
           >
             <ChevronLeft size={16} />
-            {importDone ? 'Fermer' : step === 1 ? 'Annuler' : 'Précédent'}
+            {importDone ? 'Fermer & voir le tableau de bord' : step === 1 ? 'Annuler' : 'Précédent'}
           </button>
 
           {!importDone && (
