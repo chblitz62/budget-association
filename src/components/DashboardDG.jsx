@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Users, Euro, BarChart2,
   Clock, Shield, Zap, MapPin, Briefcase, GraduationCap, FileText, BookOpen,
-  PiggyBank, Droplets, Target, AlertCircle,
+  PiggyBank, Droplets, Target, AlertCircle, Activity,
 } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import {
