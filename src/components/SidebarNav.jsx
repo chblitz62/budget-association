@@ -2,8 +2,9 @@ import React, { useState, useMemo } from 'react';
 import {
   Home, BarChart3, Building2, Users, Clock, GraduationCap, UserCheck,
   Landmark, Calculator, Settings, Shield, Layers, ChevronLeft, ChevronRight,
-  FileText, Search, X,
+  FileText, Search, X, Compass, Sparkles, BookOpen, Wand2,
 } from 'lucide-react';
+import { surface } from '../styles/tokens';
 
 /**
  * @typedef {{
@@ -14,11 +15,54 @@ import {
  *   activeTab: string,
  *   onTabChange: (tab: string) => void,
  *   getBudgetService?: (s: import('../types/index').Service) => import('../types/index').BudgetResult,
+ *   onShowWizardSetup?: () => void,
+ *   onShowWizardBP?: () => void,
+ *   onShowEcoFin?: () => void,
+ *   onShowAICopilot?: () => void,
  * }} SidebarNavProps
  * @param {SidebarNavProps} props
  */
-const SidebarNav = ({ services, darkMode, isOpen, onToggle, activeTab, onTabChange, getBudgetService }) => {
+const SidebarNav = ({
+  services, darkMode, isOpen, onToggle, activeTab, onTabChange, getBudgetService,
+  onShowWizardSetup, onShowWizardBP, onShowEcoFin, onShowAICopilot,
+}) => {
   const [search, setSearch] = useState('');
+
+  // ── Section "Premiers pas" (Mode Novice) — affichée si callbacks fournis
+  const onboardingActions = [
+    onShowWizardSetup && {
+      key: 'wizard_setup',
+      label: 'Assistant de configuration',
+      hint: 'Premier paramétrage pas à pas',
+      icon: Wand2,
+      accent: 'text-violet-500',
+      onClick: onShowWizardSetup,
+    },
+    onShowWizardBP && {
+      key: 'wizard_bp',
+      label: 'Importer un budget',
+      hint: 'Depuis un fichier Excel BP',
+      icon: Compass,
+      accent: 'text-amber-500',
+      onClick: onShowWizardBP,
+    },
+    onShowEcoFin && {
+      key: 'ecofin',
+      label: 'Glossaire financier',
+      hint: '12 termes expliqués (BFR, ETP…)',
+      icon: BookOpen,
+      accent: 'text-indigo-500',
+      onClick: onShowEcoFin,
+    },
+    onShowAICopilot && {
+      key: 'ai',
+      label: 'Copilote IA',
+      hint: 'Analyse stratégique guidée',
+      icon: Sparkles,
+      accent: 'text-fuchsia-500',
+      onClick: onShowAICopilot,
+    },
+  ].filter(Boolean);
 
   const groups = [
     {
@@ -78,17 +122,52 @@ const SidebarNav = ({ services, darkMode, isOpen, onToggle, activeTab, onTabChan
   return (
     <div className={`sidebar-container fixed left-0 z-40 transition-all duration-300 no-print ${isOpen ? 'w-64' : 'w-14'}`}
          style={{ top: '64px', height: 'calc(100vh - 64px)' }}>
-      <div className={`h-full flex flex-col border-r ${darkMode ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-slate-200'} shadow-xl`}>
+      <div className={`h-full flex flex-col ${surface.sidebar(darkMode)}`}>
 
         <button
           onClick={onToggle}
-          className={`absolute -right-3 top-6 w-6 h-6 rounded-full shadow-lg flex items-center justify-center border z-10
-            ${darkMode ? 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+          aria-label={isOpen ? 'Replier la barre latérale' : 'Déplier la barre latérale'}
+          className={`absolute -right-3 top-6 w-6 h-6 rounded-full shadow-lg flex items-center justify-center border z-10 transition-colors
+            ${darkMode ? 'bg-zinc-900 border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
         >
-          {isOpen ? <ChevronLeft size={13} /> : <ChevronRight size={13} />}
+          {isOpen ? <ChevronLeft size={13} strokeWidth={1.5} /> : <ChevronRight size={13} strokeWidth={1.5} />}
         </button>
 
         <nav className="flex-1 overflow-y-auto sidebar-nav py-3 px-2">
+          {/* ── Section "Premiers pas" (Mode Novice) ── */}
+          {onboardingActions.length > 0 && (
+            <div className="mb-3">
+              {isOpen ? (
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 ${darkMode ? 'text-violet-400' : 'text-violet-600'}`}>
+                  <Sparkles size={11} strokeWidth={1.5} />
+                  <span className="text-[9px] font-black uppercase tracking-widest">Premiers pas</span>
+                </div>
+              ) : null}
+              {onboardingActions.map(action => (
+                <button
+                  key={action.key}
+                  onClick={action.onClick}
+                  title={!isOpen ? action.label : undefined}
+                  className={`w-full flex items-start gap-3 px-3 py-2 rounded-xl mb-0.5 transition-all duration-150 text-left group
+                    ${darkMode ? 'hover:bg-zinc-800/60' : 'hover:bg-slate-50'}`}
+                >
+                  <action.icon size={16} strokeWidth={1.5} className={`flex-shrink-0 mt-0.5 ${action.accent}`} />
+                  {isOpen && (
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-xs font-semibold leading-tight ${darkMode ? 'text-zinc-200' : 'text-slate-800'}`}>
+                        {action.label}
+                      </div>
+                      <div className={`text-[10px] mt-0.5 leading-snug ${darkMode ? 'text-zinc-500' : 'text-slate-500'}`}>
+                        {action.hint}
+                      </div>
+                    </div>
+                  )}
+                </button>
+              ))}
+              <div className={`mx-3 my-2 h-px ${darkMode ? 'bg-zinc-800/60' : 'bg-slate-200/60'}`} />
+            </div>
+          )}
+
           {groups.map(group => (
             <div key={group.label} className="mb-3">
               {isOpen && (
@@ -113,7 +192,7 @@ const SidebarNav = ({ services, darkMode, isOpen, onToggle, activeTab, onTabChan
                           : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
                     }`}
                   >
-                    <item.icon size={16} className={`flex-shrink-0 ${isActive ? 'text-indigo-500' : ''}`} />
+                    <item.icon size={16} strokeWidth={1.5} className={`flex-shrink-0 ${isActive ? 'text-indigo-500' : ''}`} />
                     {isOpen && (
                       <span className={`text-xs font-semibold truncate ${isActive ? 'font-bold' : ''}`}>
                         {item.label}
@@ -176,8 +255,8 @@ const SidebarNav = ({ services, darkMode, isOpen, onToggle, activeTab, onTabChan
                     }`}
                   >
                     {srv.promos
-                      ? <GraduationCap size={13} className="text-violet-400 flex-shrink-0" />
-                      : <Layers size={13} className="text-indigo-400 flex-shrink-0" />
+                      ? <GraduationCap size={13} strokeWidth={1.5} className="text-violet-400 flex-shrink-0" />
+                      : <Layers size={13} strokeWidth={1.5} className="text-indigo-400 flex-shrink-0" />
                     }
                     <span className="text-xs truncate flex-1 text-left">{srv.nom}</span>
                     {/* UX.4 — Badge solde */}

@@ -193,6 +193,10 @@ export default function Layout({
           activeTab={activeTab}
           onTabChange={setActiveTab}
           getBudgetService={getBudgetService}
+          onShowWizardSetup={() => setShowWizardSetup(true)}
+          onShowWizardBP={() => setShowWizardBP(true)}
+          onShowEcoFin={() => setShowEcoFin(true)}
+          onShowAICopilot={() => setShowAICopilot(true)}
         />
 
         <div className="main-content p-4 md:p-6 transition-all duration-300"
