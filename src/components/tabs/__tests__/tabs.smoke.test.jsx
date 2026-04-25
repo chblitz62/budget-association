@@ -160,7 +160,7 @@ describe('TabDashboard — smoke test', () => {
         poleSupport={poleSupport}
         services={services}
         poolRH={poolRH}
-        globalParams={globalParams}
+        globalParams={{ ...globalParams, expertMode: true }}
         getBFR={() => ({ bfr: 0 })}
         getBudgetService={getBudgetService}
         getBudgetDirection={getBudgetDirection}

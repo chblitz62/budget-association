@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { TrendingUp, TrendingDown, BarChart3, Calendar, Target, Users, FileSpreadsheet, Clock, Bell, Leaf, GitCompare, AlertTriangle, RefreshCw, Edit3, CheckCircle, Presentation } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, Calendar, Target, Users, FileSpreadsheet, Clock, Bell, Leaf, GitCompare, AlertTriangle, RefreshCw, Edit3, CheckCircle, Presentation, Wand2 } from 'lucide-react';
+import NoviceDashboard from '../NoviceDashboard';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Area, AreaChart } from 'recharts';
 import DashboardDG from '../DashboardDG';
 import TabTresorerie from '../TabTresorerie';
@@ -22,6 +23,7 @@ export default function TabDashboard({
   services,
   poolRH,
   globalParams,
+  setGlobalParams,
   getBFR,
   getBudgetService,
   getBudgetDirection,
@@ -47,9 +49,42 @@ export default function TabDashboard({
 }) {
   const [showRollingEditor, setShowRollingEditor] = useState(false);
   const [showBoardMode, setShowBoardMode] = useState(false);
+
+  // Mode "Synthèse Simple" pour novice (par défaut) — bascule via globalParams.expertMode
+  const expertMode = !!globalParams?.expertMode;
+  const onToggleExpertMode = setGlobalParams
+    ? () => setGlobalParams({ ...globalParams, expertMode: !expertMode })
+    : null;
+
+  // Vue novice — Synthèse Simple, return early
+  if (!expertMode) {
+    return (
+      <>
+        {showBoardMode && <BoardModeView open onClose={() => setShowBoardMode(false)} />}
+        <NoviceDashboard darkMode={darkMode} onToggleExpertMode={onToggleExpertMode} />
+      </>
+    );
+  }
+
   return (
     <>
         {showBoardMode && <BoardModeView open onClose={() => setShowBoardMode(false)} />}
+
+        {/* ─── BOUTON RETOUR VUE SIMPLE (Mode Expert actif) ─── */}
+        {onToggleExpertMode && (
+          <div className="flex justify-end mb-4">
+            <button
+              onClick={onToggleExpertMode}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${darkMode
+                ? 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+              title="Revenir à la vue simple (Mode Novice)"
+            >
+              <Wand2 size={12} strokeWidth={1.5} />
+              Vue simple
+            </button>
+          </div>
+        )}
 
         {/* ─── BANDEAU MODE CA ─── */}
         <div className="flex justify-end mb-4">

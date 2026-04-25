@@ -338,7 +338,7 @@ const BudgetTool = () => {
         <TabDashboard
           darkMode={darkMode}
           direction={direction} poleSupport={poleSupport} services={services} poolRH={poolRH}
-          globalParams={globalParams}
+          globalParams={globalParams} setGlobalParams={setGlobalParams}
           getBFR={getBFR}
           getBudgetService={getBudgetService} getBudgetDirection={getBudgetDirection} getBudgetPoleSupport={getBudgetPoleSupport}
           compareSnapshot={compareSnapshot} setCompareSnapshot={setCompareSnapshot}

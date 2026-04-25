@@ -15,7 +15,7 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.0 (Excellence Décisionnell
 - [~] **Bibliothèque de "Smart Indicators"** : Composants visuels qui changent d'état selon le niveau de risque (ex: jauge d'énergie, alertes de masse salariale). *(Fondation livrée — `<HoverTip>` riche + dots sémantiques animate-pulse + 5 niveaux success/warning/danger/info/neutral ; reste jauges et indicateurs métier)*
 - [~] **Mode Novice (Progressive Disclosure)** : Masquage intelligent de la complexité fiscale pour les coordinateurs. *(En cours — Sidebar "Premiers pas" + libellés humanisés livrés ; reste tour guidé + glossaire inline contextuel)*
 - [ ] **Universal Search & Commands** : Raccourcis clavier (Type 'Spotlight') pour naviguer entre les filières et les salariés.
-- [ ] **Tableaux de Bord Sémantiques** : Remplacement des grilles de données par des "Stories" visuelles (ex: "Où va l'argent de cette promo ?").
+- [~] **Tableaux de Bord Sémantiques** : Remplacement des grilles de données par des "Stories" visuelles (ex: "Où va l'argent de cette promo ?"). *(Démarré — `<NoviceDashboard>` Synthèse Simple livré : hero status ✓/⚠/✕ + KPIs hero pédagogiques + AreaChart trésorerie épuré + top 3 points de vigilance + CTA mode expert)*
 
 ---
 

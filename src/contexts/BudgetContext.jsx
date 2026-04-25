@@ -19,7 +19,7 @@ import {
   calculerRollingForecast,
 } from '../utils/calculations';
 
-const BudgetContext = createContext(null);
+export const BudgetContext = createContext(null);
 
 export const BudgetProvider = ({ children }) => {
   const budgetData = useBudgetData();
