@@ -1,5 +1,5 @@
 # Roadmap — AFERTES Budget Association
-Dernière mise à jour : 2026-04-25 | Version : 4.3 (Tier 1 Conformité livré — 237 tests verts)
+Dernière mise à jour : 2026-04-25 | Version : 4.4 (Tier 1 + 3/6 Tier 2 livrés — 264 tests verts)
 
 ---
 
@@ -77,10 +77,10 @@ Dernière mise à jour : 2026-04-25 | Version : 4.3 (Tier 1 Conformité livré �
 
 ### ⚠️ Tier 2 — Avant clôture 2026 (≤ 90 jours)
 - [ ] **Backend Supabase + RBAC 4 rôles** (DG, DAF, Resp. site, Comptable) : multi-utilisateurs concurrents, séparation des fonctions saisie/validation.
-- [ ] **C3 — Bilan prévisionnel actif/passif équilibré** : tableau formel pour bailleurs et CAC.
+- [x] **C3 — Bilan prévisionnel actif/passif équilibré** : `bilanPrevisionnel.js` + `BilanPrevisionnelPanel.jsx` — Actif (immo nettes, stocks, créances, disponibilités) = Passif (capitaux propres, provisions, dettes financières/fournisseurs/URSSAF, découvert) ; vérification d'équilibre à 1 € près ; export CSV. 8 tests. *(Implémenté 2026-04-25)*
 - [ ] **F1 — TVA multi-taux différenciée** : 5,5/10/20 par recette ou charge (formation continue Art. 261 4-4° CGI vs annexes assujetties).
-- [ ] **F2 — Provision IDR actuarielle** : méthode UCP (Unités de Crédit Projetées, IAS 19) avec hypothèses turn-over, taux d'actualisation, table mortalité TF/TH.
-- [ ] **A1 — Détection double-comptage Pool RH ↔ personnel direct** : moteur de réconciliation par identifiant agent.
+- [x] **F2 — Provision IDR actuarielle** : `provisionIDR.js` + `ProvisionIDRPanel.jsx` — méthode UCP / IAS 19 / ANC 2013-02. Hypothèses paramétrables (taux actu., turn-over, âge retraite 64, charges 47 %, mortalité). Calcul agent par agent : engagement nominal × P_présence × P_survie × actualisation. Table détaillée + export CSV. 10 tests. *(Implémenté 2026-04-25)*
+- [x] **A1 — Détection double-comptage Pool RH ↔ personnel direct** : `doubleComptageDetection.js` — match exact (numeroAgent) + fuzzy (slug du titre), 3 niveaux de confiance (haute/moyenne/basse), surcoût annuel estimé. Intégré dans audit prédictif. 9 tests. *(Implémenté 2026-04-25)*
 - [ ] **C4 — Tableau de financement (PCG 532-7)** : ressources/emplois durables.
 
 ### 💡 Tier 3 — Roadmap 2027
@@ -115,6 +115,9 @@ Dernière mise à jour : 2026-04-25 | Version : 4.3 (Tier 1 Conformité livré �
 | 2026-04-25 | **G2 — Audit trail signé SHA-256** | Chaîne cryptographique du journal ; détection altération a posteriori ; bannière d'alerte si rupture |
 | 2026-04-25 | **C1 — Export FEC BOI-CF-IOR-60-40** | Fichier opposable contrôle fiscal ; 18 colonnes ; écritures équilibrées ; bouton TabParametres |
 | 2026-04-25 | **C2 — Compte de résultat PCG associatif** | Classes 60-68/70-78 ; soldes intermédiaires ; export CSV ; CRC 99-01 / Règl. ANC 2018-06 |
+| 2026-04-25 | **C3 — Bilan prévisionnel actif/passif** | Bilan équilibré construit du budget (immo, BFR, capitaux propres, dettes, trésorerie) ; export CSV |
+| 2026-04-25 | **A1 — Détection double-comptage Pool RH** | Réconciliation Pool RH ↔ personnel direct ; match numéro agent + fuzzy ; surcoût estimé ; intégré audit prédictif |
+| 2026-04-25 | **F2 — Provision IDR actuarielle UCP** | Méthode IAS 19 / ANC 2013-02 ; turn-over + actualisation + survie ; hypothèses paramétrables ; tableau agent par agent |
 
 ---
 

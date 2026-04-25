@@ -2,6 +2,8 @@
 // Compare les données N-1 et le budget courant pour identifier sous-provisionnements,
 // dérives de charges, ruptures de recettes, etc. avant validation budgétaire.
 
+import { detecterDoubleComptage } from './doubleComptageDetection';
+
 const sumServices = (services = [], field) =>
   services.reduce((sum, s) => sum + (parseFloat(s[field]) || 0), 0);
 
@@ -32,8 +34,26 @@ export const detecterAnomalies = ({
   globalParams = {},
   masseSalarialeTotal = 0,
   getBudgetService = null,
+  poolRH = [],
 }) => {
   const anomalies = [];
+
+  // ── 0. Double-comptage Pool RH ↔ personnel direct (A1) ───────────────
+  const dc = detecterDoubleComptage(poolRH, direction, services, poleSupport);
+  dc.doublons.forEach(d => {
+    const lvlMap = { haute: 'error', moyenne: 'warning', basse: 'info' };
+    anomalies.push({
+      id: `double_comptage_${d.poolAgent.id}_${d.directAgent.id}`,
+      lvl: lvlMap[d.confiance] || 'warning',
+      categorie: 'Pool RH',
+      titre: `Double-comptage potentiel — « ${d.directAgent.titre} »`,
+      message: `L'agent figure à la fois dans le Pool RH et dans le personnel direct (${d.directAgent.source}). Match ${d.matchType === 'numeroAgent' ? 'exact par numéro agent' : 'approximatif par nom'} — confiance ${d.confiance}. Surcoût estimé : ${d.surcout.toLocaleString('fr-FR')} €.`,
+      recommandation: d.matchType === 'numeroAgent'
+        ? 'Retirer l\'agent du personnel direct OU réduire son affectation Pool RH à 0 %.'
+        : 'Vérifier s\'il s\'agit du même agent (homonymie possible) — renseigner les numéros d\'agent pour fiabiliser la détection.',
+      ecart: d.surcout,
+    });
+  });
 
   // ── 1. Provisions congés (toujours évaluable, indépendant de N-1) ────
   const provisions = globalParams.provisions || [];

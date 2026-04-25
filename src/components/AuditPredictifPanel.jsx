@@ -36,13 +36,14 @@ export default function AuditPredictifPanel({
   globalParams,
   masseSalarialeTotal,
   getBudgetService,
+  poolRH = [],
 }) {
   const [expanded, setExpanded] = useState(true);
   const [filterLvl, setFilterLvl] = useState('all');
 
   const anomalies = useMemo(() =>
-    detecterAnomalies({ donneesN1, kpiGlobaux, services, direction, poleSupport, globalParams, masseSalarialeTotal, getBudgetService }),
-    [donneesN1, kpiGlobaux, services, direction, poleSupport, globalParams, masseSalarialeTotal, getBudgetService]
+    detecterAnomalies({ donneesN1, kpiGlobaux, services, direction, poleSupport, globalParams, masseSalarialeTotal, getBudgetService, poolRH }),
+    [donneesN1, kpiGlobaux, services, direction, poleSupport, globalParams, masseSalarialeTotal, getBudgetService, poolRH]
   );
 
   const stats = compterAnomaliesParNiveau(anomalies);

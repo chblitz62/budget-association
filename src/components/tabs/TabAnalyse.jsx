@@ -8,6 +8,8 @@ import { exportSyntheseNarrative } from '../../utils/pdfExport';
 import { calculerRadarSante, genererRapportStrategique } from '../../utils/radarSante';
 import AuditPredictifPanel from '../AuditPredictifPanel';
 import CompteResultatPanel from '../CompteResultatPanel';
+import BilanPrevisionnelPanel from '../BilanPrevisionnelPanel';
+import ProvisionIDRPanel from '../ProvisionIDRPanel';
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Line, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 
 export default function TabAnalyse({
@@ -91,6 +93,7 @@ export default function TabAnalyse({
         globalParams={globalParams}
         masseSalarialeTotal={masseSalarialeTotal}
         getBudgetService={getBudgetService}
+        poolRH={poolRH}
       />
 
       {/* ═══ COMPTE DE RÉSULTAT FORMEL — PCG ASSOCIATIF ═══ */}
@@ -100,6 +103,25 @@ export default function TabAnalyse({
         services={services}
         poleSupport={poleSupport}
         globalParams={globalParams}
+      />
+
+      {/* ═══ BILAN PRÉVISIONNEL ACTIF/PASSIF ═══ */}
+      <BilanPrevisionnelPanel
+        darkMode={darkMode}
+        direction={direction}
+        services={services}
+        poleSupport={poleSupport}
+        globalParams={globalParams}
+      />
+
+      {/* ═══ PROVISION IDR ACTUARIELLE (UCP / IAS 19) ═══ */}
+      <ProvisionIDRPanel
+        darkMode={darkMode}
+        direction={direction}
+        services={services}
+        poleSupport={poleSupport}
+        globalParams={globalParams}
+        setGlobalParams={setGlobalParams}
       />
 
       {/* ═══ SYNTHÈSE CONSOLIDÉE CROSS-MODULES ═══ */}
