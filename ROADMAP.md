@@ -1,5 +1,5 @@
 # Roadmap — AFERTES Budget Association
-Dernière mise à jour : 2026-04-25 | Version : 4.1 (Governance & Predictive Edition)
+Dernière mise à jour : 2026-04-25 | Version : 4.3 (Tier 1 Conformité livré — 237 tests verts)
 
 ---
 
@@ -64,6 +64,37 @@ Dernière mise à jour : 2026-04-25 | Version : 4.1 (Governance & Predictive Edi
 
 ---
 
+## 🔒 Phase 7 — Conformité Réglementaire & Sécurité Production (2026 Q2)
+
+> Audit DAF senior 2026-04-25 — application notée ⭐⭐⭐½. Outil de pilotage excellent mais **pas un SI comptable certifié**. Corrections Tier 1 non négociables avant déploiement multi-sites.
+
+### 🚨 Tier 1 — Bloquant déploiement (≤ 30 jours)
+- [x] **S1 — Suppression `demo2025` en production** : `LoginScreen.jsx` conditionné à `import.meta.env.DEV`. *(Implémenté 2026-04-25)*
+- [x] **S2 — PBKDF2 100k → 600k itérations** : préfixe `pbkdf2v2:` ; migration douce v1→v2 au prochain login ; OWASP 2023 (SHA-256). *(Implémenté 2026-04-25)*
+- [x] **C1 — Export FEC conforme BOI-CF-IOR-60-40** : `fecExport.js` — 18 colonnes pipe-delimited UTF-8, écritures équilibrées (ΣD=ΣC), bouton dans TabParametres ; nommage `<SIREN>FEC<AAAA>1231.txt`. 7 tests dédiés. *(Implémenté 2026-04-25)*
+- [x] **C2 — Compte de résultat formel PCG associatif** : `compteResultat.js` + `CompteResultatPanel.jsx` — classes 60-68/70-78 (CRC 99-01 / Règl. ANC 2018-06), soldes intermédiaires (résultat exploitation/financier/exceptionnel/courant/net), export CSV ; intégré dans TabAnalyse. 6 tests. *(Implémenté 2026-04-25)*
+- [x] **G2 — Audit trail signé (chaînage SHA-256)** : `auditTrail.js` — chaque entrée référence le hash de la précédente ; vérification d'intégrité au montage ; migration legacy automatique ; bannière d'alerte rouge si chaîne rompue ; sérialisation des appends concurrents. 7 tests. *(Implémenté 2026-04-25)*
+
+### ⚠️ Tier 2 — Avant clôture 2026 (≤ 90 jours)
+- [ ] **Backend Supabase + RBAC 4 rôles** (DG, DAF, Resp. site, Comptable) : multi-utilisateurs concurrents, séparation des fonctions saisie/validation.
+- [ ] **C3 — Bilan prévisionnel actif/passif équilibré** : tableau formel pour bailleurs et CAC.
+- [ ] **F1 — TVA multi-taux différenciée** : 5,5/10/20 par recette ou charge (formation continue Art. 261 4-4° CGI vs annexes assujetties).
+- [ ] **F2 — Provision IDR actuarielle** : méthode UCP (Unités de Crédit Projetées, IAS 19) avec hypothèses turn-over, taux d'actualisation, table mortalité TF/TH.
+- [ ] **A1 — Détection double-comptage Pool RH ↔ personnel direct** : moteur de réconciliation par identifiant agent.
+- [ ] **C4 — Tableau de financement (PCG 532-7)** : ressources/emplois durables.
+
+### 💡 Tier 3 — Roadmap 2027
+- [ ] **DSN paie automatisée** (déjà Phase 6) : import via API DSN-FI.
+- [ ] **Connecteur balance comptable** : import FEC inverse (logiciel certifié → application).
+- [ ] **Benchmarking sectoriel** : API DataAssociations / UNAFORIS / CNESMS.
+- [ ] **Open Data subventions** : data.gouv.fr DataSubventions pour anticiper.
+- [ ] **Plan financement triennal formel** : avec contrats pluriannuels CTP/CER.
+- [ ] **Reporting fiscal CFE/CET** : pour associations avec activités lucratives > 78 596 €.
+- [ ] **Indicateurs RSE/sociétal** (parité, OETH).
+- [ ] **Versionnement constantes fiscales** : historique modifications + auditabilité rétroactive.
+
+---
+
 ## ✅ Historique des Corrections (Audit CAC 2026-04-19)
 
 | Date | Correction | Impact DAF |
@@ -79,6 +110,11 @@ Dernière mise à jour : 2026-04-25 | Version : 4.1 (Governance & Predictive Edi
 | 2026-04-25 | **Glossaire Éco-Fin** | 12 termes DAF centralisés (Définition / Impact / Levier) + panneau global |
 | 2026-04-25 | **Mode CA** | Vue épurée plein écran pour présentation Bureau/Conseil d'Administration |
 | 2026-04-25 | **Audit prédictif** | 6 familles d'anomalies détectées avant validation (sous-provisionnement, dérive N-1, omission fiscale) |
+| 2026-04-25 | **S1 — `demo2025` masqué en prod** | Mot de passe par défaut visible uniquement en `import.meta.env.DEV` (LoginScreen) |
+| 2026-04-25 | **S2 — PBKDF2 600k itérations** | Alignement OWASP 2023 ; migration douce v1→v2 transparente ; préfixe `pbkdf2v2:` |
+| 2026-04-25 | **G2 — Audit trail signé SHA-256** | Chaîne cryptographique du journal ; détection altération a posteriori ; bannière d'alerte si rupture |
+| 2026-04-25 | **C1 — Export FEC BOI-CF-IOR-60-40** | Fichier opposable contrôle fiscal ; 18 colonnes ; écritures équilibrées ; bouton TabParametres |
+| 2026-04-25 | **C2 — Compte de résultat PCG associatif** | Classes 60-68/70-78 ; soldes intermédiaires ; export CSV ; CRC 99-01 / Règl. ANC 2018-06 |
 
 ---
 

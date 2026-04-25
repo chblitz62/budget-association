@@ -23,7 +23,8 @@ const LoginScreen = ({ onLogin, checkPassword, darkMode }) => {
     }
   };
 
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const isDev = import.meta.env.DEV;
+  const isLocalhost = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && isDev;
 
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-slate-50 to-slate-100'}`}>

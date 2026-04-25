@@ -7,6 +7,7 @@ import {
   defaultServices,
 } from '../utils/constants';
 import { zeroSites as pilotageZeroSites } from '../components/PilotageFinancier';
+import { appendSigned, verifyChain, migrateLegacyEntries } from '../utils/auditTrail';
 
 export const useBudgetData = () => {
   const [globalParams, setGlobalParams]         = useState(() => loadFromStorage('assoc_globalParams', defaultGlobalParams));
@@ -29,14 +30,53 @@ export const useBudgetData = () => {
   const [auditTrail, setAuditTrail] = useState(() => {
     try { return JSON.parse(localStorage.getItem('assoc_audit_trail') || '[]'); } catch { return []; }
   });
+  const [auditChainStatus, setAuditChainStatus] = useState({ checked: false, valid: true, brokenAt: null, signedCount: 0 });
+  const auditHeadRef = useRef(null); // dernière entrée du journal (tête de chaîne)
+  // Sérialise les append concurrents pour préserver l'intégrité de la chaîne
+  const auditAppendQueueRef = useRef(Promise.resolve());
+
+  // Migration legacy → signé + vérification d'intégrité au montage
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const raw = JSON.parse(localStorage.getItem('assoc_audit_trail') || '[]');
+        if (!Array.isArray(raw) || raw.length === 0) {
+          auditHeadRef.current = null;
+          if (!cancelled) setAuditChainStatus({ checked: true, valid: true, brokenAt: null, signedCount: 0 });
+          return;
+        }
+        const hasUnsigned = raw.some(e => !e.hash || !e.prevHash);
+        if (hasUnsigned) {
+          const migrated = await migrateLegacyEntries(raw);
+          if (cancelled) return;
+          localStorage.setItem('assoc_audit_trail', JSON.stringify(migrated));
+          auditHeadRef.current = migrated[0] || null;
+          setAuditTrail(migrated);
+          setAuditChainStatus({ checked: true, valid: true, brokenAt: null, signedCount: migrated.length });
+        } else {
+          const status = await verifyChain(raw);
+          if (cancelled) return;
+          auditHeadRef.current = raw[0] || null;
+          setAuditChainStatus({ checked: true, ...status });
+        }
+      } catch {
+        if (!cancelled) setAuditChainStatus({ checked: true, valid: false, brokenAt: 0, signedCount: 0 });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const appendAuditEntry = useCallback((action, module = '', details = '') => {
-    setAuditTrail(prev => {
-      const entry = { ts: new Date().toISOString(), action, module, details };
-      const next = [entry, ...prev].slice(0, 200);
-      try { localStorage.setItem('assoc_audit_trail', JSON.stringify(next)); } catch { /* quota */ }
-      return next;
-    });
+    auditAppendQueueRef.current = auditAppendQueueRef.current.then(async () => {
+      const entry = await appendSigned(auditHeadRef.current, action, module, details);
+      auditHeadRef.current = entry;
+      setAuditTrail(prev => {
+        const next = [entry, ...prev].slice(0, 200);
+        try { localStorage.setItem('assoc_audit_trail', JSON.stringify(next)); } catch { /* quota */ }
+        return next;
+      });
+    }).catch(() => { /* swallow — chaîne préservée */ });
   }, []);
 
   const saveTimerRef   = useRef(null);
@@ -133,6 +173,6 @@ export const useBudgetData = () => {
     repartitionTemps, setRepartitionTemps,
     rollingForecast, setRollingForecast,
     engagements, setEngagements,
-    auditTrail, appendAuditEntry,
+    auditTrail, appendAuditEntry, auditChainStatus,
   };
 };

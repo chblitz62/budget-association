@@ -7,6 +7,7 @@ import { exportEPRD } from '../../utils/excelExport';
 import { exportSyntheseNarrative } from '../../utils/pdfExport';
 import { calculerRadarSante, genererRapportStrategique } from '../../utils/radarSante';
 import AuditPredictifPanel from '../AuditPredictifPanel';
+import CompteResultatPanel from '../CompteResultatPanel';
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Line, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 
 export default function TabAnalyse({
@@ -90,6 +91,15 @@ export default function TabAnalyse({
         globalParams={globalParams}
         masseSalarialeTotal={masseSalarialeTotal}
         getBudgetService={getBudgetService}
+      />
+
+      {/* ═══ COMPTE DE RÉSULTAT FORMEL — PCG ASSOCIATIF ═══ */}
+      <CompteResultatPanel
+        darkMode={darkMode}
+        direction={direction}
+        services={services}
+        poleSupport={poleSupport}
+        globalParams={globalParams}
       />
 
       {/* ═══ SYNTHÈSE CONSOLIDÉE CROSS-MODULES ═══ */}

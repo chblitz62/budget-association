@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { Save, Upload, Download, Printer, Key, RotateCcw, Monitor, Shield, Users, Layers, Camera, Cog, Target, Calculator, FileSpreadsheet, Trash2, LogOut, HelpCircle, Moon, Sun, Clock, Lock, CheckCircle, Send, FileEdit } from 'lucide-react';
 import { exportToExcel, exportReportingFC } from '../../utils/excelExport';
 import { exportToPDF } from '../../utils/pdfExport';
+import { exportFEC } from '../../utils/fecExport';
 import SnapshotManager from '../SnapshotManager';
 import ScenariosManager from '../ScenariosManager';
 import DafLockPanel from '../DafLockPanel';
@@ -472,6 +473,16 @@ export default function TabParametres({
         title="Génère un CSV au format journal comptable (Sage, Cegid, EBP…)"
       >
         <Calculator size={18} /> Export Sage/Cegid
+      </button>
+      <button
+        onClick={() => {
+          const stats = exportFEC(direction, services, poleSupport, globalParams);
+          appendAuditEntry?.('Export FEC', 'Paramètres', `${stats.ecritures} écritures · Σ Débit ${Math.round(stats.totalDebit)} €`);
+        }}
+        className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 border-2 transition-colors ${darkMode ? 'border-amber-600 text-amber-300 hover:bg-amber-900/30' : 'border-amber-500 text-amber-700 hover:bg-amber-50'}`}
+        title="Fichier des Écritures Comptables — format BOI-CF-IOR-60-40, opposable à l'administration fiscale"
+      >
+        <FileSpreadsheet size={18} /> Export FEC (BOI-CF)
       </button>
       <button onClick={() => window.print()} className={`px-4 py-3 rounded-xl font-bold flex items-center gap-2 border ${darkMode ? 'bg-slate-700 text-white border-slate-600' : 'bg-slate-500 text-white border-slate-600'}`}><Printer size={18} /> Imprimer</button>
     </div>

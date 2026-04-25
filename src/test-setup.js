@@ -18,10 +18,8 @@ Object.defineProperty(window, 'matchMedia', {
   }),
 });
 
-// crypto.subtle absent de jsdom
-if (!global.crypto) global.crypto = {};
-if (!global.crypto.subtle) {
-  global.crypto.subtle = {
-    digest: async () => new ArrayBuffer(32),
-  };
+// crypto.subtle absent de jsdom — utiliser le webcrypto natif Node (≥ 16)
+if (!global.crypto || !global.crypto.subtle) {
+  const { webcrypto } = await import('node:crypto');
+  global.crypto = webcrypto;
 }

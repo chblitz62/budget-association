@@ -96,7 +96,7 @@ export default function Layout({
   children,
 }) {
   const dm = darkMode;
-  const { appendAuditEntry } = useBudget();
+  const { appendAuditEntry, auditChainStatus } = useBudget();
   const [alertesCollapsed, setAlertesCollapsed] = useState(false);
   const [showEcoFin, setShowEcoFin] = useState(false);
 
@@ -378,6 +378,21 @@ export default function Layout({
                 ))}
               </div>
             </div>
+
+            {/* Bannière intégrité audit trail */}
+            {auditChainStatus?.checked && !auditChainStatus.valid && (
+              <div className={`mb-4 rounded-2xl border-2 p-4 flex items-start gap-3 ${dm ? 'bg-rose-950/40 border-rose-700' : 'bg-rose-50 border-rose-300'}`}>
+                <AlertTriangle size={20} className={dm ? 'text-rose-400 mt-0.5' : 'text-rose-600 mt-0.5'} />
+                <div className="flex-1">
+                  <p className={`text-sm font-black ${dm ? 'text-rose-200' : 'text-rose-800'}`}>
+                    Intégrité du journal d'audit compromise
+                  </p>
+                  <p className={`text-xs mt-1 ${dm ? 'text-rose-300' : 'text-rose-700'}`}>
+                    La chaîne SHA-256 du journal présente une rupture (entrée #{auditChainStatus.brokenAt}). Une modification a posteriori a été détectée. Consulter le DAF avant toute validation budgétaire.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Contenu des onglets */}
             <div key={activeTab} className="animate-in fade-in duration-500">
