@@ -1,5 +1,5 @@
 # Roadmap — AFERTES Budget Association
-Dernière mise à jour : 2026-04-25 | Version : 4.5 (Tier 1 + 5/6 Tier 2 livrés — 283 tests verts)
+Dernière mise à jour : 2026-04-25 | Version : 4.6 (Tier 1 + 5/6 Tier 2 + 1/8 Tier 3 — 295 tests verts)
 
 ---
 
@@ -91,7 +91,7 @@ Dernière mise à jour : 2026-04-25 | Version : 4.5 (Tier 1 + 5/6 Tier 2 livrés
 - [ ] **Plan financement triennal formel** : avec contrats pluriannuels CTP/CER.
 - [ ] **Reporting fiscal CFE/CET** : pour associations avec activités lucratives > 78 596 €.
 - [ ] **Indicateurs RSE/sociétal** (parité, OETH).
-- [ ] **Versionnement constantes fiscales** : historique modifications + auditabilité rétroactive.
+- [x] **Versionnement constantes fiscales** : `constantsVersionRegistry.js` + `ConstantesHistoriquePanel.jsx` — 12 constantes versionnables (CHARGES_PATRONALES, SMIC, Ségur, taxe salaires T1/T2/T3, seuils, Fillon, apprenti, vacataires). Historique daté avec source légale + justification. Helper `valeurALaDate()` pour audit rétroactif (recalcul d'un budget passé). Détection automatique d'incohérences code source ↔ historique. Export CSV. Verrouillage DAF. 12 tests. *(Implémenté 2026-04-25)*
 
 ---
 
@@ -120,6 +120,7 @@ Dernière mise à jour : 2026-04-25 | Version : 4.5 (Tier 1 + 5/6 Tier 2 livrés
 | 2026-04-25 | **F2 — Provision IDR actuarielle UCP** | Méthode IAS 19 / ANC 2013-02 ; turn-over + actualisation + survie ; hypothèses paramétrables ; tableau agent par agent |
 | 2026-04-25 | **F1 — TVA multi-taux différenciée** | Taux 0/5,5/10/20 par recette/charge ; coefficient de déduction activité mixte ; alerte BOI-TVA-DED-20-10 ; préparation CA3 |
 | 2026-04-25 | **C4 — Tableau de financement PCG 532-7** | Ressources/emplois durables ; CAF ; ΔFRNG ; ΔBFR ; ΔTrésorerie ; export CSV |
+| 2026-04-25 | **Versionnement constantes fiscales** | 12 constantes historisées avec date application + source légale + justification ; `valeurALaDate()` pour audit rétroactif ; détection incohérences code↔historique |
 
 ---
 

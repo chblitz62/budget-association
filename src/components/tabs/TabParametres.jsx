@@ -6,6 +6,7 @@ import { exportFEC } from '../../utils/fecExport';
 import SnapshotManager from '../SnapshotManager';
 import ScenariosManager from '../ScenariosManager';
 import DafLockPanel from '../DafLockPanel';
+import ConstantesHistoriquePanel from '../ConstantesHistoriquePanel';
 import InfoTooltip from '../ui/Tooltip';
 import { validerTaux } from '../../utils/calculations';
 import { repartirFraisSiege } from '../../utils/calculations';
@@ -68,6 +69,12 @@ export default function TabParametres({
     unlockDaf={dafMode?.unlockDaf}
     lockDaf={dafMode?.lockDaf}
     resetDaf={dafMode?.resetDaf}
+    appendAuditEntry={appendAuditEntry}
+  />
+
+  <ConstantesHistoriquePanel
+    darkMode={darkMode}
+    dafLocked={dafLocked}
     appendAuditEntry={appendAuditEntry}
   />
 
