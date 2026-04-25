@@ -1,5 +1,5 @@
 # Roadmap — AFERTES Budget Association
-Dernière mise à jour : 2026-04-25 | Version : 4.6 (Tier 1 + 5/6 Tier 2 + 1/8 Tier 3 — 295 tests verts)
+Dernière mise à jour : 2026-04-25 | Version : 4.7 (Phase 8 démarrée — tokens + DataPanel — 295 tests verts)
 
 ---
 
@@ -95,6 +95,53 @@ Dernière mise à jour : 2026-04-25 | Version : 4.6 (Tier 1 + 5/6 Tier 2 + 1/8 T
 
 ---
 
+## 🎨 Phase 8 — Modernisation UI/UX Soft SaaS (Q3 2026)
+
+> Audit Senior Product Designer 2026-04-25 : interface dense, typographie micro (`text-xs`/`text-[9px]` partout), 8 teintes KPI sans hiérarchie, jargon technique non accompagné. Cible : utilisateurs novices (responsables sites, élus CA) qui consultent ponctuellement sans formation.
+
+### Direction artistique validée
+- **Palette** : Slate/Zinc (neutres) + Indigo/Violet (primaire) + 5 statuts (success/warning/danger/info/neutral) — passage de 8 à 5 teintes
+- **Glass surfaces** : `bg-white/80 backdrop-blur-xl border-slate-200/60 rounded-2xl shadow-sm` (vs `shadow-md` saturé actuel)
+- **Typographie** : Hero KPI 36px, Title 18px, Body 14px, Label 11px uppercase tracking-wider — fin du `text-xs`/`text-[9px]` en lecture
+- **Grille 8px stricte** : px-2/4/6/8 — cards padding 24px, gap 24px
+- **Lucide thin** : `strokeWidth={1.5}` systématique
+- **Header 56→64px** + **3 zones** (logo+page / KPIs hero / actions essentielles)
+
+### 🔴 P1 — Sprint 1-2 (Foundation + Shell) — ≤ 5 jours
+- [x] **S1.1 Design tokens centralisés** : `src/styles/tokens.js` — surface/text/button/status/spacing/iconProps. Source unique pour toute la couche présentation. *(Implémenté 2026-04-25)*
+- [x] **S1.2 Composant atomique `<DataPanel>`** : header standardisé (icône pastille tone + title + subtitle novice + help bulle), summary toujours visible, content collapsible, emptyState slot. + `<PanelStat>`, `<PanelStatusBadge>`, `<EmptyState>` réutilisables. *(Implémenté 2026-04-25)*
+- [ ] **S1.3 Composants atomiques restants** : `<Card>`, `<Button>` (5 variantes : primary/secondary/ghost/tertiary/destructive), `<Pill>`, `<Badge>`, `<Modal>` (avec animations Framer Motion ou CSS animate-in).
+- [ ] **S2.1 Layout shell modernisé** : Header 64px en 3 zones distinctes ; déplacer Privacy/EcoFin/AI dans dropdown `<ToolsMenu>` avec `MoreHorizontal` ; KPI band reformaté (3 KPIs hero centrés, 36px tabular-nums).
+- [ ] **S2.2 KPIs topbar redesignés** : passage de 12px à 16-20px lisibles, libellés humanisés ("Solde" → "Résultat prévisionnel"), tooltip riche au survol expliquant l'impact.
+
+### 🟠 P2 — Sprint 3-4 (Navigation + Dashboard) — ≤ 4 jours
+- [ ] **S3.1 Sidebar v2 floating glass** : `bg-white/90 backdrop-blur-xl` ; section "🏠 Premiers pas" en haut pour novices avec lien wizard ; regroupement Saisie/Pilotage/Audit clair ; badges solde discrets sur services.
+- [ ] **S3.2 Mode "Essentiel" pour onglets** : afficher d'abord 3 onglets clés (Tableau de bord / Budget / Analyse) + bouton "Plus" dépliant les 8 autres ; toggle "Mode expert" dans Paramètres pour tout afficher.
+- [ ] **S4.1 Vue Dashboard "Synthèse Simple" (novice)** : page d'accueil avec status global ("✓ Tout va bien" / "⚠ Action requise" / "✕ Attention") basé sur `kpiGlobaux.alertes` ; 3 KPIs hero ; 1 graphique trésorerie épuré ; bouton "En savoir plus" → vue expert actuelle.
+- [ ] **S4.2 Recharts modernisés** : `strokeWidth={1.5}`, area fills `fillOpacity={0.1}`, tooltip custom avec border + shadow doux, axes simplifiés (suppression grids verticales), couleurs limitées à indigo/violet/emerald/rose.
+
+### 🟡 P3 — Sprint 5-6 (Composants + Pédagogie) — ≤ 3 jours
+- [ ] **S5.1 `<DataTable>` moderne** : padding cellules 12px (vs 6-8 actuel), hover `bg-slate-50/50`, zebra striping subtil, sticky header, empty state intégré, sort UI épuré.
+- [ ] **S5.2 Modals Soft** : centrage flex, backdrop `bg-zinc-950/40 backdrop-blur-sm`, animations entrée scale-95→100 + fade, focus trap, esc key, action principale en bas-droite.
+- [ ] **S5.3 Migration progressive panels existants vers `<DataPanel>`** : commencer par les 6 panels d'analyse (CompteResultat, Bilan, IDR, TVA, TableauFinancement, AuditPredictif) — preuve de concept avant gros refactor.
+- [ ] **S6.1 Glossaire inline auto** : composant `<Term>` qui détecte les termes du glossaire dans le texte (BFR, ETP, FRNG, CAF, Ségur…) et affiche tooltip riche au survol (définition + impact + levier). Fin du jargon brut.
+- [ ] **S6.2 Tour guidé "première utilisation"** : library `react-joyride` — 5 étapes pour novice (Sidebar → KPIs → Sauver → Mode CA → Aide). Déclenchable via Sidebar "Premiers pas".
+
+### 💡 P4 — Sprint 7+ (Polish & Animations) — backlog
+- [ ] **Optimisation tactile** (déjà roadmap Phase 5) : tablette DG mobile, touch targets 44px min.
+- [ ] **Micro-animations Framer Motion** : transitions onglets, apparition cards staggered, drag-and-drop services.
+- [ ] **Skeleton loaders** sur calculs lourds (projection 36 mois).
+- [ ] **Haptic feedback** sur actions tactiles (mobile/tablette).
+- [ ] **Prefers-reduced-motion** : respect de l'option système.
+
+### Stratégie de migration (zéro régression)
+1. **Couche présentation isolée** : tokens + composants atomiques en parallèle de l'existant
+2. **Migration panel par panel** : DataPanel d'abord, puis Layout, puis Sidebar
+3. **Feature flag `useNewUI`** dans Paramètres pour basculer ancien/nouveau pendant phase de transition
+4. **Tests visuels** : screenshots Playwright avant/après chaque sprint
+
+---
+
 ## ✅ Historique des Corrections (Audit CAC 2026-04-19)
 
 | Date | Correction | Impact DAF |
@@ -121,6 +168,8 @@ Dernière mise à jour : 2026-04-25 | Version : 4.6 (Tier 1 + 5/6 Tier 2 + 1/8 T
 | 2026-04-25 | **F1 — TVA multi-taux différenciée** | Taux 0/5,5/10/20 par recette/charge ; coefficient de déduction activité mixte ; alerte BOI-TVA-DED-20-10 ; préparation CA3 |
 | 2026-04-25 | **C4 — Tableau de financement PCG 532-7** | Ressources/emplois durables ; CAF ; ΔFRNG ; ΔBFR ; ΔTrésorerie ; export CSV |
 | 2026-04-25 | **Versionnement constantes fiscales** | 12 constantes historisées avec date application + source légale + justification ; `valeurALaDate()` pour audit rétroactif ; détection incohérences code↔historique |
+| 2026-04-25 | **Phase 8 — Design tokens Soft SaaS** | `src/styles/tokens.js` source unique (surfaces glass, palette 5 statuts, typographie hero/title/body/label, grille 8px, Lucide thin) — fondation du refactoring UI/UX |
+| 2026-04-25 | **Phase 8 — Composant `<DataPanel>`** | Template novice-friendly : header standardisé (icône pastille + title + subtitle pédagogique + help), summary toujours visible, content collapsible, slot emptyState ; + `<PanelStat>` (KPI hero 36px), `<PanelStatusBadge>`, `<EmptyState>` |
 
 ---
 
