@@ -3,7 +3,7 @@ import { Users, Calculator, Info, RotateCcw, AlertTriangle, Download, FileSpread
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { TARIFS_VACATAIRES, CHARGES_VACATAIRE, SEUIL_HEURES_VACATAIRE } from '../utils/constants';
+import { TARIFS_VACATAIRES as tarifsVacataires_DEFAULT, CHARGES_VACATAIRE, SEUIL_HEURES_VACATAIRE } from '../utils/constants';
 
 const STORAGE_KEY = 'assoc_calculateur_vacataires';
 const TAUX_CP = CHARGES_VACATAIRE / 100; // 0.15
@@ -11,8 +11,8 @@ const TAUX_CP = CHARGES_VACATAIRE / 100; // 0.15
 const fmt2 = (n) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmt0 = (n) => Math.round(n).toLocaleString('fr-FR');
 
-export default function CalculateurVacataires({ darkMode, vacatairesBudget = [] }) {
-  const initHeures = () => Object.fromEntries(TARIFS_VACATAIRES.map(t => [t.id, { salarie: '', prestataire: '' }]));
+export default function CalculateurVacataires({ darkMode, vacatairesBudget = [], tarifsVacataires = tarifsVacataires_DEFAULT }) {
+  const initHeures = () => Object.fromEntries(tarifsVacataires.map(t => [t.id, { salarie: '', prestataire: '' }]));
 
   const [heures, setHeures] = useState(() => {
     try { return { ...initHeures(), ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') }; }
@@ -30,7 +30,7 @@ export default function CalculateurVacataires({ darkMode, vacatairesBudget = [] 
   const reset = () => { setHeures(initHeures()); localStorage.removeItem(STORAGE_KEY); };
 
   // Calculs par ligne
-  const lignes = TARIFS_VACATAIRES.map(t => {
+  const lignes = tarifsVacataires.map(t => {
     const hs = parseFloat(heures[t.id]?.salarie)     || 0;
     const hp = parseFloat(heures[t.id]?.prestataire) || 0;
     const hRémS = hs * t.multiplicateur;
@@ -201,7 +201,7 @@ export default function CalculateurVacataires({ darkMode, vacatairesBudget = [] 
               </tr>
             </thead>
             <tbody>
-              {TARIFS_VACATAIRES.map(t => (
+              {tarifsVacataires.map(t => (
                 <tr key={t.id} className={`border-t transition-colors ${tr} hover:opacity-80`}>
                   <td className="px-5 py-3 font-medium">
                     {t.label}

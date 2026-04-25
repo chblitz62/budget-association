@@ -69,7 +69,7 @@ function getAlloc(agent, moisKey, moisIdx, repartitionTemps) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function TabRepartitionTemps({ direction, poleSupport, services, darkMode, repartitionTemps, setRepartitionTemps, privacyMode }) {
+export default function TabRepartitionTemps({ direction, poleSupport, services, poolRH, darkMode, repartitionTemps, setRepartitionTemps, privacyMode }) {
   const dm = darkMode;
   const [editAgent, setEditAgent] = useState(null);
   const [editData,  setEditData]  = useState({});
@@ -80,13 +80,15 @@ export default function TabRepartitionTemps({ direction, poleSupport, services, 
     if ((direction?.personnel || []).length > 0)
       g.push({ id: 'dir', label: 'Direction / Siège',   agents: direction.personnel });
     if ((poleSupport?.personnel || []).length > 0)
-      g.push({ id: 'ps',  label: 'Pôle Support',        agents: poleSupport.personnel });
+      g.push({ id: 'ps',  label: 'Pôle Ressources',     agents: poleSupport.personnel });
     services.forEach(s => {
       if ((s.personnel || []).length > 0)
         g.push({ id: `s${s.id}`, label: s.nom, agents: s.personnel });
     });
+    if ((poolRH || []).length > 0)
+      g.push({ id: 'pool', label: 'Pool RH', agents: poolRH, isPoolRH: true });
     return g;
-  }, [direction, poleSupport, services]);
+  }, [direction, poleSupport, services, poolRH]);
 
   // Open edit modal, pre-fill from current alloc
   const openEdit = agent => {

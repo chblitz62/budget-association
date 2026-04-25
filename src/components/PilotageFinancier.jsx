@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus, Trash2, Calculator, TrendingUp, AlertTriangle, CheckCircle,
          Info, Users, Activity, Zap, Building, Globe, X, Edit2,
          RotateCcw, Lock, Eye, EyeOff, Copy, ChevronDown, ChevronRight,
          UserCheck, UserX } from 'lucide-react';
 import HelpIcon from './ui/HelpIcon';
-import { FINANCIAL_HELP as H, PRIME_SEGUR, CHARGES_PATRONALES } from '../utils/constants';
+import { FINANCIAL_HELP as H, PRIME_SEGUR, CHARGES_PATRONALES, SITES } from '../utils/constants';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
          ResponsiveContainer, ReferenceLine } from 'recharts';
 
@@ -139,20 +140,19 @@ const SiteView = ({ site, onUpdateSite, tauxFraisStructure, dm, budgetPersonnel 
   const [activeSessionId, setActiveSessionId] = useState(sessions[0]?.id ?? null);
   const totalFF = fraisFixes.reduce((s, f) => s + (parseFloat(f.montant) || 0), 0);
 
-  // Salariés budget convertis au format calcSalarie (sélectionnables directement)
-  const budgetFormateurs = (budgetPersonnel || []).map(p => ({
+  const budgetFormateurs = useMemo(() => (budgetPersonnel || []).map(p => ({
     id: 'b' + p.id,
     nom: p.titre || 'Sans nom',
     type: 'interne',
     salaireBrut: Math.round(((p.salaire || 0) + (p.segur ? PRIME_SEGUR : 0)) * (p.etp || 1)),
-    tauxCharges: CHARGES_PATRONALES * 100,    // converti en % (42)
-    heuresHebdo: 35 * (p.etp || 1),           // heures hebdo selon ETP
-    heuresHorsProduction: 7 * (p.etp || 1),   // hors-prod proportionnel à l'ETP
+    tauxCharges: CHARGES_PATRONALES * 100,
+    heuresHebdo: 35 * (p.etp || 1),
+    heuresHorsProduction: 7 * (p.etp || 1),
     ratioPreparation: 1.5,
     joursAbsence: 0,
     _source: p.source || 'Budget',
-  }));
-  const allFormateurs = [...salaries, ...budgetFormateurs];
+  })), [budgetPersonnel]);
+  const allFormateurs = useMemo(() => [...salaries, ...budgetFormateurs], [salaries, budgetFormateurs]);
 
   const card       = `rounded-2xl border shadow-md ${dm ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`;
   const textPri    = dm ? 'text-white' : 'text-slate-800';
@@ -196,7 +196,10 @@ const SiteView = ({ site, onUpdateSite, tauxFraisStructure, dm, budgetPersonnel 
   };
 
   const activeSess = sessions.find(s => s.id === activeSessionId);
-  const activeRes  = activeSess ? calcSession(activeSess, allFormateurs, tauxFraisStructure) : null;
+  const activeRes  = useMemo(
+    () => activeSess ? calcSession(activeSess, allFormateurs, tauxFraisStructure) : null,
+    [activeSess, allFormateurs, tauxFraisStructure],
+  );
 
   return (
     <div className="space-y-6">
@@ -206,6 +209,7 @@ const SiteView = ({ site, onUpdateSite, tauxFraisStructure, dm, budgetPersonnel 
         <h3 className={`text-xl font-black mb-5 flex items-center gap-2 ${textPri}`}>
           <span className="px-2.5 py-0.5 bg-blue-500 text-white rounded-lg text-sm font-black">01</span>
           Frais Fixes
+          <HelpIcon type="info" position="right" wide darkMode={dm} content="Charges supportées indépendamment du volume d'activité : loyer, assurances, abonnements, salaires hors-pédagogie… Le taux de structure (€/h) = Frais fixes ÷ Heures vendues. Ce taux sert à calculer le coût réel de chaque session. Origine Budget : charges d'exploitation du service correspondant (onglet Budget › service › Exploitation)." />
         </h3>
         <div className="overflow-x-auto mb-4">
           <table className="w-full text-sm">
@@ -275,6 +279,7 @@ const SiteView = ({ site, onUpdateSite, tauxFraisStructure, dm, budgetPersonnel 
           <span className="px-2.5 py-0.5 bg-teal-500 text-white rounded-lg text-sm font-black">02</span>
           Formateurs & Vacataires
           <span className={`text-xs font-normal ${textMuted}`}>— {SEMAINES} semaines / an</span>
+          <HelpIcon type="info" position="right" wide darkMode={dm} content="Personnel d'enseignement de ce site. Les formateurs internes ont un coût horaire calculé (salaire + charges ÷ heures disponibles). Les vacataires ont un taux horaire direct. Ces coûts alimentent le calcul de marge de chaque session. Origine Budget : agents avec rôle « formateur » dans le service correspondant (onglet Budget › service › Personnel)." />
         </h3>
         <p className={`text-xs mb-4 ${textMuted}`}>
           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg mr-2 ${dm ? 'bg-teal-900/40 text-teal-400' : 'bg-teal-50 text-teal-700'}`}><UserCheck size={11} /> Interne</span>
@@ -437,6 +442,7 @@ const SiteView = ({ site, onUpdateSite, tauxFraisStructure, dm, budgetPersonnel 
         <h3 className={`text-xl font-black mb-2 flex items-center gap-2 ${textPri}`}>
           <span className="px-2.5 py-0.5 bg-orange-500 text-white rounded-lg text-sm font-black">03</span>
           Sessions de Formation
+          <HelpIcon type="warning" position="right" wide darkMode={dm} content="Chaque session représente une formation dispensée : nombre de stagiaires, prix par stagiaire, formateur assigné, heures. La marge = Recettes − (Coût formateur + Frais de structure + Frais divers). Le point mort indique l'effectif minimum pour atteindre l'équilibre. Origine Budget : promotions/formations du service (onglet Budget › service › Promos)." />
           <span className={`ml-auto text-sm font-normal ${textMuted}`}>{sessions.length} session{sessions.length > 1 ? 's' : ''}</span>
         </h3>
         <p className={`text-xs mb-5 ${textMuted}`}>Nommez, ajoutez et comparez toutes vos sessions. Coût formateur = coût de l'heure facturée.</p>
@@ -733,22 +739,24 @@ const GlobalView = ({ sites, dm }) => {
   const card      = `rounded-2xl border shadow-md ${dm ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`;
   const tooltip   = dm ? '#1f2937' : '#fff';
 
-  const stats = sites.map(s => ({ ...calcSiteStats(s), nom: s.nom, id: s.id }));
-  const totalFF       = stats.reduce((s, x) => s + x.totalFF, 0);
-  const totalHV       = sites.reduce((s, x) => s + x.heuresVendues, 0);
-  const tauxConsolide = totalHV > 0 ? totalFF / totalHV : 0;
-  const totalForm     = stats.reduce((s, x) => s + x.nbFormateurs, 0);
-  const totalRec      = stats.reduce((s, x) => s + x.totalRecettes, 0);
-  const totalMarge    = stats.reduce((s, x) => s + x.totalMarge, 0);
-  const totalSessions = stats.reduce((s, x) => s + x.nbSessions, 0);
-
-  const chartData = stats.map(s => ({
-    nom: s.nom,
-    'Taux structure': Math.round(s.tauxStructure * 100) / 100,
-    'Taux occupation': Math.round(s.tauxOccMoyen * 10) / 10,
-    'Heures vendues': sites.find(x => x.id === s.id)?.heuresVendues || 0,
-    'Marge': Math.round(s.totalMarge),
-  }));
+  const { stats, totalFF, totalHV, tauxConsolide, totalForm, totalRec, totalMarge, totalSessions, chartData } = useMemo(() => {
+    const stats         = sites.map(s => ({ ...calcSiteStats(s), nom: s.nom, id: s.id }));
+    const totalFF       = stats.reduce((s, x) => s + x.totalFF, 0);
+    const totalHV       = sites.reduce((s, x) => s + x.heuresVendues, 0);
+    const tauxConsolide = totalHV > 0 ? totalFF / totalHV : 0;
+    const totalForm     = stats.reduce((s, x) => s + x.nbFormateurs, 0);
+    const totalRec      = stats.reduce((s, x) => s + x.totalRecettes, 0);
+    const totalMarge    = stats.reduce((s, x) => s + x.totalMarge, 0);
+    const totalSessions = stats.reduce((s, x) => s + x.nbSessions, 0);
+    const chartData     = stats.map(s => ({
+      nom: s.nom,
+      'Taux structure':  Math.round(s.tauxStructure * 100) / 100,
+      'Taux occupation': Math.round(s.tauxOccMoyen * 10) / 10,
+      'Heures vendues':  sites.find(x => x.id === s.id)?.heuresVendues || 0,
+      'Marge':           Math.round(s.totalMarge),
+    }));
+    return { stats, totalFF, totalHV, tauxConsolide, totalForm, totalRec, totalMarge, totalSessions, chartData };
+  }, [sites]);
 
   return (
     <div className="space-y-6">
@@ -969,7 +977,52 @@ const ResetModal = ({ onClose, onConfirm, dm }) => {
 // ═══════════════════════════════════════════════════════════════
 // COMPOSANT PRINCIPAL
 // ═══════════════════════════════════════════════════════════════
-const PilotageFinancier = ({ darkMode: dm, checkPassword, budgetPersonnel = [], externalSites, setExternalSites }) => {
+// ─── Conversion service Budget → site PilotageFinancier ─────────
+const serviceToSite = (service) => {
+  const id = service.id ?? Date.now();
+  const exploitation     = Array.isArray(service.exploitation)     ? service.exploitation     : [];
+  const personnel        = Array.isArray(service.personnel)        ? service.personnel        : [];
+  const sessionsSimulees = Array.isArray(service.sessionsSimulees) ? service.sessionsSimulees : [];
+
+  const fraisFixes = exploitation.map(e => ({
+    id: e.id ?? Date.now() + Math.random(),
+    label: e.label || 'Charge',
+    montant: parseFloat(e.montant) || 0,
+  }));
+
+  const salaries = personnel.map(p => ({
+    id: 'b' + (p.id ?? Math.random()),
+    nom: p.titre || 'Sans nom',
+    type: 'interne',
+    salaireBrut: Math.round((parseFloat(p.salaire) || 0) + (p.segur ? PRIME_SEGUR : 0)),
+    tauxCharges: CHARGES_PATRONALES * 100,
+    heuresHebdo: Math.round(35 * (parseFloat(p.etp) || 1)),
+    heuresHorsProduction: Math.round(7 * (parseFloat(p.etp) || 1)),
+    ratioPreparation: 1.5,
+    joursAbsence: 0,
+  }));
+
+  // Import des sessions déclarées dans le Budget (sessionsSimulees)
+  // nbParticipants → nbStagiaires, prixParParticipant → prixStagiaire
+  const sessions = sessionsSimulees.map((sess, i) => ({
+    id: sess.id ?? Date.now() + i,
+    nom: sess.nom || `Session ${i + 1}`,
+    nbStagiaires: parseFloat(sess.nbParticipants) || 0,
+    prixStagiaire: parseFloat(sess.prixParParticipant) || 0,
+    formateurId: sess.formateurId ?? (salaries[0]?.id ?? null),
+    nbHeures: parseFloat(sess.nbHeures) || 0,
+    fraisDeplacements: parseFloat(sess.fraisDeplacements) || 0,
+    fraisSupports: parseFloat(sess.fraisSupports) || 0,
+  }));
+
+  // heuresVendues = somme des heures de toutes les sessions (total annuel)
+  const heuresVendues = sessions.reduce((s, sess) => s + (sess.nbHeures || 0), 0);
+
+  return { id, nom: service.nom || `Service ${id}`, fraisFixes, heuresVendues, salaries, sessions };
+};
+
+const PilotageFinancier = ({ darkMode: dm, checkPassword, budgetPersonnel = [], services: servicesProp, externalSites, setExternalSites }) => {
+  const services = Array.isArray(servicesProp) ? servicesProp : [];
   const [localSites, setLocalSites] = useState(zeroSites);
   const sites    = externalSites    !== undefined ? externalSites    : localSites;
   const setSites = setExternalSites !== undefined ? setExternalSites : setLocalSites;
@@ -980,6 +1033,26 @@ const PilotageFinancier = ({ darkMode: dm, checkPassword, budgetPersonnel = [], 
   const [editingName, setEditingName] = useState(null);
   const [showReset, setShowReset]   = useState(false);
   const [resetDone, setResetDone]   = useState(false);
+  const [showImportConfirm, setShowImportConfirm] = useState(false);
+  const [importDone, setImportDone] = useState(false);
+
+  const handleImportFromBudget = () => {
+    if (services.length === 0) {
+      window.appToast?.('Aucun service à importer', 'error');
+      return;
+    }
+    try {
+      const newSites = services.map(s => ({ ...serviceToSite(s) }));
+      setSites(newSites);
+      setActiveTab(`site-${newSites[0].id}`);
+      setShowImportConfirm(false);
+      setImportDone(true);
+      window.appToast?.(`${newSites.length} service${newSites.length > 1 ? 's' : ''} importé${newSites.length > 1 ? 's' : ''}`, 'success');
+      setTimeout(() => setImportDone(false), 4000);
+    } catch (err) {
+      window.appToast?.(`Erreur import : ${err.message}`, 'error');
+    }
+  };
 
   const updateSite = (siteId, field, value) =>
     setSites(sites.map(s => s.id === siteId ? { ...s, [field]: value } : s));
@@ -1010,12 +1083,12 @@ const PilotageFinancier = ({ darkMode: dm, checkPassword, budgetPersonnel = [], 
     setActiveTab(`site-${remaining[0].id}`);
   };
 
-  const activeSite = sites.find(s => `site-${s.id}` === activeTab);
-  const tauxStructure = activeSite
+  const activeSite = useMemo(() => sites.find(s => `site-${s.id}` === activeTab), [sites, activeTab]);
+  const tauxStructure = useMemo(() => activeSite
     ? (activeSite.heuresVendues > 0
         ? activeSite.fraisFixes.reduce((s, f) => s + (parseFloat(f.montant) || 0), 0) / activeSite.heuresVendues
         : 0)
-    : 0;
+    : 0, [activeSite]);
 
   const card    = `rounded-2xl border shadow-md ${dm ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`;
   const textPri = dm ? 'text-white' : 'text-slate-800';
@@ -1023,12 +1096,70 @@ const PilotageFinancier = ({ darkMode: dm, checkPassword, budgetPersonnel = [], 
 
   return (
     <div id="pilotage-financier" className="mb-6">
-      {showReset && <ResetModal onClose={() => setShowReset(false)} onConfirm={handleReset} dm={dm} />}
+      {showReset && createPortal(<ResetModal onClose={() => setShowReset(false)} onConfirm={handleReset} dm={dm} />, document.body)}
+
+      {/* Confirmation import depuis le Budget */}
+      {showImportConfirm && createPortal(
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9998] p-4">
+          <div className={`max-w-md w-full rounded-3xl shadow-2xl p-6 ${dm ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-2xl bg-violet-100"><Building className="text-violet-600" size={24} /></div>
+              <div>
+                <h3 className={`text-lg font-black ${dm ? 'text-white' : 'text-slate-800'}`}>Importer depuis le Budget</h3>
+                <p className={`text-sm ${dm ? 'text-gray-400' : 'text-slate-500'}`}>{services.length} service{services.length > 1 ? 's' : ''} Budget → {services.length} service{services.length > 1 ? 's' : ''} de pilotage financier</p>
+              </div>
+            </div>
+
+            {services.length === 0 ? (
+              <div className={`mb-4 p-4 rounded-xl border text-sm ${dm ? 'bg-amber-900/20 border-amber-700 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                <p className="font-black mb-1">Aucun service défini dans le Budget</p>
+                <p className="text-xs">Rendez-vous dans l'onglet <strong>Budget</strong> pour créer vos services de formation.</p>
+              </div>
+            ) : (
+              <div className="space-y-1 mb-4">
+                {services.map(s => (
+                  <div key={s.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${dm ? 'bg-gray-700/50 text-gray-300' : 'bg-slate-50 text-slate-700'}`}>
+                    <Building size={13} className={dm ? 'text-violet-400' : 'text-violet-500'} />
+                    <span className="font-bold">{s.nom}</span>
+                    <span className={`ml-auto text-xs ${dm ? 'text-gray-500' : 'text-slate-400'}`}>
+                      {(s.personnel || []).length}p · {(s.exploitation || []).length}ch · {(s.promos || []).length}pr
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <p className={`text-xs mb-5 flex items-start gap-1.5 ${dm ? 'text-amber-400' : 'text-amber-600'}`}>
+              <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
+              Les données de pilotage existantes seront écrasées. Les noms et les heures vendues pourront être ajustés après import.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowImportConfirm(false)}
+                className={`flex-1 py-3 rounded-xl font-bold ${dm ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>
+                Annuler
+              </button>
+              <button
+                onClick={handleImportFromBudget}
+                disabled={services.length === 0}
+                className={`flex-1 py-3 font-bold rounded-xl flex items-center justify-center gap-2 ${services.length === 0 ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-violet-500 to-purple-600 text-white hover:opacity-90'}`}>
+                <Building size={15} /> {services.length > 0 ? `Importer ${services.length} service${services.length > 1 ? 's' : ''}` : 'Aucun service disponible'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {resetDone && (
         <div className={`mb-4 p-4 rounded-2xl flex items-center gap-3 ${dm ? 'bg-green-900/40 border border-green-700' : 'bg-green-50 border border-green-200'}`}>
           <CheckCircle className="text-green-500 flex-shrink-0" size={20} />
           <span className={`font-bold text-sm ${dm ? 'text-green-300' : 'text-green-700'}`}>Données réinitialisées.</span>
+        </div>
+      )}
+      {importDone && (
+        <div className={`mb-4 p-4 rounded-2xl flex items-center gap-3 ${dm ? 'bg-violet-900/40 border border-violet-700' : 'bg-violet-50 border border-violet-200'}`}>
+          <CheckCircle className="text-violet-500 flex-shrink-0" size={20} />
+          <span className={`font-bold text-sm ${dm ? 'text-violet-300' : 'text-violet-700'}`}>{services.length} service{services.length > 1 ? 's' : ''} importé{services.length > 1 ? 's' : ''} depuis le Budget. Renseignez les heures vendues et les prix par stagiaire pour chaque service.</span>
         </div>
       )}
 
@@ -1040,16 +1171,26 @@ const PilotageFinancier = ({ darkMode: dm, checkPassword, budgetPersonnel = [], 
               <Calculator className="text-white" size={30} />
             </div>
             <div>
-              <h2 className={`text-2xl font-black ${textPri}`}>Outil de Pilotage Financier</h2>
+              <h2 className={`text-2xl font-black flex items-center gap-2 ${textPri}`}>
+                Outil de Pilotage Financier
+                <HelpIcon type="info" position="bottom" wide darkMode={dm} content="Outil de simulation financière par site de formation. Chaque site regroupe ses frais fixes, ses formateurs et ses sessions. Les calculs permettent de connaître le coût de revient horaire, le seuil de rentabilité et la marge par session. Cliquez « Importer depuis le Budget » pour pré-remplir automatiquement à partir des services saisis dans l'onglet Budget." />
+              </h2>
               <p className={`text-sm ${textMut}`}>
                 {sites.length} site{sites.length > 1 ? 's' : ''} · {sites.reduce((s, x) => s + (x.sessions?.length || 0), 0)} sessions · {SEMAINES} semaines/an
               </p>
             </div>
           </div>
-          <button onClick={() => setShowReset(true)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border-2 transition-colors ${dm ? 'border-red-700 text-red-400 hover:bg-red-900/30' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
-            <RotateCcw size={15} /> Réinitialiser
-          </button>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <button
+              onClick={() => setShowImportConfirm(true)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border-2 transition-colors ${dm ? 'border-violet-700 text-violet-400 hover:bg-violet-900/30' : 'border-violet-200 text-violet-600 hover:bg-violet-50'}`}>
+              <Building size={15} /> Importer depuis le Budget
+            </button>
+            <button onClick={() => setShowReset(true)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold border-2 transition-colors ${dm ? 'border-red-700 text-red-400 hover:bg-red-900/30' : 'border-red-200 text-red-500 hover:bg-red-50'}`}>
+              <RotateCcw size={15} /> Réinitialiser
+            </button>
+          </div>
         </div>
 
         {/* Onglets */}
@@ -1104,6 +1245,26 @@ const PilotageFinancier = ({ darkMode: dm, checkPassword, budgetPersonnel = [], 
           </button>
         </div>
       </div>
+
+      {/* Bandeau d'aide — affiché quand le site actif est vide */}
+      {activeSite && activeSite.fraisFixes.length === 0 && activeSite.salaries.length === 0 && activeSite.sessions.length === 0 && (
+        <div className={`mb-4 p-4 rounded-2xl border flex flex-wrap items-start gap-3 text-sm ${dm ? 'bg-violet-900/20 border-violet-700/50 text-violet-300' : 'bg-violet-50 border-violet-200 text-violet-700'}`}>
+          <Info size={18} className="flex-shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="font-black mb-1">Ce site est vide — 3 façons de le remplir :</p>
+            <ul className={`text-xs space-y-1 list-disc pl-4 ${dm ? 'text-violet-400' : 'text-violet-600'}`}>
+              <li><strong>Importer depuis le Budget</strong> (bouton en haut) — pré-remplit automatiquement les frais fixes, formateurs et sessions depuis les services de l'onglet Budget.</li>
+              <li><strong>Saisie manuelle</strong> — renseignez les frais fixes (01), les formateurs (02) puis créez vos sessions (03).</li>
+              <li><strong>Ajouter un site</strong> — créez un site par service de formation pour comparer leur rentabilité.</li>
+            </ul>
+          </div>
+          <button
+            onClick={() => setShowImportConfirm(true)}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${dm ? 'border-violet-600 bg-violet-900/40 hover:bg-violet-800/40' : 'border-violet-300 bg-white hover:bg-violet-100'}`}>
+            <Building size={13} /> Importer depuis le Budget
+          </button>
+        </div>
+      )}
 
       {/* Contenu */}
       {activeTab === 'global' ? (

@@ -51,93 +51,139 @@ function autoAssign(emploi, serviceNames) {
 
 function parseCDI(sheet, serviceNames) {
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+  const warnings = [];
+
+  // Détection de la ligne d'en-tête par mots-clés
+  let colNom = 0, colEmploi = 3, colSalaire = 4, colCharges = 5, startRow = 2;
+  for (let r = 0; r < Math.min(5, rows.length); r++) {
+    const norm = rows[r].map(c => normalizeStr(String(c)));
+    const eIdx = norm.findIndex(c => c.includes('emploi') || c.includes('poste') || c.includes('qualification') || c.includes('fonction'));
+    if (eIdx >= 0) {
+      startRow = r + 1;
+      colEmploi = eIdx;
+      const sIdx = norm.findIndex(c => (c.includes('salaire') || c.includes('mensuel') || c.includes('brut')) && !c.includes('charge'));
+      if (sIdx >= 0) colSalaire = sIdx;
+      const cIdx = norm.findIndex(c => c.includes('charge') || c.includes('cotis'));
+      if (cIdx >= 0 && cIdx !== colSalaire) colCharges = cIdx;
+      break;
+    }
+  }
+
   const agents = [];
-  for (let i = 2; i < rows.length; i++) {
+  for (let i = startRow; i < rows.length; i++) {
     const row = rows[i];
-    const nom = row[0];
-    if (!nom || String(nom).trim() === '') continue;
-    const emploi = String(row[3] || '').trim();
-    const salaireMensuel = parseFloat(row[4]) || 0;
-    const chargesAnnuelles = parseFloat(row[5]) || 0;
+    if (!row[colNom] || String(row[colNom]).trim() === '') continue;
+    const emploi = String(row[colEmploi] || '').trim();
     if (!emploi) continue;
+
+    const salRaw = row[colSalaire];
+    const salaireMensuel = parseFloat(String(salRaw).replace(',', '.'));
+    if (isNaN(salaireMensuel) && String(salRaw).trim() !== '') {
+      warnings.push(`CDI ligne ${i + 1} — "${emploi}" : salaire illisible ("${salRaw}") → 0 utilisé`);
+    }
+
+    const chgRaw = row[colCharges];
+    const chargesAnnuelles = parseFloat(String(chgRaw).replace(',', '.'));
+    if (isNaN(chargesAnnuelles) && String(chgRaw).trim() !== '') {
+      warnings.push(`CDI ligne ${i + 1} — "${emploi}" : charges illisibles ("${chgRaw}") → 0 utilisées`);
+    }
+
     agents.push({
       idx: agents.length + 1,
       emploi,
-      salaireMensuel,
-      chargesAnnuelles,
+      salaireMensuel: isNaN(salaireMensuel) ? 0 : salaireMensuel,
+      chargesAnnuelles: isNaN(chargesAnnuelles) ? 0 : chargesAnnuelles,
       assignedTo: autoAssign(emploi, serviceNames),
     });
   }
-  return agents;
+  return { agents, warnings };
+}
+
+// Variantes d'abréviations mensuelles (FR) pour la détection d'en-têtes
+const MONTH_VARIANTS = [
+  ['jan'], ['fev', 'fév'], ['mar'], ['avr'], ['mai'],
+  ['juin', 'jun'], ['juil', 'jul'], ['aout', 'aou'],
+  ['sep'], ['oct'], ['nov'], ['dec', 'déc'],
+];
+
+function detectMonthCols(rows) {
+  for (let r = 0; r < Math.min(8, rows.length); r++) {
+    const norm = rows[r].map(c => normalizeStr(String(c)));
+    const cols = MONTH_VARIANTS.map(variants =>
+      norm.findIndex(c => variants.some(v => c.startsWith(v)))
+    );
+    if (cols.filter(i => i >= 0).length >= 10) return { headerRow: r, cols };
+  }
+  return null;
 }
 
 function parseTresorerie(sheet) {
   const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+  const warnings = [];
+
+  // Détection des colonnes mensuelles par en-têtes
+  const detected = detectMonthCols(rows);
+  let startRow = 3;
+  let getVals;
+
+  if (detected) {
+    startRow = detected.headerRow + 1;
+    const missing = detected.cols.filter(i => i < 0).length;
+    if (missing > 0) warnings.push(`${missing} colonne(s) mensuelle(s) non détectée(s) — valeurs manquantes remplacées par 0.`);
+    getVals = row => detected.cols.map(ci => ci >= 0 ? (parseFloat(row[ci]) || 0) : 0);
+  } else {
+    warnings.push('En-têtes mensuels non détectés dans la feuille Trésorerie — colonnes 1 à 12 utilisées par défaut.');
+    getVals = row => Array.from({ length: 12 }, (_, c) => parseFloat(row[c + 1]) || 0);
+  }
+
   const items = [];
   let currentSection = '';
-  const skipSections = new Set();
   let skipUntilNextSection = false;
 
-  for (let i = 3; i < rows.length; i++) {
+  for (let i = startRow; i < rows.length; i++) {
     const row = rows[i];
     const label = String(row[0] || '').trim();
     if (!label) continue;
 
     const lNorm = normalizeStr(label);
 
-    // Detect section changes
     if (lNorm.includes('salariale') || lNorm.includes('salaires bruts') || lNorm.includes('cotisations') || lNorm.includes('mutuelle')) {
       currentSection = 'skip_salary';
       skipUntilNextSection = true;
       continue;
     }
-
     if (lNorm === 'entrees fonctionnement' || lNorm.includes('entrees fonctionnement') || lNorm === 'sorties fonctionnement' || lNorm.includes('sorties fonctionnement')) {
       skipUntilNextSection = false;
       currentSection = lNorm.includes('entrees') ? 'entrees' : 'sorties';
       continue;
     }
-
     if (lNorm.includes('facturations') || lNorm.includes('adhesions') || lNorm.includes('subventions d exploitation') || lNorm.includes('subventions')) {
       skipUntilNextSection = false;
       currentSection = 'recette';
       continue;
     }
-
     if (lNorm.includes('achats') || lNorm.includes('frais generaux')) {
       skipUntilNextSection = false;
       currentSection = 'exploitation';
       continue;
     }
-
     if (lNorm.includes('impots') || lNorm.includes('taxes')) {
       skipUntilNextSection = false;
       currentSection = 'exploitation';
       continue;
     }
-
-    if (lNorm.includes('taxe sur les salaires') || lNorm.includes('participation') && lNorm.includes('formation')) {
-      continue;
-    }
-
+    if (lNorm.includes('taxe sur les salaires') || (lNorm.includes('participation') && lNorm.includes('formation'))) continue;
     if (lNorm.includes('solde')) continue;
-
     if (skipUntilNextSection) continue;
 
-    const vals = [];
-    for (let c = 1; c <= 12; c++) {
-      vals.push(parseFloat(row[c]) || 0);
-    }
+    const vals = getVals(row);
     const total = vals.reduce((a, b) => a + b, 0);
-
-    // Section headers = rows where all value cols are 0 but label exists
     if (total === 0) continue;
 
     let category = 'ignore';
     if (currentSection === 'recette' || currentSection === 'entrees') category = 'recette';
     else if (currentSection === 'exploitation' || currentSection === 'sorties') category = 'exploitation';
 
-    // Skip salary-related labels
     if (lNorm.includes('salariale') || lNorm.includes('salaires') || lNorm.includes('cotisations') || lNorm.includes('mutuelle')) continue;
 
     items.push({
@@ -146,10 +192,10 @@ function parseTresorerie(sheet) {
       annualTotal: total,
       monthlyAvg: total / 12,
       category,
-      serviceTarget: 'direction',
+      repartition: {},
     });
   }
-  return items;
+  return { items, warnings };
 }
 
 function StepIndicator({ step, darkMode }) {
@@ -165,16 +211,16 @@ function StepIndicator({ step, darkMode }) {
                   : step > s.n
                   ? 'bg-teal-500 text-white'
                   : darkMode
-                  ? 'bg-gray-700 text-gray-400'
+                  ? 'bg-zinc-700 text-zinc-400'
                   : 'bg-slate-200 text-slate-400'
               }`}
             >
               {step > s.n ? <Check size={14} /> : s.n}
             </div>
-            <span className={`text-xs mt-0.5 font-bold ${step === s.n ? (darkMode ? 'text-amber-400' : 'text-amber-600') : darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{s.label}</span>
+            <span className={`text-xs mt-0.5 font-bold ${step === s.n ? (darkMode ? 'text-amber-400' : 'text-amber-600') : darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>{s.label}</span>
           </div>
           {i < STEPS.length - 1 && (
-            <div className={`w-8 h-0.5 mb-4 ${step > s.n ? 'bg-teal-400' : darkMode ? 'bg-gray-700' : 'bg-slate-200'}`} />
+            <div className={`w-8 h-0.5 mb-4 ${step > s.n ? 'bg-teal-400' : darkMode ? 'bg-zinc-700' : 'bg-slate-200'}`} />
           )}
         </React.Fragment>
       ))}
@@ -182,26 +228,33 @@ function StepIndicator({ step, darkMode }) {
   );
 }
 
-export default function WizardImportBP({ onClose, services, poleSupport, direction, setServices, setPoleSupport, setDirection, darkMode }) {
+export default function WizardImportBP({ onClose, services, poleSupport, direction, setServices, setPoleSupport, setDirection, darkMode, globalParams, setGlobalParams, onImportComplete }) {
   const [step, setStep] = useState(1);
   const [error, setError] = useState('');
+  const [parseWarnings, setParseWarnings] = useState([]);
   const [workbook, setWorkbook] = useState(null);
   const [sheetsFound, setSheetsFound] = useState({ cdi: false, tresorerie: false });
   const [agents, setAgents] = useState([]);
   const [tresItems, setTresItems] = useState([]);
   const [importDone, setImportDone] = useState(false);
   const [importSummary, setImportSummary] = useState(null);
+  const [coeffLocal, setCoeffLocal] = useState(() => globalParams?.coefficientBP ?? 100);
   const fileRef = useRef();
 
   const serviceNames = services.map(s => s.nom);
   const allTargets = [
     { value: 'ignore', label: '— Ignorer —' },
     { value: 'direction', label: 'Siège' },
-    { value: 'poleSupport', label: 'Pôle Support' },
+    { value: 'poleSupport', label: 'Pôle Ressources' },
     ...services.map((s, i) => ({ value: `service_${i}`, label: s.nom })),
   ];
   const allServiceTargets = [
     { value: 'direction', label: 'Global (Direction)' },
+    ...services.map((s, i) => ({ value: `service_${i}`, label: s.nom })),
+  ];
+  const repartitionTargets = [
+    { value: 'direction', label: 'Siège' },
+    { value: 'poleSupport', label: 'Pôle Ressources' },
     ...services.map((s, i) => ({ value: `service_${i}`, label: s.nom })),
   ];
 
@@ -242,11 +295,13 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
   const goStep2 = () => {
     if (!workbook) { setError('Veuillez charger un fichier.'); return; }
     setError('');
+    setParseWarnings([]);
     if (sheetsFound.cdi) {
       const sheetName = workbook.SheetNames.find(n => n.trim() === 'CDI');
       try {
-        const parsed = parseCDI(workbook.Sheets[sheetName], serviceNames);
+        const { agents: parsed, warnings } = parseCDI(workbook.Sheets[sheetName], serviceNames);
         setAgents(parsed);
+        setParseWarnings(warnings);
       } catch (err) {
         setError('Erreur lecture feuille CDI : ' + err.message);
         return;
@@ -259,14 +314,22 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
 
   const goStep3 = () => {
     setError('');
+    setParseWarnings([]);
     if (sheetsFound.tresorerie) {
       const sheetName = workbook.SheetNames.find(n => {
         const nn = n.trim().toLowerCase();
         return nn.includes('tresorerie') || nn.includes('trésorerie');
       });
       try {
-        const parsed = parseTresorerie(workbook.Sheets[sheetName]);
-        setTresItems(parsed);
+        const { items: parsed, warnings } = parseTresorerie(workbook.Sheets[sheetName]);
+        const repKeys = ['direction', 'poleSupport', ...services.map((_, i) => `service_${i}`)];
+        const withRep = parsed.map(item => {
+          const rep = {};
+          repKeys.forEach((k, i) => { rep[k] = i === 0 ? 100 : 0; });
+          return { ...item, repartition: rep };
+        });
+        setTresItems(withRep);
+        setParseWarnings(warnings);
       } catch (err) {
         setError('Erreur lecture feuille Trésorerie : ' + err.message);
         return;
@@ -285,8 +348,46 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
     setTresItems(prev => prev.map(t => t.idx === idx ? { ...t, category: val } : t));
   };
 
-  const updateTresTarget = (idx, val) => {
-    setTresItems(prev => prev.map(t => t.idx === idx ? { ...t, serviceTarget: val } : t));
+  const updateRepartition = (idx, target, val) => {
+    const pct = Math.max(0, Math.min(100, parseFloat(val) || 0));
+    setTresItems(prev => prev.map(t => t.idx === idx ? { ...t, repartition: { ...t.repartition, [target]: pct } } : t));
+  };
+
+  // Helper to auto-distribute Regional Subsidy based on eligible personnel costs
+  const autoDistributeSubvention = (idx) => {
+    const item = tresItems.find(t => t.idx === idx);
+    if (!item) return;
+
+    // Calculate eligible costs per entity
+    const eligibleCosts = {
+      direction: (direction.personnel || []).filter(p => p.eligibleSubvention).reduce((sum, p) => sum + (parseFloat(p.salaire) || 0), 0),
+      poleSupport: (poleSupport.personnel || []).filter(p => p.eligibleSubvention).reduce((sum, p) => sum + (parseFloat(p.salaire) || 0), 0),
+    };
+    services.forEach((s, i) => {
+      eligibleCosts[`service_${i}`] = (s.personnel || []).filter(p => p.eligibleSubvention).reduce((sum, p) => sum + (parseFloat(p.salaire) || 0), 0);
+    });
+
+    const totalEligible = Object.values(eligibleCosts).reduce((a, b) => a + b, 0);
+    if (totalEligible === 0) {
+      if (window.appToast) window.appToast("Aucun agent coché 'Subvention' dans le budget. Cochez-les d'abord dans l'onglet RH/Budget.", "warning");
+      else alert("Aucun agent coché 'Subvention' dans le budget.");
+      return;
+    }
+
+    const newRep = {};
+    Object.keys(eligibleCosts).forEach(key => {
+      newRep[key] = Math.round((eligibleCosts[key] / totalEligible) * 100);
+    });
+
+    // Adjust last one to ensure 100% total
+    const sum = Object.values(newRep).reduce((a, b) => a + b, 0);
+    if (sum !== 100 && sum > 0) {
+      const firstKey = Object.keys(newRep).find(k => newRep[k] > 0);
+      if (firstKey) newRep[firstKey] += (100 - sum);
+    }
+
+    setTresItems(prev => prev.map(t => t.idx === idx ? { ...t, repartition: newRep, category: 'recette' } : t));
+    if (window.appToast) window.appToast("Répartition calculée selon les salaires éligibles", "success");
   };
 
   // Build preview data
@@ -300,9 +401,11 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
 
     const tresGroups = {};
     tresItems.filter(t => t.category !== 'ignore').forEach(t => {
-      const key = t.serviceTarget;
-      if (!tresGroups[key]) tresGroups[key] = { recettes: [], exploitation: [] };
-      tresGroups[key][t.category === 'recette' ? 'recettes' : 'exploitation'].push(t);
+      Object.entries(t.repartition || {}).forEach(([key, pct]) => {
+        if (!pct) return;
+        if (!tresGroups[key]) tresGroups[key] = { recettes: [], exploitation: [] };
+        tresGroups[key][t.category === 'recette' ? 'recettes' : 'exploitation'].push({ ...t, pct });
+      });
     });
 
     return { groups, tresGroups };
@@ -310,7 +413,7 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
 
   const targetLabel = (key) => {
     if (key === 'direction') return 'Siège';
-    if (key === 'poleSupport') return 'Pôle Support';
+    if (key === 'poleSupport') return 'Pôle Ressources';
     if (key.startsWith('service_')) {
       const idx = parseInt(key.split('_')[1]);
       return services[idx]?.nom || key;
@@ -371,50 +474,59 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
 
     // Trésorerie import
     tresItems.filter(t => t.category !== 'ignore').forEach((item) => {
-      const key = item.serviceTarget;
-      let targetArray, targetEntity;
       const isRecette = item.category === 'recette';
       const fieldName = isRecette ? 'recettes' : 'exploitation';
 
-      if (key === 'direction') {
-        if (isRecette) {
-          if (!directionUpdated.recettes) directionUpdated.recettes = [];
-          targetArray = directionUpdated.recettes;
-        } else {
-          if (!directionUpdated.chargesSiege) directionUpdated.chargesSiege = [];
-          targetArray = directionUpdated.chargesSiege;
-        }
-      } else if (key === 'poleSupport') {
-        if (!poleSupportUpdated[fieldName]) poleSupportUpdated[fieldName] = [];
-        targetArray = poleSupportUpdated[fieldName];
-      } else if (key.startsWith('service_')) {
-        const idx = parseInt(key.split('_')[1]);
-        if (!servicesUpdated[idx][fieldName]) servicesUpdated[idx][fieldName] = [];
-        targetArray = servicesUpdated[idx][fieldName];
-      } else return;
+      Object.entries(item.repartition || {}).forEach(([key, pct]) => {
+        if (!pct) return;
+        let targetArray;
 
-      const labelNorm = normalizeStr(item.label);
-      const exists = targetArray.some(e => normalizeStr(e.nom || e.libelle || '').includes(labelNorm.substring(0, 10)));
-      if (exists) {
-        skippedItems++;
-        return;
-      }
-      const newItem = {
-        id: Date.now() + item.idx + Math.random() * 1000 | 0,
-        nom: item.label,
-        montant: Math.round(item.monthlyAvg),
-      };
-      targetArray.push(newItem);
-      addedItems++;
+        if (key === 'direction') {
+          if (isRecette) {
+            if (!directionUpdated.recettes) directionUpdated.recettes = [];
+            targetArray = directionUpdated.recettes;
+          } else {
+            if (!directionUpdated.chargesSiege) directionUpdated.chargesSiege = [];
+            targetArray = directionUpdated.chargesSiege;
+          }
+        } else if (key === 'poleSupport') {
+          if (!poleSupportUpdated[fieldName]) poleSupportUpdated[fieldName] = [];
+          targetArray = poleSupportUpdated[fieldName];
+        } else if (key.startsWith('service_')) {
+          const idx = parseInt(key.split('_')[1]);
+          if (!servicesUpdated[idx][fieldName]) servicesUpdated[idx][fieldName] = [];
+          targetArray = servicesUpdated[idx][fieldName];
+        } else return;
+
+        const labelNorm = normalizeStr(item.label);
+        const exists = targetArray.some(e => normalizeStr(e.nom || e.libelle || '').includes(labelNorm.substring(0, 10)));
+        if (exists) { skippedItems++; return; }
+
+        const suffix = pct < 100 ? ` (${pct}%)` : '';
+        targetArray.push({
+          id: Date.now() + item.idx + Math.random() * 1000 | 0,
+          nom: item.label + suffix,
+          montant: Math.round(item.monthlyAvg * pct / 100),
+        });
+        addedItems++;
+      });
     });
 
     setDirection(directionUpdated);
     setPoleSupport(poleSupportUpdated);
     setServices(servicesUpdated);
+    if (setGlobalParams) setGlobalParams(prev => ({ ...prev, coefficientBP: coeffLocal }));
 
     setImportSummary({ addedPersonnel, skippedPersonnel, addedItems, skippedItems });
     setImportDone(true);
     setStep(5);
+    if (window.appToast) {
+      const msgs = [];
+      if (addedPersonnel > 0) msgs.push(`${addedPersonnel} agent${addedPersonnel > 1 ? 's' : ''} importé${addedPersonnel > 1 ? 's' : ''}`);
+      if (addedItems > 0) msgs.push(`${addedItems} ligne${addedItems > 1 ? 's' : ''} trésorerie`);
+      window.appToast(msgs.length > 0 ? `Import BP : ${msgs.join(', ')}` : 'Import BP effectué', 'success');
+    }
+    onImportComplete?.(`${addedPersonnel} agents, ${addedItems} lignes trésorerie importés`);
   };
 
   const { groups: previewGroups, tresGroups: previewTresGroups } = step >= 4 ? buildPreview() : { groups: {}, tresGroups: {} };
@@ -433,13 +545,13 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
     return targetPersonnel.some(p => normalizeStr(p.titre).includes(emploiNorm.substring(0, 8)));
   };
 
-  const cardCls = darkMode ? 'bg-gray-800' : 'bg-white';
+  const cardCls = darkMode ? 'bg-zinc-800' : 'bg-white';
   const textCls = darkMode ? 'text-white' : 'text-slate-800';
-  const subCls = darkMode ? 'text-gray-400' : 'text-slate-500';
-  const rowEven = darkMode ? 'bg-gray-750' : 'bg-slate-50';
-  const rowOdd = darkMode ? 'bg-gray-800' : 'bg-white';
-  const borderCls = darkMode ? 'border-gray-700' : 'border-slate-200';
-  const inputCls = `rounded-lg border px-2 py-1 text-sm ${darkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-slate-300 text-slate-800'}`;
+  const subCls = darkMode ? 'text-zinc-400' : 'text-slate-500';
+  const rowEven = darkMode ? 'bg-zinc-900/50' : 'bg-slate-50';
+  const rowOdd = darkMode ? 'bg-zinc-800' : 'bg-white';
+  const borderCls = darkMode ? 'border-zinc-700' : 'border-slate-200';
+  const inputCls = `rounded-lg border px-2 py-1 text-sm ${darkMode ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-white border-slate-300 text-slate-800'}`;
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 no-print">
@@ -455,7 +567,7 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
               <p className={`text-sm ${subCls}`}>Assistant d'import — Budget AFERTES 2026</p>
             </div>
           </div>
-          <button onClick={onClose} className={`p-2 rounded-xl transition-colors ${darkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-slate-100 text-slate-400'}`}>
+          <button onClick={onClose} className={`p-2 rounded-xl transition-colors ${darkMode ? 'hover:bg-zinc-700 text-zinc-400' : 'hover:bg-slate-100 text-slate-400'}`}>
             <X size={20} />
           </button>
         </div>
@@ -469,40 +581,72 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
           </div>
         )}
 
+        {parseWarnings.length > 0 && (
+          <div className={`mb-4 p-3 rounded-xl text-sm ${darkMode ? 'bg-amber-900/20 text-amber-300 border border-amber-700' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+            <div className="flex items-center gap-2 font-bold mb-1">
+              <AlertTriangle size={14} />
+              {parseWarnings.length} avertissement{parseWarnings.length > 1 ? 's' : ''} de lecture
+            </div>
+            <ul className="list-disc list-inside space-y-0.5 font-normal">
+              {parseWarnings.map((w, i) => <li key={i}>{w}</li>)}
+            </ul>
+          </div>
+        )}
+
         {/* ── STEP 1 : Upload ── */}
         {step === 1 && (
           <div>
             <h3 className={`text-lg font-black mb-4 ${textCls}`}>Charger le fichier Excel</h3>
+
+            {/* Coefficient BP */}
+            <div className={`mb-4 rounded-2xl p-4 border-2 ${coeffLocal !== 100 ? (darkMode ? 'bg-amber-900/20 border-amber-600' : 'bg-amber-50 border-amber-400') : (darkMode ? 'bg-zinc-700/40 border-zinc-600' : 'bg-slate-50 border-slate-200')}`}>
+              <label className={`text-xs font-black uppercase tracking-widest block mb-2 ${coeffLocal !== 100 ? (darkMode ? 'text-amber-300' : 'text-amber-700') : (darkMode ? 'text-zinc-300' : 'text-slate-600')}`}>
+                Coefficient d'application — charges &amp; recettes
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number" step="0.1" min="0" max="200"
+                  value={coeffLocal}
+                  onChange={e => setCoeffLocal(Math.max(0, Math.min(200, parseFloat(e.target.value) || 100)))}
+                  className={`rounded-xl px-3 py-2 font-black text-2xl outline-none w-28 border ${coeffLocal !== 100 ? (darkMode ? 'bg-zinc-700 text-amber-300 border-amber-600' : 'bg-white text-amber-700 border-amber-400') : (darkMode ? 'bg-zinc-700 text-white border-zinc-600' : 'bg-white border-slate-300')}`}
+                />
+                <span className={`text-2xl font-black ${coeffLocal !== 100 ? (darkMode ? 'text-amber-400' : 'text-amber-600') : (darkMode ? 'text-zinc-400' : 'text-slate-400')}`}>%</span>
+                <p className={`text-xs ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>
+                  Appliqué à toutes les charges d'exploitation et recettes importées — transversal à tous les onglets. 100 % = budget plein.
+                </p>
+              </div>
+            </div>
+
             <div
-              className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-colors ${darkMode ? 'border-gray-600 hover:border-amber-500 hover:bg-amber-900/10' : 'border-slate-300 hover:border-amber-400 hover:bg-amber-50'}`}
+              className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-colors ${darkMode ? 'border-zinc-600 hover:border-amber-500 hover:bg-amber-900/10' : 'border-slate-300 hover:border-amber-400 hover:bg-amber-50'}`}
               onClick={() => fileRef.current.click()}
               onDrop={handleDrop}
               onDragOver={e => e.preventDefault()}
             >
-              <Upload className={`mx-auto mb-3 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`} size={36} />
+              <Upload className={`mx-auto mb-3 ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`} size={36} />
               <p className={`font-bold mb-1 ${textCls}`}>Glisser-déposer ou cliquer pour sélectionner</p>
               <p className={`text-sm ${subCls}`}>Fichier .xlsx — Budget prévisionnel analytique AFERTES</p>
               <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={e => handleFile(e.target.files[0])} />
             </div>
 
             {workbook && (
-              <div className={`mt-4 p-4 rounded-2xl border ${darkMode ? 'bg-gray-700 border-gray-600' : 'bg-slate-50 border-slate-200'}`}>
+              <div className={`mt-4 p-4 rounded-2xl border ${darkMode ? 'bg-zinc-700 border-zinc-600' : 'bg-slate-50 border-slate-200'}`}>
                 <p className={`font-bold mb-2 ${textCls}`}>Feuilles détectées :</p>
                 <div className="flex flex-wrap gap-2">
                   {workbook.SheetNames.map(n => (
                     <span key={n} className={`px-3 py-1 rounded-full text-sm font-bold ${
                       n.trim() === 'CDI' || n.trim().toLowerCase().includes('tresorerie') || n.trim().toLowerCase().includes('trésorerie')
                         ? 'bg-teal-100 text-teal-700'
-                        : darkMode ? 'bg-gray-600 text-gray-300' : 'bg-slate-200 text-slate-500'
+                        : darkMode ? 'bg-zinc-600 text-zinc-300' : 'bg-slate-200 text-slate-500'
                     }`}>{n}</span>
                   ))}
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className={`flex items-center gap-2 p-2 rounded-xl ${sheetsFound.cdi ? (darkMode ? 'bg-teal-900/30 text-teal-300' : 'bg-teal-50 text-teal-700') : (darkMode ? 'bg-gray-600 text-gray-400' : 'bg-slate-100 text-slate-400')}`}>
+                  <div className={`flex items-center gap-2 p-2 rounded-xl ${sheetsFound.cdi ? (darkMode ? 'bg-teal-900/30 text-teal-300' : 'bg-teal-50 text-teal-700') : (darkMode ? 'bg-zinc-600 text-zinc-400' : 'bg-slate-100 text-slate-400')}`}>
                     {sheetsFound.cdi ? <Check size={14} /> : <X size={14} />}
                     <span className="text-sm font-bold">Feuille CDI</span>
                   </div>
-                  <div className={`flex items-center gap-2 p-2 rounded-xl ${sheetsFound.tresorerie ? (darkMode ? 'bg-teal-900/30 text-teal-300' : 'bg-teal-50 text-teal-700') : (darkMode ? 'bg-gray-600 text-gray-400' : 'bg-slate-100 text-slate-400')}`}>
+                  <div className={`flex items-center gap-2 p-2 rounded-xl ${sheetsFound.tresorerie ? (darkMode ? 'bg-teal-900/30 text-teal-300' : 'bg-teal-50 text-teal-700') : (darkMode ? 'bg-zinc-600 text-zinc-400' : 'bg-slate-100 text-slate-400')}`}>
                     {sheetsFound.tresorerie ? <Check size={14} /> : <X size={14} />}
                     <span className="text-sm font-bold">Feuille Trésorerie auto (2026)</span>
                   </div>
@@ -518,7 +662,7 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
             <h3 className={`text-lg font-black mb-1 ${textCls}`}>Masse salariale — Feuille CDI</h3>
             <p className={`text-sm mb-4 ${subCls}`}>Assignez chaque poste à un service. Les noms sont masqués. Si un agent existe déjà, le salaire actuel est conservé.</p>
             {agents.length === 0 && (
-              <div className={`p-6 text-center rounded-2xl ${darkMode ? 'bg-gray-700 text-gray-400' : 'bg-slate-100 text-slate-500'}`}>
+              <div className={`p-6 text-center rounded-2xl ${darkMode ? 'bg-zinc-700 text-zinc-400' : 'bg-slate-100 text-slate-500'}`}>
                 {sheetsFound.cdi ? 'Aucun agent valide trouvé dans la feuille CDI.' : 'Feuille CDI non trouvée dans le fichier.'}
               </div>
             )}
@@ -527,7 +671,7 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
                 <div className={`rounded-2xl overflow-hidden border ${borderCls}`}>
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className={darkMode ? 'bg-gray-700' : 'bg-slate-100'}>
+                      <tr className={darkMode ? 'bg-zinc-700' : 'bg-slate-100'}>
                         <th className={`px-3 py-2 text-left font-bold ${textCls}`}>#</th>
                         <th className={`px-3 py-2 text-left font-bold ${textCls}`}>Emploi</th>
                         <th className={`px-3 py-2 text-right font-bold ${textCls}`}>Salaire mensuel</th>
@@ -567,7 +711,7 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
                   </table>
                 </div>
                 {/* Summary footer */}
-                <div className={`mt-3 p-3 rounded-2xl ${darkMode ? 'bg-gray-700' : 'bg-slate-50'}`}>
+                <div className={`mt-3 p-3 rounded-2xl ${darkMode ? 'bg-zinc-700' : 'bg-slate-50'}`}>
                   <p className={`text-sm font-bold mb-2 ${textCls}`}>Récapitulatif par entité :</p>
                   <div className="flex flex-wrap gap-2">
                     {allTargets.filter(t => t.value !== 'ignore').map(t => {
@@ -575,7 +719,7 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
                       const total = grpAgents.reduce((s, a) => s + a.salaireMensuel, 0);
                       if (grpAgents.length === 0) return null;
                       return (
-                        <span key={t.value} className={`px-3 py-1 rounded-full text-xs font-bold ${darkMode ? 'bg-gray-600 text-gray-200' : 'bg-white border border-slate-200 text-slate-700'}`}>
+                        <span key={t.value} className={`px-3 py-1 rounded-full text-xs font-bold ${darkMode ? 'bg-zinc-600 text-zinc-200' : 'bg-white border border-slate-200 text-slate-700'}`}>
                           {t.label} : {grpAgents.length} agent{grpAgents.length > 1 ? 's' : ''} — {fmt(total)}/mois
                         </span>
                       );
@@ -593,51 +737,71 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
             <h3 className={`text-lg font-black mb-1 ${textCls}`}>Plan de trésorerie 2026</h3>
             <p className={`text-sm mb-4 ${subCls}`}>Catégorisez les lignes et assignez-les à un service. La masse salariale est exclue (gérée via CDI).</p>
             {tresItems.length === 0 && (
-              <div className={`p-6 text-center rounded-2xl ${darkMode ? 'bg-gray-700 text-gray-400' : 'bg-slate-100 text-slate-500'}`}>
+              <div className={`p-6 text-center rounded-2xl ${darkMode ? 'bg-zinc-700 text-zinc-400' : 'bg-slate-100 text-slate-500'}`}>
                 {sheetsFound.tresorerie ? 'Aucun élément exploitable trouvé dans la feuille Trésorerie.' : 'Feuille Trésorerie auto (2026) non trouvée dans le fichier.'}
               </div>
             )}
             {tresItems.length > 0 && (
-              <div className={`rounded-2xl overflow-hidden border ${borderCls}`}>
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+                <table className={`w-full text-sm border rounded-2xl overflow-hidden ${borderCls}`}>
                   <thead>
-                    <tr className={darkMode ? 'bg-gray-700' : 'bg-slate-100'}>
-                      <th className={`px-3 py-2 text-left font-bold ${textCls}`}>Libellé</th>
-                      <th className={`px-3 py-2 text-right font-bold ${textCls}`}>Total annuel</th>
-                      <th className={`px-3 py-2 text-right font-bold ${textCls}`}>Moy. mensuelle</th>
-                      <th className={`px-3 py-2 text-left font-bold ${textCls}`}>Catégorie</th>
-                      <th className={`px-3 py-2 text-left font-bold ${textCls}`}>Service cible</th>
+                    <tr className={darkMode ? 'bg-zinc-700' : 'bg-slate-100'}>
+                      <th className={`px-3 py-2 text-left font-bold ${textCls} sticky left-0 ${darkMode ? 'bg-zinc-700' : 'bg-slate-100'}`}>Libellé</th>
+                      <th className={`px-3 py-2 text-right font-bold ${textCls} whitespace-nowrap`}>Moy./mois</th>
+                      <th className={`px-3 py-2 text-left font-bold ${textCls}`}>Cat.</th>
+                      {repartitionTargets.map(rt => (
+                        <th key={rt.value} className={`px-2 py-2 text-center font-bold ${textCls} whitespace-nowrap min-w-[80px]`}>{rt.label}</th>
+                      ))}
+                      <th className={`px-2 py-2 text-center font-bold ${textCls}`}>Total %</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {tresItems.map((t, i) => (
-                      <tr key={t.idx} className={i % 2 === 0 ? rowEven : rowOdd}>
-                        <td className={`px-3 py-2 ${textCls}`}>{t.label}</td>
-                        <td className={`px-3 py-2 text-right font-mono ${textCls}`}>{fmt(t.annualTotal)}</td>
-                        <td className={`px-3 py-2 text-right font-mono ${subCls}`}>{fmt(t.monthlyAvg)}</td>
-                        <td className="px-3 py-2">
-                          <select
-                            value={t.category}
-                            onChange={e => updateTresCategory(t.idx, e.target.value)}
-                            className={`${inputCls} ${t.category === 'recette' ? 'text-teal-600' : t.category === 'exploitation' ? 'text-orange-600' : ''}`}
-                          >
-                            <option value="recette">Recette</option>
-                            <option value="exploitation">Exploitation</option>
-                            <option value="ignore">Ignorer</option>
-                          </select>
-                        </td>
-                        <td className="px-3 py-2">
-                          <select
-                            value={t.serviceTarget}
-                            onChange={e => updateTresTarget(t.idx, e.target.value)}
-                            className={inputCls}
-                            disabled={t.category === 'ignore'}
-                          >
-                            {allServiceTargets.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
+                    {tresItems.map((t, i) => {
+                      const totalPct = Object.values(t.repartition || {}).reduce((s, v) => s + v, 0);
+                      const pctOk = totalPct === 100;
+                      const pctOver = totalPct > 100;
+                      return (
+                        <tr key={t.idx} className={`${i % 2 === 0 ? rowEven : rowOdd} ${t.category === 'ignore' ? 'opacity-40' : ''}`}>
+                          <td className={`px-3 py-2 font-medium ${textCls} sticky left-0 ${i % 2 === 0 ? (darkMode ? 'bg-zinc-900/80' : 'bg-slate-50') : (darkMode ? 'bg-zinc-800' : 'bg-white')} max-w-[200px] truncate`} title={t.label}>{t.label}</td>
+                          <td className={`px-3 py-2 text-right font-mono whitespace-nowrap ${subCls}`}>{fmt(t.monthlyAvg)}</td>
+                          <td className="px-2 py-2">
+                            <select
+                              value={t.category}
+                              onChange={e => updateTresCategory(t.idx, e.target.value)}
+                              className={`${inputCls} text-xs ${t.category === 'recette' ? (darkMode ? 'text-teal-300' : 'text-teal-600') : t.category === 'exploitation' ? (darkMode ? 'text-orange-300' : 'text-orange-600') : ''}`}
+                            >
+                              <option value="recette">Recette</option>
+                              <option value="exploitation">Exploit.</option>
+                              <option value="ignore">Ignorer</option>
+                            </select>
+                          </td>
+                          {repartitionTargets.map(rt => (
+                            <td key={rt.value} className="px-2 py-2 text-center">
+                              <div className="flex items-center justify-center gap-0.5">
+                                <input
+                                  type="number" min="0" max="100" step="1"
+                                  value={t.repartition?.[rt.value] ?? 0}
+                                  onChange={e => updateRepartition(t.idx, rt.value, e.target.value)}
+                                  disabled={t.category === 'ignore'}
+                                  className={`rounded border px-1 py-0.5 text-xs text-center w-14 outline-none
+                                    ${darkMode ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-white border-slate-300 text-slate-800'}
+                                    ${(t.repartition?.[rt.value] ?? 0) > 0 ? (darkMode ? 'border-amber-500 text-amber-300' : 'border-amber-400 text-amber-700 font-bold') : ''}
+                                  `}
+                                />
+                                <span className={`text-xs ${subCls}`}>%</span>
+                              </div>
+                            </td>
+                          ))}
+                          <td className="px-2 py-2 text-center">
+                            <span className={`text-xs font-black px-2 py-0.5 rounded-full ${
+                              pctOk ? (darkMode ? 'bg-teal-900/40 text-teal-300' : 'bg-teal-100 text-teal-700')
+                              : pctOver ? (darkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-700')
+                              : (darkMode ? 'bg-zinc-700 text-zinc-400' : 'bg-slate-200 text-slate-500')
+                            }`}>{totalPct}%</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -657,7 +821,7 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
                 <div className={`rounded-2xl overflow-hidden border ${borderCls}`}>
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className={darkMode ? 'bg-gray-700' : 'bg-slate-100'}>
+                      <tr className={darkMode ? 'bg-zinc-700' : 'bg-slate-100'}>
                         <th className={`px-3 py-2 text-left font-bold ${textCls}`}>Entité cible</th>
                         <th className={`px-3 py-2 text-center font-bold ${textCls}`}>Agents</th>
                         <th className={`px-3 py-2 text-right font-bold ${textCls}`}>Total salaires/mois</th>
@@ -688,10 +852,10 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
                     {grp.recettes.length > 0 && (
                       <div className="mb-2">
                         <p className={`text-xs font-bold mb-1 ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>Recettes ({grp.recettes.length})</p>
-                        {grp.recettes.map(r => (
-                          <div key={r.idx} className="flex justify-between text-xs py-0.5">
-                            <span className={subCls}>{r.label}</span>
-                            <span className={`font-mono ${textCls}`}>{fmt(r.monthlyAvg)}/mois</span>
+                        {grp.recettes.map((r, ri) => (
+                          <div key={`${r.idx}-${ri}`} className="flex justify-between text-xs py-0.5">
+                            <span className={subCls}>{r.label}{r.pct < 100 ? <span className={`ml-1 font-bold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>{r.pct}%</span> : null}</span>
+                            <span className={`font-mono ${textCls}`}>{fmt(r.monthlyAvg * r.pct / 100)}/mois</span>
                           </div>
                         ))}
                       </div>
@@ -699,10 +863,10 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
                     {grp.exploitation.length > 0 && (
                       <div>
                         <p className={`text-xs font-bold mb-1 ${darkMode ? 'text-orange-400' : 'text-orange-600'}`}>Exploitation ({grp.exploitation.length})</p>
-                        {grp.exploitation.map(r => (
-                          <div key={r.idx} className="flex justify-between text-xs py-0.5">
-                            <span className={subCls}>{r.label}</span>
-                            <span className={`font-mono ${textCls}`}>{fmt(r.monthlyAvg)}/mois</span>
+                        {grp.exploitation.map((r, ri) => (
+                          <div key={`${r.idx}-${ri}`} className="flex justify-between text-xs py-0.5">
+                            <span className={subCls}>{r.label}{r.pct < 100 ? <span className={`ml-1 font-bold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>{r.pct}%</span> : null}</span>
+                            <span className={`font-mono ${textCls}`}>{fmt(r.monthlyAvg * r.pct / 100)}/mois</span>
                           </div>
                         ))}
                       </div>
@@ -714,7 +878,7 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
             )}
 
             {agents.filter(a => a.assignedTo !== 'ignore').length === 0 && tresItems.filter(t => t.category !== 'ignore').length === 0 && (
-              <div className={`p-6 text-center rounded-2xl ${darkMode ? 'bg-gray-700 text-gray-400' : 'bg-slate-100 text-slate-500'}`}>
+              <div className={`p-6 text-center rounded-2xl ${darkMode ? 'bg-zinc-700 text-zinc-400' : 'bg-slate-100 text-slate-500'}`}>
                 Aucun élément sélectionné pour l'import. Revenez aux étapes précédentes pour assigner des données.
               </div>
             )}
@@ -748,7 +912,7 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
                 <p className={`text-3xl font-black ${darkMode ? 'text-teal-300' : 'text-teal-700'}`}>{importSummary.addedPersonnel}</p>
                 <p className={`text-xs font-bold ${darkMode ? 'text-teal-400' : 'text-teal-600'}`}>agents ajoutés</p>
               </div>
-              <div className={`p-4 rounded-2xl ${darkMode ? 'bg-gray-700 border border-gray-600' : 'bg-slate-100 border border-slate-200'}`}>
+              <div className={`p-4 rounded-2xl ${darkMode ? 'bg-zinc-700 border border-zinc-600' : 'bg-slate-100 border border-slate-200'}`}>
                 <p className={`text-3xl font-black ${subCls}`}>{importSummary.skippedPersonnel}</p>
                 <p className={`text-xs font-bold ${subCls}`}>agents ignorés (existants)</p>
               </div>
@@ -756,7 +920,7 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
                 <p className={`text-3xl font-black ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>{importSummary.addedItems}</p>
                 <p className={`text-xs font-bold ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>postes budgétaires ajoutés</p>
               </div>
-              <div className={`p-4 rounded-2xl ${darkMode ? 'bg-gray-700 border border-gray-600' : 'bg-slate-100 border border-slate-200'}`}>
+              <div className={`p-4 rounded-2xl ${darkMode ? 'bg-zinc-700 border border-zinc-600' : 'bg-slate-100 border border-slate-200'}`}>
                 <p className={`text-3xl font-black ${subCls}`}>{importSummary.skippedItems}</p>
                 <p className={`text-xs font-bold ${subCls}`}>postes ignorés (existants)</p>
               </div>
@@ -766,10 +930,10 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
         )}
 
         {/* Navigation */}
-        <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-200 dark:border-zinc-700">
           <button
             onClick={() => step > 1 && !importDone ? setStep(step - 1) : onClose(importDone)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-colors ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-colors ${darkMode ? 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
           >
             <ChevronLeft size={16} />
             {importDone ? 'Fermer & voir le tableau de bord' : step === 1 ? 'Annuler' : 'Précédent'}

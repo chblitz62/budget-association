@@ -304,7 +304,7 @@ export default function WizardSetup({ onComplete, onClose, darkMode, existingDat
   // ── Récapitulatif ────────────────────────────────────────────────────────
   const allAgents = [
     ...dirPersonnel.map(a => ({ ...a, source: 'Siège' })),
-    ...psPersonnel.map(a => ({ ...a, source: 'Pôle Support' })),
+    ...psPersonnel.map(a => ({ ...a, source: 'Pôle Ressources' })),
     ...services.flatMap(s => getSvcP(s.id).map(a => ({
       ...a,
       source: a.multiAffectation ? 'Pool RH' : s.nom,
@@ -428,7 +428,7 @@ export default function WizardSetup({ onComplete, onClose, darkMode, existingDat
           <div className="grid grid-cols-2 gap-4">
             {[
               { key: 'dir', label: 'Siège / Direction', desc: 'Personnel administratif, direction générale', enabled: dirEnabled, toggle: setDirEnabled },
-              { key: 'ps',  label: 'Pôle Support',       desc: 'Agents polyvalents partagés entre services',  enabled: psEnabled,  toggle: setPsEnabled  },
+              { key: 'ps',  label: 'Pôle Ressources',       desc: 'Agents polyvalents partagés entre services',  enabled: psEnabled,  toggle: setPsEnabled  },
             ].map(e => (
               <div key={e.key} className={`${card} cursor-pointer select-none`} onClick={() => e.toggle(!e.enabled)}>
                 <div className="flex items-center justify-between mb-2">
@@ -475,7 +475,7 @@ export default function WizardSetup({ onComplete, onClose, darkMode, existingDat
       case 2: {
         const tabs = [
           ...(dirEnabled ? [{ id: 'dir', label: 'Siège', icon: Building2 }] : []),
-          ...(psEnabled  ? [{ id: 'ps',  label: 'Pôle Support', icon: UserCheck }] : []),
+          ...(psEnabled  ? [{ id: 'ps',  label: 'Pôle Ressources', icon: UserCheck }] : []),
           ...services.map(s => ({ id: s.id, label: s.nom, icon: GraduationCap })),
         ];
         if (!tabs.find(t => t.id === personnelTab) && tabs.length > 0)

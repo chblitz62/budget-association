@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
 import { X, Key } from 'lucide-react';
 import { DEFAULT_PASSWORD } from '../../utils/constants';
-
-const hashPassword = async (password) => {
-  const data = new TextEncoder().encode(password);
-  const buffer = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(buffer))
-    .map(b => b.toString(16).padStart(2, '0')).join('');
-};
+import { storePassword } from '../../utils/auth';
 
 const ModalPassword = ({ darkMode, showPasswordModal, setShowPasswordModal }) => {
   const [newPassword, setNewPassword] = useState('');
@@ -23,8 +17,7 @@ const ModalPassword = ({ darkMode, showPasswordModal, setShowPasswordModal }) =>
       setPasswordMessage('Les mots de passe ne correspondent pas');
       return;
     }
-    localStorage.setItem('budget_custom_password_hash', await hashPassword(newPassword));
-    localStorage.removeItem('budget_custom_password');
+    await storePassword(newPassword);
     setPasswordMessage('Mot de passe modifié avec succès !');
     setNewPassword('');
     setConfirmPassword('');

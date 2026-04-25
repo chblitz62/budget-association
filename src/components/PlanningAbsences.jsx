@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { calculerJoursAbsencesPlanning } from '../utils/calculations';
 
 const TYPES_ABSENCE = [null, 'conge', 'maladie', 'formation', 'rtt'];
 
@@ -26,7 +27,7 @@ const TEXT_CLASSES = {
 
 const padNum = (n) => String(n).padStart(2, '0');
 
-const PlanningAbsences = ({ direction, poleSupport, services, planningAbsences, setPlanningAbsences, darkMode }) => {
+const PlanningAbsences = ({ direction, poleSupport, services, poolRH, planningAbsences, setPlanningAbsences, darkMode }) => {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth()); // 0-indexed
@@ -37,8 +38,9 @@ const PlanningAbsences = ({ direction, poleSupport, services, planningAbsences, 
 
   const agents = [
     ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction' })),
-    ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support' })),
+    ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Ressources' })),
     ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom }))),
+    ...(poolRH || []).map(p => ({ ...p, source: 'Pool RH', isPoolRH: true })),
   ];
 
   // Vérifie si un jour tombe dans une plage d'absence budget (dateDebut/dateFin)
@@ -112,6 +114,19 @@ const PlanningAbsences = ({ direction, poleSupport, services, planningAbsences, 
   const isWeekend = (day) => { const d = getDayOfWeek(day); return d === 0 || d === 6; };
 
   const totalJoursAbsence = agents.reduce((sum, a) => sum + totalAbsencesForAgent(a), 0);
+
+  // Impacte ETP réel : totalise les absences annuelles par agent via le moteur de calcul
+  const statsAnnuelles = useMemo(() =>
+    agents.map(a => {
+      const abs = calculerJoursAbsencesPlanning(a.id, a.source, planningAbsences, year);
+      const etpContractuel = parseFloat(a.etp) || 1;
+      const joursOuvresAn = 228; // JOURS_OUVRES_AN
+      const etpImpact = (abs.total / joursOuvresAn) * etpContractuel;
+      return { id: a.id, source: a.source, titre: a.titre, etpContractuel, ...abs, etpImpact };
+    }),
+  [agents, planningAbsences, year]);
+
+  const totalETPImpact = statsAnnuelles.reduce((s, a) => s + a.etpImpact, 0);
 
   return (
     <div id="planning-absences" className={`rounded-3xl shadow-lg border-2 p-6 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-violet-900' : 'bg-gradient-to-br from-violet-50 to-purple-50 border-violet-200'}`}>
@@ -277,6 +292,28 @@ const PlanningAbsences = ({ direction, poleSupport, services, planningAbsences, 
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Impact ETP annuel (moteur calculerJoursAbsencesPlanning) */}
+      {totalETPImpact > 0.01 && (
+        <div className={`mt-4 p-3 rounded-xl border ${darkMode ? 'bg-gray-700/50 border-violet-800 text-gray-300' : 'bg-violet-50 border-violet-200 text-slate-700'}`}>
+          <div className={`text-xs font-black uppercase mb-2 ${darkMode ? 'text-violet-400' : 'text-violet-600'}`}>
+            Impact ETP réel — absences saisies {year}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {statsAnnuelles.filter(a => a.total > 0).map(a => (
+              <div key={`${a.id}-${a.source}`} className={`text-xs px-2 py-1 rounded-lg ${darkMode ? 'bg-gray-600 text-gray-200' : 'bg-white border border-violet-100 text-slate-600'}`}>
+                <span className="font-bold">{a.titre}</span>
+                <span className={`ml-1 ${darkMode ? 'text-gray-400' : 'text-slate-400'}`}>({a.source})</span>
+                <span className={`ml-2 font-black ${darkMode ? 'text-violet-300' : 'text-violet-700'}`}>−{a.total}j</span>
+                <span className={`ml-1 text-xs ${darkMode ? 'text-red-400' : 'text-red-600'}`}>≈ −{a.etpImpact.toFixed(2)} ETP</span>
+              </div>
+            ))}
+          </div>
+          <div className={`text-xs mt-2 font-black ${darkMode ? 'text-violet-300' : 'text-violet-700'}`}>
+            Total impact : −{totalETPImpact.toFixed(2)} ETP·an — répercuté automatiquement dans le calcul ETP réel mensuel
+          </div>
         </div>
       )}
     </div>

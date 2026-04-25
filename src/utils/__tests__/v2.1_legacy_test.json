@@ -1,0 +1,155 @@
+{
+  "_comment": "Données v2.1 legacy — utilisées par migration.test.js pour vérifier que toutes les migrations s'appliquent correctement.",
+  "version": "2.1",
+  "type": "budget-association",
+  "date": "2025-11-06T09:00:00.000Z",
+
+  "direction": {
+    "loyer": 2500,
+    "charges": 800,
+    "autresCharges": 400,
+    "personnel": [
+      {
+        "id": 1001,
+        "titre": "Directrice",
+        "etp": 1,
+        "salaire": 3800,
+        "segur": 0,
+        "role": "direction",
+        "anneeNaissance": 1975,
+        "dateEntree": 2010,
+        "typeContrat": "CDI"
+      },
+      {
+        "id": 1002,
+        "titre": "Secrétaire de direction",
+        "etp": 0.5,
+        "salaire": 1800,
+        "segur": 238,
+        "role": "administratif",
+        "anneeNaissance": 1985,
+        "dateEntree": 2018,
+        "typeContrat": "CDI"
+      }
+    ]
+  },
+
+  "globalParams": {
+    "augmentationAnnuelle": 1.5,
+    "montantSegurETP": 238,
+    "delaiPaiementClients": 30,
+    "delaiPaiementFournisseurs": 45,
+    "provisions": [
+      { "id": "conges", "nom": "Congés payés", "baseCalcul": "salaires", "taux": 0 }
+    ],
+    "fondRoulement": [],
+    "stocksValeur": 0,
+    "rolesPersonnel": [
+      { "id": "direction", "label": "Siège" },
+      { "id": "formateur", "label": "Formateur" }
+    ]
+  },
+
+  "services": [
+    {
+      "id": 2001,
+      "nom": "BTS Services Informatiques",
+      "type": "FI",
+      "accueilPublic": true,
+      "personnel": [
+        {
+          "id": 3001,
+          "titre": "Responsable formation",
+          "etp": 1,
+          "salaire": 2900,
+          "segur": 238,
+          "role": "responsable",
+          "anneeNaissance": 1980,
+          "dateEntree": 2015,
+          "typeContrat": "CDI"
+        }
+      ],
+      "exploitation": [
+        { "id": 4001, "nom": "Fournitures pédagogiques", "montant": 800 },
+        { "id": 4002, "nom": "Licences logiciels", "montant": 1200 }
+      ],
+      "promos": [
+        {
+          "id": 5001,
+          "nom": "BTS SIO 1ère année",
+          "type": "standard",
+          "effectif": 24,
+          "droitsInscription": 900,
+          "subventionRegion": 380000,
+          "dateDebut": "2025-09",
+          "dateFin": "2026-06"
+        }
+      ],
+      "unites": 24
+    },
+    {
+      "id": 2002,
+      "nom": "Formation Continue Entreprises",
+      "type": "FC",
+      "accueilPublic": false,
+      "personnel": [
+        {
+          "id": 3002,
+          "titre": "Formateur référent",
+          "etp": 0.8,
+          "salaire": 2600,
+          "segur": 0,
+          "role": "formateur",
+          "anneeNaissance": 1978,
+          "dateEntree": 2012,
+          "typeContrat": "CDI"
+        }
+      ],
+      "exploitation": [
+        { "id": 4003, "nom": "Déplacements formateurs", "montant": 500 }
+      ],
+      "unites": 15
+    }
+  ],
+
+  "pole_support": {
+    "personnel": [
+      {
+        "id": 6001,
+        "titre": "Agent d'entretien",
+        "etp": 1,
+        "salaire": 1600,
+        "segur": 238,
+        "role": "technique",
+        "anneeNaissance": 1970,
+        "dateEntree": 2005,
+        "typeContrat": "CDI"
+      }
+    ],
+    "exploitation": [
+      { "id": 7001, "nom": "Nettoyage et entretien", "montant": 300 }
+    ],
+    "recettes": [],
+    "repartition": {
+      "2001": 70,
+      "2002": 30
+    }
+  },
+
+  "enveloppe_formation": {
+    "budget": 5000
+  },
+
+  "reporting_fc": [
+    {
+      "id": 8001,
+      "stagiaire": "Martin Dupont",
+      "formation": "Excel avancé",
+      "dateDebut": "2025-10-01",
+      "dateFin": "2025-10-03",
+      "heures": 21,
+      "montant": 1500,
+      "statut": "termine"
+    }
+  ]
+}

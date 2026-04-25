@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, HelpCircle, X, Upload, BarChart3, Calculator, RotateCcw, TrendingDown, Waves, Brain, FileText, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Trash2, HelpCircle, X, Upload, BarChart3, Calculator, RotateCcw, TrendingDown, Waves, Brain, FileText, AlertTriangle, ChevronDown, ChevronUp, Table, TrendingUp, ClipboardList, CheckCircle, Users } from 'lucide-react';
 import HelpIcon from '../ui/HelpIcon';
-import { validerTaux, validerEntier, validerMontant, validerMontantSigne, calculerProvisions, calculerBFR, calculerFondRoulement, calculerBudgetService } from '../../utils/calculations';
-import { FINANCIAL_HELP as H, calculerStatsFormation } from '../../utils/constants';
+import { validerTaux, validerEntier, validerMontant, validerMontantSigne, calculerProvisions, calculerBFR, calculerFondRoulement, calculerBudgetService, calculerSalaireAnnuel, calculerTaxeSalairesProgressif } from '../../utils/calculations';
+import { FINANCIAL_HELP as H } from '../../utils/constants';
+import { exportEPRD } from '../../utils/excelExport';
+import { exportSyntheseNarrative } from '../../utils/pdfExport';
+import { calculerRadarSante, genererRapportStrategique } from '../../utils/radarSante';
+import AuditPredictifPanel from '../AuditPredictifPanel';
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Line, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 
 export default function TabAnalyse({
@@ -23,6 +27,7 @@ export default function TabAnalyse({
   getProvisions: getProvisionsProp,
   getBFR: getBFRProp,
   getFondRoulement: getFondRoulementProp,
+  soldeGlobal,
   msETP,
   planningAbsences,
   simRegion,
@@ -31,16 +36,62 @@ export default function TabAnalyse({
   masseSalarialeTotal,
   statsFormation,
   personnelEligibleSubvention,
+  balanceComptable = null,
+  setShowBalanceImport = null,
+  engagements = [],
+  setEngagements = null,
 }) {
   const getProvisions = getProvisionsProp || (() => calculerProvisions(direction, services, globalParams, poleSupport));
   const getBFR = getBFRProp || (() => calculerBFR(direction, services, globalParams, poleSupport));
-  const getFondRoulement = getFondRoulementProp || (() => calculerFondRoulement(direction, services, globalParams));
+  const getFondRoulement = getFondRoulementProp
+    ? () => getFondRoulementProp(soldeGlobal ?? null)
+    : () => calculerFondRoulement(direction, services, globalParams, poleSupport, soldeGlobal ?? null);
 
   const [activeKpi, setActiveKpi] = useState(null);
   const [showRapport, setShowRapport] = useState(false);
 
+  // ── Radar de Santé — calculs memoïsés via radarSante.js (2.6) ──────────────
+  const radarSante = useMemo(() =>
+    calculerRadarSante({ services, getBudgetDirection, getBudgetPoleSupport, getBudgetService, masseSalarialeTotal }),
+    [services, getBudgetDirection, getBudgetPoleSupport, getBudgetService, masseSalarialeTotal]);
+
+  // ── Rapport stratégique — calculé seulement quand showRapport=true (2.6) ───
+  const rapport = useMemo(() => {
+    if (!showRapport) return null;
+    return genererRapportStrategique({ radarSante, statsFormation, masseSalarialeTotal });
+  }, [showRapport, radarSante, statsFormation, masseSalarialeTotal]);
+
+  // ── kpiGlobaux dérivé pour AuditPredictifPanel ─────────────────────────
+  const kpiGlobauxDerives = useMemo(() => {
+    const recettesDir = (getBudgetDirection?.() || {}).recettes || 0;
+    const recettesPS  = (getBudgetPoleSupport?.() || {}).recettes || 0;
+    const totalDir = (getBudgetDirection?.() || {}).total || 0;
+    const totalPS  = (getBudgetPoleSupport?.() || {}).total || 0;
+    let totalRecettes = recettesDir + recettesPS;
+    let totalCharges  = totalDir + totalPS;
+    services.forEach(s => {
+      const b = getBudgetService?.(s) || {};
+      totalRecettes += b.recettes || 0;
+      totalCharges  += b.total    || 0;
+    });
+    return { totalRecettes, totalCharges, soldeGlobal: totalRecettes - totalCharges };
+  }, [services, getBudgetService, getBudgetDirection, getBudgetPoleSupport]);
+
   return (
     <>
+      {/* ═══ AUDIT PRÉDICTIF — DÉTECTION D'ANOMALIES ═══ */}
+      <AuditPredictifPanel
+        darkMode={darkMode}
+        donneesN1={donneesN1}
+        kpiGlobaux={kpiGlobauxDerives}
+        services={services}
+        direction={direction}
+        poleSupport={poleSupport}
+        globalParams={globalParams}
+        masseSalarialeTotal={masseSalarialeTotal}
+        getBudgetService={getBudgetService}
+      />
+
       {/* ═══ SYNTHÈSE CONSOLIDÉE CROSS-MODULES ═══ */}
       {(masseSalarialeTotal > 0 || statsFormation?.effectifTotal > 0) && (
         <div className={`rounded-2xl border p-5 mb-6 ${darkMode ? 'bg-zinc-800 border-zinc-700' : 'bg-gradient-to-r from-slate-50 to-indigo-50 border-indigo-100'}`}>
@@ -85,75 +136,7 @@ export default function TabAnalyse({
 
       {/* ═══ RADAR DE SANTÉ ═══ */}
       {(() => {
-        const bdDir = getBudgetDirection();
-        const bdPS  = getBudgetPoleSupport();
-        const totalCharges = services.reduce((s, svc) => s + getBudgetService(svc).total, 0) + bdDir.total + bdPS.total;
-        const totalRecettes = services.reduce((s, svc) => s + getBudgetService(svc).recettes, 0);
-        const totalSubventions = services.reduce((s, svc) => {
-          return s + (svc.recettes || []).filter(r => r.type === 'subvention' || (r.nom || '').toLowerCase().includes('subvention') || (r.nom || '').toLowerCase().includes('région')).reduce((a, r) => a + (r.montant || 0) * 12, 0);
-        }, 0);
-
-        const tauxCouv = totalCharges > 0 ? Math.min(totalRecettes / totalCharges * 100, 120) : 0;
-        const overhead = totalCharges > 0 ? (bdDir.total + bdPS.total) / totalCharges * 100 : 0;
-        const ratioPMS = totalRecettes > 0 && masseSalarialeTotal > 0 ? masseSalarialeTotal / totalRecettes * 100 : 0;
-        const depSub = totalRecettes > 0 ? totalSubventions / totalRecettes * 100 : 50;
-
-        // Abandons globaux
-        let totalEtus = 0, totalAbandons = 0;
-        services.forEach(svc => {
-          if (svc.promos) {
-            const st = calculerStatsFormation(svc);
-            totalEtus += st.totalEtudiants || 0;
-            totalAbandons += st.totalAbandons || 0;
-          }
-        });
-        const tauxRetention = totalEtus > 0 ? Math.max(0, (1 - totalAbandons / totalEtus) * 100) : 80;
-
-        // Normalisation 0–100 (plus haut = mieux)
-        const kpiMarge = Math.max(0, Math.min(100, tauxCouv - 20));          // 20=0, 120=100
-        const kpiStructure = Math.max(0, Math.min(100, 100 - overhead * 2)); // 0%overhead=100, 50%=0
-        const kpiMS = Math.max(0, Math.min(100, 150 - ratioPMS));            // 50%=100, 150%=0
-        const kpiRetention = Math.max(0, Math.min(100, tauxRetention));
-        const kpiSubvention = Math.max(0, Math.min(100, 100 - depSub));      // 0% dep.=100
-
-        const radarData = [
-          { kpi: 'Marge', val: Math.round(kpiMarge),      raw: `${tauxCouv.toFixed(0)}% couverture`,        detail: 'Taux de couverture recettes/charges. 100% = équilibre.' },
-          { kpi: 'Structure', val: Math.round(kpiStructure), raw: `${overhead.toFixed(0)}% overhead`,         detail: 'Efficience : poids Direction+Pôle Support dans les charges. Seuil sain : <30%.' },
-          { kpi: 'Masse sal.', val: Math.round(kpiMS),    raw: `${ratioPMS.toFixed(0)}% MS/recettes`,       detail: 'Ratio masse salariale / recettes. Seuil d\'alerte : >70%.' },
-          { kpi: 'Rétention', val: Math.round(kpiRetention), raw: `${tauxRetention.toFixed(0)}% maintien`,  detail: 'Taux de maintien en formation (100% − taux d\'abandon).' },
-          { kpi: 'Autonomie', val: Math.round(kpiSubvention), raw: `${depSub.toFixed(0)}% subventions`,     detail: 'Indépendance financière : 100% = aucune recette issue de subventions.' },
-        ];
-
-        const scoreGlobal = Math.round(radarData.reduce((s, d) => s + d.val, 0) / radarData.length);
-        const scoreColor = scoreGlobal >= 70 ? 'text-emerald-500' : scoreGlobal >= 50 ? 'text-amber-500' : 'text-rose-500';
-
-        // Rapport stratégique
-        const genererRapport = () => {
-          const vigilance = [];
-          const opportunites = [];
-          if (tauxCouv < 100) vigilance.push(`⚠ Taux de couverture insuffisant (${tauxCouv.toFixed(0)}%) — déficit de ${Math.round(totalCharges - totalRecettes).toLocaleString('fr-FR')} €. Activer les leviers de recettes ou réduire les charges variables.`);
-          if (overhead > 35) vigilance.push(`⚠ Overhead structurel élevé (${overhead.toFixed(0)}%) — la part Direction+Pôle Support dépasse le seuil de 30%.`);
-          if (ratioPMS > 75) vigilance.push(`⚠ Poids de la masse salariale critique (${ratioPMS.toFixed(0)}% des recettes) — toute variation de recettes amplifie l'impact sur la trésorerie.`);
-          if (depSub > 60) vigilance.push(`⚠ Dépendance aux subventions élevée (${depSub.toFixed(0)}%) — risque de fragilité si un financeur se retire. Diversifier les sources.`);
-          if (totalAbandons > 0 && totalAbandons / (totalEtus || 1) > 0.1) vigilance.push(`⚠ Taux d'abandon formation (${(totalAbandons / (totalEtus || 1) * 100).toFixed(0)}%) — perte de recettes et signal qualité pédagogique.`);
-
-          if (depSub < 80 && totalRecettes > 0) opportunites.push(`✓ Potentiel de diversification : ${(100 - depSub).toFixed(0)}% des recettes sont issues de sources autonomes (droits d'inscription, prestations). À développer.`);
-          if (overhead < 30) opportunites.push(`✓ Structure légère (overhead ${overhead.toFixed(0)}%) — efficience opérationnelle favorable. Marge de manœuvre pour investir dans le pédagogique.`);
-          if (statsFormation?.effectifTotal > 0 && masseSalarialeTotal > 0) {
-            const cout = Math.round(masseSalarialeTotal / statsFormation.effectifTotal);
-            opportunites.push(`✓ Coût RH par étudiant : ${cout.toLocaleString('fr-FR')} €. Benchmarker vs. formations similaires pour identifier les gisements d'efficience.`);
-          }
-          opportunites.push(`✓ Subventions OPCO/DREETS : vérifier l'éligibilité des formations continues aux dispositifs FNE-Formation, CPF, Plan de développement des compétences.`);
-
-          const prevision = tauxCouv >= 100
-            ? `Atterrissage financier favorable : excédent prévisionnel de ${Math.round(totalRecettes - totalCharges).toLocaleString('fr-FR')} €. Affecter en réserves de gestion.`
-            : `Atterrissage financier déficitaire : un déficit de ${Math.round(totalCharges - totalRecettes).toLocaleString('fr-FR')} € est prévu. Sans action corrective, les réserves seront sollicitées.`;
-
-          return { vigilance, opportunites, prevision, scoreGlobal, date: new Date().toLocaleDateString('fr-FR') };
-        };
-
-        const rapport = showRapport ? genererRapport() : null;
-
+        const { radarData, scoreGlobal, scoreColor, totalRecettes } = radarSante;
         return (
           <div className={`rounded-3xl shadow-lg border-2 p-6 mb-8 print-avoid-break ${darkMode ? 'bg-gray-800 border-violet-900' : 'bg-gradient-to-br from-violet-50 to-fuchsia-50 border-violet-200'}`}>
             {/* Header */}
@@ -181,6 +164,18 @@ export default function TabAnalyse({
                   <FileText size={13} />
                   {showRapport ? 'Fermer rapport' : 'Rapport stratégique'}
                 </button>
+                {showRapport && rapport && (
+                  <button
+                    onClick={() => {
+                      const { totalRecettes: tr } = radarSante;
+                      const tc = tr - (soldeGlobal || 0);
+                      exportSyntheseNarrative({ rapport, radarSante, kpiGlobaux: { totalRecettes: tr, totalCharges: tc, soldeGlobal: soldeGlobal || 0, tauxCouverture: tc > 0 ? tr / tc * 100 : 0, totalETP: 0 } });
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs transition-all ${darkMode ? 'bg-zinc-700 text-orange-300 hover:bg-orange-900/30' : 'bg-orange-50 text-orange-700 hover:bg-orange-100'}`}
+                  >
+                    <FileText size={13} /> Exporter PDF
+                  </button>
+                )}
               </div>
             </div>
 
@@ -407,6 +402,208 @@ export default function TabAnalyse({
             <div className={`mt-3 text-[11px] ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
               Point mort = charges fixes promo ÷ marge de contribution par étudiant. Si les étudiants actifs passent sous ce seuil, le service génère un déficit.
             </div>
+
+            {/* Graphique Break-Even — premier service avec promos */}
+            {(() => {
+              const svcAvecPromo = services.find(s => s.promos?.length > 0);
+              if (!svcAvecPromo) return null;
+              const bs = getBudgetService(svcAvecPromo);
+              const chargesFixes = bs.total - (bs.vacataires || 0);
+              const totalEtus = svcAvecPromo.promos.reduce((s, p) => s + (p.effectif || 0), 0);
+              const recParEtu = totalEtus > 0 ? bs.recettes / totalEtus : 0;
+              const chVarParEtu = totalEtus > 0 ? ((bs.vacataires || 0) / totalEtus) : 0;
+              const maxEtu = Math.max(totalEtus * 1.2, 10);
+              const step = Math.max(1, Math.round(maxEtu / 20));
+              const chartData = [];
+              for (let n = 0; n <= Math.ceil(maxEtu); n += step) {
+                chartData.push({
+                  n,
+                  'Recettes': Math.round(n * recParEtu),
+                  'Charges totales': Math.round(chargesFixes + n * chVarParEtu),
+                });
+              }
+              const pm = promoData.find(p => p.pointMort !== null);
+              return (
+                <div className="mt-5">
+                  <h3 className={`text-sm font-black mb-2 ${darkMode ? 'text-amber-300' : 'text-amber-700'}`}>
+                    Graphique Break-Even — {svcAvecPromo.nom}
+                  </h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <ComposedChart data={chartData} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#374151' : '#e2e8f0'} />
+                      <XAxis dataKey="n" tick={{ fontSize: 10, fill: darkMode ? '#9ca3af' : '#64748b' }} label={{ value: 'Étudiants', position: 'insideRight', offset: 0, fontSize: 10, fill: darkMode ? '#9ca3af' : '#64748b' }} />
+                      <YAxis tick={{ fontSize: 10, fill: darkMode ? '#9ca3af' : '#64748b' }} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+                      <Tooltip contentStyle={{ backgroundColor: darkMode ? '#1f2937' : '#fff', border: 'none', borderRadius: '8px', fontSize: 11 }} formatter={v => `${Math.round(v).toLocaleString()} €`} />
+                      {pm && <ReferenceLine x={pm.pointMort} stroke="#f59e0b" strokeDasharray="4 2" label={{ value: `PM=${pm.pointMort}`, fill: '#f59e0b', fontSize: 10 }} />}
+                      <Line type="monotone" dataKey="Recettes" stroke="#22c55e" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="Charges totales" stroke="#ef4444" strokeWidth={2} dot={false} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                  <div className={`flex gap-4 justify-center text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                    <span className="flex items-center gap-1"><span className="w-4 h-0.5 bg-emerald-500 inline-block"></span> Recettes</span>
+                    <span className="flex items-center gap-1"><span className="w-4 h-0.5 bg-red-500 inline-block"></span> Charges totales</span>
+                    {pm && <span className="flex items-center gap-1"><span className="w-4 h-0.5 border-t-2 border-dashed border-amber-500 inline-block"></span> Point mort ({pm.pointMort} étudiants)</span>}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        );
+      })()}
+
+      {/* ── SIMULATEUR DE RECRUTEMENT STRATÉGIQUE ── */}
+      {(() => {
+        const [simSalaire, setSimSalaire] = React.useState(2500);
+        const [simETP, setSimETP] = React.useState(1);
+        const [simTypeContrat, setSimTypeContrat] = React.useState('CDI');
+        const [simSegur, setSimSegur] = React.useState(false);
+        const [simDateDebut, setSimDateDebut] = React.useState('');
+        const tauxCharges = (globalParams?.tauxChargesPatronales ?? 44) / 100;
+        const delaiURSSAF = globalParams?.delaiPaiementURSSAF ?? 45;
+        const taxeActive = globalParams?.taxeSalaires === true;
+        const soldeGlobalNumeric = soldeGlobal ?? 0;
+
+        const sal = calculerSalaireAnnuel(simSalaire, simETP, simSegur ? msETP : 0, simTypeContrat, null, simDateDebut || null);
+        const coutAnnuel = sal.total;
+        const brutAnnuel = sal.totalBrutVerse;
+        const taxeDelta = taxeActive ? calculerTaxeSalairesProgressif(brutAnnuel) : 0;
+        const bfrDelta = (sal.salaires ?? 0) * tauxCharges / 365 * delaiURSSAF;
+        const impactSolde = -(coutAnnuel + taxeDelta);
+        const soldeApres = soldeGlobalNumeric + impactSolde;
+
+        return (
+          <div className={`mb-8 rounded-3xl border-2 p-6 shadow-sm ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+            <h2 className={`text-xl font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+              <Users size={22} className="text-teal-500" /> Simulateur de recrutement stratégique
+            </h2>
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Paramètres */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <label className={`text-xs font-semibold w-36 shrink-0 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Salaire brut mensuel</label>
+                  <input type="number" min="1000" step="50" value={simSalaire} onChange={e => setSimSalaire(parseFloat(e.target.value)||0)}
+                    className={`w-28 text-right rounded-lg px-2 py-1 text-sm font-bold border ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-slate-300'}`} />
+                  <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>€/mois</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className={`text-xs font-semibold w-36 shrink-0 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>ETP</label>
+                  <input type="number" min="0.1" max="1" step="0.1" value={simETP} onChange={e => setSimETP(parseFloat(e.target.value)||1)}
+                    className={`w-20 text-right rounded-lg px-2 py-1 text-sm font-bold border ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-slate-300'}`} />
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className={`text-xs font-semibold w-36 shrink-0 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Type contrat</label>
+                  <select value={simTypeContrat} onChange={e => setSimTypeContrat(e.target.value)}
+                    className={`rounded-lg px-2 py-1 text-xs border ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-slate-300'}`}>
+                    <option value="CDI">CDI</option>
+                    <option value="CDD">CDD</option>
+                    <option value="apprentissage">Apprentissage</option>
+                  </select>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className={`text-xs font-semibold w-36 shrink-0 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Prime Ségur</label>
+                  <input type="checkbox" checked={simSegur} onChange={e => setSimSegur(e.target.checked)} className="w-4 h-4" />
+                  {simSegur && <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>+{msETP} €/mois</span>}
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className={`text-xs font-semibold w-36 shrink-0 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Date de prise de poste</label>
+                  <input type="month" value={simDateDebut} onChange={e => setSimDateDebut(e.target.value ? e.target.value + '-01' : '')}
+                    className={`rounded-lg px-2 py-1 text-xs border ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-slate-300'}`} />
+                </div>
+              </div>
+
+              {/* Résultats */}
+              <div className="space-y-3">
+                {[
+                  { label: 'Coût employeur annuel', value: coutAnnuel, color: 'text-red-500', note: simTypeContrat === 'apprentissage' ? '(exo charges apprenti)' : `(charges ${Math.round((coutAnnuel/brutAnnuel - 1)*100)}%)` },
+                  { label: 'dont Ségur', value: simSegur ? msETP * 12 * simETP : null, color: darkMode ? 'text-gray-300' : 'text-slate-600', note: 'inclus dans coût ci-dessus' },
+                  taxeActive ? { label: 'Taxe sur salaires', value: taxeDelta, color: 'text-orange-500', note: 'CGI art. 231' } : null,
+                  { label: 'Impact BFR URSSAF', value: bfrDelta, color: 'text-amber-500', note: `+${delaiURSSAF}j` },
+                  { label: 'Nouveau solde prévisionnel', value: soldeApres, color: soldeApres >= 0 ? 'text-emerald-500' : 'text-red-600', note: `(avant: ${Math.round(soldeGlobalNumeric).toLocaleString()} €)`, big: true },
+                ].filter(Boolean).map((kpi, i) => kpi.value !== null && (
+                  <div key={i} className={`flex justify-between items-center px-3 py-2 rounded-xl ${darkMode ? 'bg-gray-700/50' : 'bg-slate-50'}`}>
+                    <div>
+                      <div className={`text-xs font-semibold ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{kpi.label}</div>
+                      {kpi.note && <div className={`text-[10px] ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{kpi.note}</div>}
+                    </div>
+                    <div className={`font-black ${kpi.big ? 'text-lg' : 'text-sm'} ${kpi.color}`}>
+                      {kpi.value > 0 && !kpi.label.includes('solde') ? '−' : kpi.value >= 0 ? '+' : '−'}{Math.abs(Math.round(kpi.value)).toLocaleString()} €
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── INDICATEURS DE PERFORMANCE SOCIALE ── */}
+      {services.length > 0 && (() => {
+        const tauxMap = globalParams?.tauxDiplomationParService || {};
+        const rows = services.map(svc => {
+          const bs = getBudgetService(svc);
+          const nEtudiants = svc.promos
+            ? svc.promos.reduce((s, p) => {
+                const ab = p.abandons ? Object.values(p.abandons).reduce((a, v) => a + (parseInt(v)||0), 0) : 0;
+                return s + Math.max(0, (p.effectif||0) - ab);
+              }, 0)
+            : (svc.unites || 0);
+          const coutParEtu = nEtudiants > 0 ? bs.total / nEtudiants : null;
+          const taux = tauxMap[svc.id] !== undefined ? tauxMap[svc.id] : null;
+          const coutParDiplome = coutParEtu !== null && taux !== null && taux > 0 ? coutParEtu / (taux / 100) : null;
+          return { svc, bs, nEtudiants, coutParEtu, taux, coutParDiplome };
+        });
+        return (
+          <div className={`mb-8 rounded-3xl border-2 p-6 shadow-sm ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+            <h2 className={`text-xl font-black mb-4 flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+              <BarChart3 size={22} className="text-pink-500" /> Indicateurs de Performance Sociale
+            </h2>
+            <p className={`text-xs mb-4 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+              Saisissez le taux de diplomation observé par service pour calculer le coût par diplômé — indicateur clé pour justifier la subvention publique.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className={darkMode ? 'text-gray-400' : 'text-slate-500'}>
+                    <th className="text-left py-2 pr-3 font-semibold">Service</th>
+                    <th className="text-right py-2 px-2 font-semibold">Charges totales</th>
+                    <th className="text-right py-2 px-2 font-semibold">Étudiants actifs</th>
+                    <th className="text-right py-2 px-2 font-semibold">Coût/étudiant</th>
+                    <th className="text-right py-2 px-2 font-semibold">Taux diplomation</th>
+                    <th className="text-right py-2 px-2 font-semibold">Coût/diplômé</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map(({ svc, bs, nEtudiants, coutParEtu, taux, coutParDiplome }) => (
+                    <tr key={svc.id} className={`border-t ${darkMode ? 'border-gray-700' : 'border-slate-100'}`}>
+                      <td className={`py-2 pr-3 font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>{svc.nom}</td>
+                      <td className={`py-2 px-2 text-right ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{Math.round(bs.total).toLocaleString()} €</td>
+                      <td className={`py-2 px-2 text-right ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{nEtudiants > 0 ? nEtudiants : '—'}</td>
+                      <td className={`py-2 px-2 text-right font-bold ${darkMode ? 'text-purple-300' : 'text-purple-700'}`}>
+                        {coutParEtu !== null ? `${Math.round(coutParEtu).toLocaleString()} €` : '—'}
+                      </td>
+                      <td className="py-2 px-2 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <input
+                            type="number" min="0" max="100" step="1"
+                            value={taux ?? ''}
+                            placeholder="?"
+                            onChange={e => {
+                              const v = e.target.value === '' ? undefined : parseFloat(e.target.value);
+                              setGlobalParams(prev => ({ ...prev, tauxDiplomationParService: { ...(prev.tauxDiplomationParService||{}), [svc.id]: v } }));
+                            }}
+                            className={`w-14 text-right rounded px-1.5 py-0.5 text-xs border ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-slate-300'}`}
+                          />
+                          <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>%</span>
+                        </div>
+                      </td>
+                      <td className={`py-2 px-2 text-right font-black text-sm ${coutParDiplome !== null ? (darkMode ? 'text-pink-300' : 'text-pink-700') : (darkMode ? 'text-gray-600' : 'text-slate-300')}`}>
+                        {coutParDiplome !== null ? `${Math.round(coutParDiplome).toLocaleString()} €` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       })()}
@@ -581,9 +778,23 @@ export default function TabAnalyse({
                 </div>
               ))}
             </div>
-            <div className={`mt-3 pt-3 border-t ${darkMode ? 'border-gray-600' : 'border-purple-200'} space-y-2 text-sm`}>
+            {/* Résultat prévisionnel auto-calculé depuis le budget */}
+            <div className={`mt-3 flex items-center justify-between px-3 py-2 rounded-lg text-sm ${
+              (fr.resultatPrevisionnel ?? 0) >= 0
+                ? darkMode ? 'bg-emerald-900/30 text-emerald-300' : 'bg-emerald-50 text-emerald-700'
+                : darkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-50 text-red-700'
+            }`}>
+              <span className="font-semibold flex items-center gap-1">
+                <Calculator size={13} />
+                Résultat prévisionnel N (auto)
+              </span>
+              <span className="font-black">
+                {(fr.resultatPrevisionnel ?? 0) >= 0 ? '+' : ''}{Math.round(fr.resultatPrevisionnel ?? 0).toLocaleString()} €
+              </span>
+            </div>
+            <div className={`mt-2 pt-3 border-t ${darkMode ? 'border-gray-600' : 'border-purple-200'} space-y-2 text-sm`}>
               <div className="flex justify-between">
-                <span className={darkMode ? 'text-gray-400' : 'text-slate-600'}>Capitaux permanents</span>
+                <span className={darkMode ? 'text-gray-400' : 'text-slate-600'}>Capitaux permanents (saisie + résultat N)</span>
                 <span className={`font-bold ${darkMode ? 'text-purple-300' : 'text-purple-700'}`}>+{Math.round(fr.totalCapitauxPermanents).toLocaleString()} €</span>
               </div>
               <div className="flex justify-between">
@@ -1233,6 +1444,253 @@ export default function TabAnalyse({
                   Prévoir une ligne de crédit ou avancer le versement d'une tranche de subvention Région.
                   {moisDeficit > 0 && <> Configurez la saisonnalité des recettes (bouton 🗓) pour affiner cette projection.</>}
                 </span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── BALANCE COMPTABLE — RÉALISÉ VS PRÉVISIONNEL ── */}
+      {(() => {
+        const bdDir = getBudgetDirection();
+        const bdPS  = getBudgetPoleSupport();
+        const budgetChargesTotal   = services.reduce((s, svc) => s + getBudgetService(svc).total, 0) + bdDir.total + bdPS.total;
+        const budgetRecettesTotal  = services.reduce((s, svc) => s + getBudgetService(svc).recettes, 0)
+          + (direction?.recettes || []).reduce((s, r) => s + (r.montant || 0) * 12, 0)
+          + (poleSupport?.recettes || []).reduce((s, r) => s + (r.montant || 0) * 12, 0);
+
+        return (
+          <div className={`rounded-3xl shadow-lg border-2 p-6 mb-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className={`text-xl font-black flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <Table size={22} className="text-blue-500" /> Réalisé vs Prévisionnel — Balance comptable
+              </h2>
+              <div className="flex gap-2 no-print">
+                <button onClick={() => exportEPRD(direction, services, poleSupport, globalParams, balanceComptable)}
+                  className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl transition-colors ${darkMode ? 'bg-emerald-900/40 border border-emerald-700 text-emerald-300 hover:bg-emerald-800/60' : 'bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100'}`}
+                  title="Exporter EPRD (+ ERRD si balance importée)">
+                  <FileText size={14} /> EPRD Excel
+                </button>
+                {setShowBalanceImport && (
+                  <button onClick={() => setShowBalanceImport(true)}
+                    className={`flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-xl transition-colors ${darkMode ? 'bg-blue-900/40 border border-blue-700 text-blue-300 hover:bg-blue-800/60' : 'bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100'}`}>
+                    <Upload size={14} /> {balanceComptable ? 'Mettre à jour' : 'Importer balance'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {!balanceComptable ? (
+              <div className={`text-center py-10 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+                <Table size={40} className="mx-auto mb-3 opacity-30" />
+                <p className="text-sm font-bold">Aucune balance importée</p>
+                <p className="text-xs mt-1">Importez votre balance comptable pour comparer réalisé et prévisionnel</p>
+              </div>
+            ) : (
+              <>
+                <div className={`flex items-center gap-3 mb-5 text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                  <span className={`px-2 py-1 rounded-lg font-bold ${darkMode ? 'bg-blue-900/40 text-blue-300' : 'bg-blue-50 text-blue-700'}`}>Exercice {balanceComptable.annee}</span>
+                  <span>{balanceComptable.entries?.length || 0} comptes</span>
+                  <span>Import : {new Date(balanceComptable.importedAt).toLocaleDateString('fr-FR')}</span>
+                  {balanceComptable.fileName && <span className="italic">{balanceComptable.fileName}</span>}
+                </div>
+
+                {/* 4 KPIs comparatifs */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  {[
+                    { label: 'Charges réalisées',  val: balanceComptable.totalCharges,  previsionnel: budgetChargesTotal,  color: 'red'   },
+                    { label: 'Recettes réalisées', val: balanceComptable.totalRecettes, previsionnel: budgetRecettesTotal, color: 'teal'  },
+                    { label: 'Solde réalisé',      val: balanceComptable.totalRecettes - balanceComptable.totalCharges, previsionnel: budgetRecettesTotal - budgetChargesTotal, color: 'indigo' },
+                    { label: 'Taux couv. réel',   val: balanceComptable.totalCharges > 0 ? Math.round(balanceComptable.totalRecettes / balanceComptable.totalCharges * 100) : 0, previsionnel: budgetChargesTotal > 0 ? Math.round(budgetRecettesTotal / budgetChargesTotal * 100) : 0, suffix: '%', color: 'emerald' },
+                  ].map(({ label, val, previsionnel, color, suffix = '€' }) => {
+                    const ecart = val - previsionnel;
+                    const ecartPct = previsionnel !== 0 ? (ecart / Math.abs(previsionnel) * 100) : 0;
+                    const isGood = label.includes('Recettes') || label.includes('Solde') || label.includes('Taux') ? ecart >= 0 : ecart <= 0;
+                    return (
+                      <div key={label} className={`rounded-2xl p-4 border ${darkMode ? 'bg-gray-700/60 border-gray-600' : 'bg-slate-50 border-slate-200'}`}>
+                        <div className={`text-xs font-bold uppercase mb-2 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{label}</div>
+                        <div className={`text-2xl font-black mb-1 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                          {suffix === '%' ? `${val}%` : `${Math.round(val).toLocaleString()} €`}
+                        </div>
+                        <div className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                          Prévu : {suffix === '%' ? `${previsionnel}%` : `${Math.round(previsionnel).toLocaleString()} €`}
+                        </div>
+                        <div className={`text-xs font-bold mt-1 ${isGood ? 'text-emerald-500' : 'text-red-500'}`}>
+                          {ecart >= 0 ? '+' : ''}{suffix === '%' ? `${ecart.toFixed(1)} pt` : `${Math.round(ecart).toLocaleString()} €`}
+                          {' '}({ecartPct >= 0 ? '+' : ''}{ecartPct.toFixed(1)}%)
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Tableau par classe PCG */}
+                <div className={`rounded-2xl border overflow-hidden ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
+                  <table className="w-full text-sm">
+                    <thead className={darkMode ? 'bg-gray-700' : 'bg-slate-100'}>
+                      <tr>
+                        {['Catégorie','Nb comptes','Réalisé (€)','Prévisionnel (€)','Écart (€)','Écart %'].map(h => (
+                          <th key={h} className={`px-4 py-3 text-left text-xs font-bold ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(() => {
+                        const cats = [
+                          { id: 'salaires',       label: 'Charges personnel (64)',   previsionnel: services.reduce((s, svc) => s + getBudgetService(svc).salaires, 0) + bdDir.salaires + bdPS.salaires },
+                          { id: 'exploitation',   label: 'Charges exploitation (6)', previsionnel: services.reduce((s, svc) => s + getBudgetService(svc).exploitation, 0) + bdDir.chargesSiege + bdPS.exploitation },
+                          { id: 'amortissements', label: 'Amortissements (68)',       previsionnel: services.reduce((s, svc) => s + getBudgetService(svc).amortissements, 0) },
+                          { id: 'recettes',       label: 'Produits (7)',              previsionnel: budgetRecettesTotal },
+                        ];
+                        return cats.map(({ id, label, previsionnel }) => {
+                          const entries = (balanceComptable.entries || []).filter(e => e.categorie === id);
+                          const realise = entries.reduce((s, e) => s + Math.abs(e.solde), 0);
+                          const ecart = realise - previsionnel;
+                          const ecartPct = previsionnel !== 0 ? (ecart / Math.abs(previsionnel) * 100) : 0;
+                          const isGood = id === 'recettes' ? ecart >= 0 : ecart <= 0;
+                          return (
+                            <tr key={id} className={darkMode ? 'border-t border-gray-700' : 'border-t border-slate-100'}>
+                              <td className={`px-4 py-3 font-bold text-sm ${darkMode ? 'text-white' : 'text-slate-800'}`}>{label}</td>
+                              <td className={`px-4 py-3 text-center ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{entries.length}</td>
+                              <td className={`px-4 py-3 text-right font-bold ${darkMode ? 'text-white' : 'text-slate-800'}`}>{Math.round(realise).toLocaleString()}</td>
+                              <td className={`px-4 py-3 text-right ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{Math.round(previsionnel).toLocaleString()}</td>
+                              <td className={`px-4 py-3 text-right font-bold ${isGood ? 'text-emerald-500' : 'text-red-500'}`}>{ecart >= 0 ? '+' : ''}{Math.round(ecart).toLocaleString()}</td>
+                              <td className={`px-4 py-3 text-right text-xs font-bold ${isGood ? 'text-emerald-500' : 'text-red-500'}`}>{ecartPct >= 0 ? '+' : ''}{ecartPct.toFixed(1)}%</td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── ENGAGEMENTS NON FACTURÉS (4.5) ── */}
+      {(() => {
+        const ouverts = engagements.filter(e => e.statut !== 'solde');
+        const soldes  = engagements.filter(e => e.statut === 'solde');
+        const totalOuverts = ouverts.reduce((s, e) => s + (parseFloat(e.montant) || 0), 0);
+        const CATEGORIES = ['Exploitation', 'Personnel', 'Investissement', 'Autre'];
+        const allEntites = ['Direction', 'Pôle Support', ...services.map(s => s.nom)];
+        const addEngagement = () => setEngagements && setEngagements(prev => [
+          ...prev,
+          { id: Date.now(), nom: 'Nouvel engagement', fournisseur: '', montant: 0, dateEcheance: '', categorie: 'Exploitation', entite: 'Direction', statut: 'ouvert' }
+        ]);
+        return (
+          <div className={`mt-8 rounded-3xl shadow-sm border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-slate-200'}`}>
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <h2 className={`text-xl font-black flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+                <ClipboardList size={22} className="text-amber-500" /> Engagements non facturés
+              </h2>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className={`rounded-xl px-4 py-1.5 font-black text-sm ${totalOuverts > 0 ? (darkMode ? 'bg-amber-900/30 text-amber-300' : 'bg-amber-50 text-amber-700') : (darkMode ? 'bg-gray-700 text-gray-400' : 'bg-slate-100 text-slate-500')}`}>
+                  {ouverts.length} engagement{ouverts.length !== 1 ? 's' : ''} ouvert{ouverts.length !== 1 ? 's' : ''} — {Math.round(totalOuverts).toLocaleString()} €
+                </div>
+                {setEngagements && (
+                  <button onClick={addEngagement} className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl ${darkMode ? 'bg-amber-900/30 text-amber-300 hover:bg-amber-800/40' : 'bg-amber-50 text-amber-700 hover:bg-amber-100'}`}>
+                    <Plus size={13} /> Ajouter
+                  </button>
+                )}
+              </div>
+            </div>
+            {engagements.length === 0 ? (
+              <p className={`text-sm text-center py-8 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>
+                Aucun engagement saisi. Cliquez « Ajouter » pour enregistrer des dépenses engagées non facturées.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className={`text-left ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                      <th className="py-2 pr-3 font-semibold">Description</th>
+                      <th className="py-2 px-2 font-semibold">Fournisseur</th>
+                      <th className="py-2 px-2 font-semibold">Entité</th>
+                      <th className="py-2 px-2 font-semibold">Catégorie</th>
+                      <th className="py-2 px-2 font-semibold text-right">Montant (€)</th>
+                      <th className="py-2 px-2 font-semibold">Échéance</th>
+                      <th className="py-2 px-2 font-semibold text-center">Statut</th>
+                      {setEngagements && <th className="py-2 pl-2 font-semibold"></th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {engagements.map(eng => (
+                      <tr key={eng.id} className={`border-t ${darkMode ? 'border-gray-700' : 'border-slate-100'} ${eng.statut === 'solde' ? 'opacity-50' : ''}`}>
+                        <td className="py-2 pr-3">
+                          {setEngagements
+                            ? <input type="text" value={eng.nom} onChange={e => setEngagements(prev => prev.map(x => x.id === eng.id ? { ...x, nom: e.target.value } : x))}
+                                className={`w-40 rounded px-1.5 py-0.5 text-xs ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-slate-300'} border`} />
+                            : <span className={`font-semibold ${darkMode ? 'text-white' : 'text-slate-800'}`}>{eng.nom}</span>}
+                        </td>
+                        <td className="py-2 px-2">
+                          {setEngagements
+                            ? <input type="text" value={eng.fournisseur} onChange={e => setEngagements(prev => prev.map(x => x.id === eng.id ? { ...x, fournisseur: e.target.value } : x))}
+                                className={`w-28 rounded px-1.5 py-0.5 text-xs ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-slate-300'} border`} />
+                            : eng.fournisseur}
+                        </td>
+                        <td className="py-2 px-2">
+                          {setEngagements
+                            ? <select value={eng.entite} onChange={e => setEngagements(prev => prev.map(x => x.id === eng.id ? { ...x, entite: e.target.value } : x))}
+                                className={`text-xs rounded px-1.5 py-0.5 ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-slate-300'} border`}>
+                                {allEntites.map(en => <option key={en} value={en}>{en}</option>)}
+                              </select>
+                            : eng.entite}
+                        </td>
+                        <td className="py-2 px-2">
+                          {setEngagements
+                            ? <select value={eng.categorie} onChange={e => setEngagements(prev => prev.map(x => x.id === eng.id ? { ...x, categorie: e.target.value } : x))}
+                                className={`text-xs rounded px-1.5 py-0.5 ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-slate-300'} border`}>
+                                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                              </select>
+                            : eng.categorie}
+                        </td>
+                        <td className="py-2 px-2 text-right">
+                          {setEngagements
+                            ? <input type="number" value={eng.montant} onChange={e => setEngagements(prev => prev.map(x => x.id === eng.id ? { ...x, montant: parseFloat(e.target.value) || 0 } : x))}
+                                className={`w-24 text-right rounded px-1.5 py-0.5 text-xs ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-slate-300'} border`} />
+                            : <span className="font-bold">{Math.round(eng.montant).toLocaleString()}</span>}
+                        </td>
+                        <td className="py-2 px-2">
+                          {setEngagements
+                            ? <input type="date" value={eng.dateEcheance} onChange={e => setEngagements(prev => prev.map(x => x.id === eng.id ? { ...x, dateEcheance: e.target.value } : x))}
+                                className={`text-xs rounded px-1.5 py-0.5 ${darkMode ? 'bg-gray-700 text-white border-gray-600' : 'bg-white border-slate-300'} border`} />
+                            : eng.dateEcheance}
+                        </td>
+                        <td className="py-2 px-2 text-center">
+                          {setEngagements ? (
+                            <button onClick={() => setEngagements(prev => prev.map(x => x.id === eng.id ? { ...x, statut: x.statut === 'ouvert' ? 'solde' : 'ouvert' } : x))}
+                              className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${eng.statut === 'solde' ? (darkMode ? 'bg-emerald-900/30 text-emerald-400' : 'bg-emerald-50 text-emerald-600') : (darkMode ? 'bg-amber-900/30 text-amber-300' : 'bg-amber-50 text-amber-700')}`}>
+                              {eng.statut === 'solde' ? <><CheckCircle size={10}/> Soldé</> : 'Ouvert'}
+                            </button>
+                          ) : (
+                            <span className={`text-xs font-bold ${eng.statut === 'solde' ? 'text-emerald-500' : 'text-amber-500'}`}>{eng.statut === 'solde' ? 'Soldé' : 'Ouvert'}</span>
+                          )}
+                        </td>
+                        {setEngagements && (
+                          <td className="py-2 pl-2">
+                            <button onClick={() => setEngagements(prev => prev.filter(x => x.id !== eng.id))} className={`p-1 rounded ${darkMode ? 'hover:bg-red-900/30 text-gray-500 hover:text-red-400' : 'hover:bg-red-50 text-slate-300 hover:text-red-500'}`}>
+                              <Trash2 size={12} />
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                  {engagements.length > 0 && (
+                    <tfoot>
+                      <tr className={`border-t-2 font-bold ${darkMode ? 'border-gray-600 text-white' : 'border-slate-300 text-slate-800'}`}>
+                        <td colSpan={4} className="py-2 pr-3 text-right text-xs uppercase tracking-wide">Total ouverts</td>
+                        <td className={`py-2 px-2 text-right ${totalOuverts > 0 ? 'text-amber-500' : (darkMode ? 'text-gray-400' : 'text-slate-500')}`}>
+                          {Math.round(totalOuverts).toLocaleString()}
+                        </td>
+                        <td colSpan={3}></td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
               </div>
             )}
           </div>

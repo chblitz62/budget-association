@@ -121,7 +121,7 @@ function EntityRow({ label, bs, darkMode, seuilCouverture = 90 }) {
 }
 
 // ── Composant principal ───────────────────────────────────────────────────────
-export default function DashboardDG({ direction, poleSupport, services, poolRH, globalParams, darkMode }) {
+export default function DashboardDG({ direction, poleSupport, services, poolRH, globalParams, darkMode, getBFR }) {
   const dm = darkMode;
   const msETP = globalParams.montantSegurETP ?? PRIME_SEGUR;
   const seuilCouverture = globalParams.seuilCouverture ?? 90;
@@ -131,10 +131,15 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
   const toggle = key => setOpenSections(s => ({ ...s, [key]: !s[key] }));
 
   // ── Calculs agrégés ─────────────────────────────────────────────────────────
+  const tvaParams = globalParams.gestionTVA
+    ? { gestionTVA: true, tauxTVAMoyen: globalParams.tauxTVAMoyen ?? 20 }
+    : null;
+  const coeffBP = globalParams.coefficientBP ?? 100;
+
   const agg = useMemo(() => {
-    const bd = calculerBudgetDirection(direction, null, 2026, msETP, poolRH);
-    const bp = calculerBudgetPoleSupport(poleSupport, null, 2026, msETP, poolRH);
-    const bServices = services.map(s => ({ service: s, bs: calculerBudgetService(s, null, 2026, msETP, poolRH) }));
+    const bd = calculerBudgetDirection(direction, null, 2026, msETP, poolRH, tvaParams, coeffBP);
+    const bp = calculerBudgetPoleSupport(poleSupport, null, 2026, msETP, poolRH, tvaParams, coeffBP);
+    const bServices = services.map(s => ({ service: s, bs: calculerBudgetService(s, null, 2026, msETP, poolRH, tvaParams, coeffBP) }));
 
     const totalCharges = (bd.salaires + bd.exploitation) + (bp.salaires + bp.exploitation) + bServices.reduce((s, { bs }) => s + bs.salaires + bs.exploitation, 0);
     const totalRecettes = bd.recettes + bp.recettes + bServices.reduce((s, { bs }) => s + bs.recettes, 0);
@@ -143,7 +148,12 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
     const resultat = totalRecettes - totalCharges;
     const tauxCouverture = totalCharges > 0 ? (totalRecettesLibres / totalCharges) * 100 : 0;
 
-    const allPersonnel = [...(direction?.personnel || []), ...(poleSupport?.personnel || []), ...services.flatMap(s => s.personnel || []), ...(poolRH || [])];
+    const allPersonnel = [
+      ...(direction?.personnel   || []),
+      ...(poleSupport?.personnel || []),
+      ...services.flatMap(s => s.personnel || []),
+      ...(poolRH || []),
+    ].filter(Boolean);
     const masseSalariale = allPersonnel.reduce((tot, p) => {
       const sr = p.segur === true ? msETP : (parseFloat(p.segur) || 0);
       return tot + calculerSalaireAnnuel(p.salaire, p.etp, sr, p.typeContrat, p.tauxChargesManuel).total;
@@ -204,7 +214,14 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
     const chargesFixees = agg.masseSalariale + amortTotal;
     const pctChargesFixees = agg.totalCharges > 0 ? (chargesFixees / agg.totalCharges) * 100 : 0;
     const chargesMensuelles = agg.totalCharges / 12;
-    const solvabiliteMois = chargesMensuelles > 0 && agg.reserves > 0 ? agg.reserves / chargesMensuelles : 0;
+
+    // BFR calculé en premier pour l'ajustement de solvabilité
+    let bfr = null; try { bfr = getBFR ? getBFR() : calculerBFR(direction, services, globalParams, poleSupport, poolRH); } catch (e) { console.warn('[DashboardDG] calculerBFR', e); }
+    // Solvabilité ajustée BFR : (Réserves − max(0, BFR)) ÷ charges mensuelles
+    // Si BFR > 0, l'association mobilise des réserves pour financer son cycle d'exploitation
+    const bfrPositif = bfr ? Math.max(0, bfr.bfr) : 0;
+    const reservesAjustees = Math.max(0, agg.reserves - bfrPositif);
+    const solvabiliteMois = chargesMensuelles > 0 && agg.reserves > 0 ? reservesAjustees / chargesMensuelles : 0;
 
     const motsClesSubv = ['subvention', 'région', 'region', 'état', 'etat', 'département', 'departement', 'opco', 'taxe apprentissage', "taxe d'apprentissage", 'fonds de formation'];
     const allRecettesItems = [...(direction.recettes || []), ...(poleSupport.recettes || []), ...services.flatMap(s => s.recettes || [])];
@@ -217,12 +234,11 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
     });
     const pctSubventions = (totalSubventions + totalPropres) > 0 ? (totalSubventions / (totalSubventions + totalPropres)) * 100 : 0;
 
-    let tresorerie = null; try { tresorerie = calculerTresorerieMensuelle(direction, services, globalParams, poleSupport, poolRH); } catch {}
-    let bfr = null; try { bfr = calculerBFR(direction, services, globalParams, poleSupport, poolRH); } catch {}
-    let statsVac = null; try { statsVac = calculerStatsVacataires(services, msETP); } catch {}
-    let auditItems = []; try { auditItems = runFinancialAudit(direction, services, poleSupport, globalParams) || []; } catch {}
-    let alertesRH = []; try { alertesRH = calculerAlertesRH(direction, poleSupport, services, new Date()) || []; } catch {}
-    let ifc = null; try { ifc = calculerIFC(direction, services, poleSupport, 2026, 62, 8, msETP); } catch {}
+    let tresorerie = null; try { tresorerie = calculerTresorerieMensuelle(direction, services, globalParams, poleSupport, poolRH); } catch (e) { console.warn('[DashboardDG] calculerTresorerieMensuelle', e); }
+    let statsVac = null; try { statsVac = calculerStatsVacataires(services, msETP); } catch (e) { console.warn('[DashboardDG] calculerStatsVacataires', e); }
+    let auditItems = []; try { auditItems = runFinancialAudit(direction, services, poleSupport, globalParams) || []; } catch (e) { console.warn('[DashboardDG] runFinancialAudit', e); }
+    let alertesRH = []; try { alertesRH = calculerAlertesRH(direction, poleSupport, services, new Date()) || []; } catch (e) { console.warn('[DashboardDG] calculerAlertesRH', e); }
+    let ifc = null; try { ifc = calculerIFC(direction, services, poleSupport, 2026, 62, 8, msETP); } catch (e) { console.warn('[DashboardDG] calculerIFC', e); }
 
     let projection3ans = null;
     try {
@@ -232,7 +248,7 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
         const rec = agg.totalRecettes * Math.pow(1 + augRate, i);
         return { annee: `${2026 + i}`, charges: Math.round(s.total), recettes: Math.round(rec), caf: Math.round(rec - s.total + s.amortissements) };
       });
-    } catch {}
+    } catch (e) { console.warn('[DashboardDG] calculerSynthese3Ans', e); }
 
     const ratioLiquidite = chargesMensuelles > 0 ? (tresorerie?.mois?.[0]?.soldeCumule ?? 0) / chargesMensuelles : null;
 
@@ -240,7 +256,7 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
       .filter(({ bs }) => bs.statsFormation?.totalEtudiants > 0)
       .map(({ service, bs }) => {
         const sf = bs.statsFormation;
-        return { nom: service.nom, effectifInitial: sf.totalEtudiants, effectifActuel: sf.effectifActuel, abandons: sf.totalAbandons, tauxRetention: sf.totalEtudiants > 0 ? (sf.effectifActuel / sf.totalEtudiants) * 100 : 100, coutParEtudiant: bs.coutParEtudiant || 0, recetteParEtudiant: sf.effectifActuel > 0 ? bs.recettes / sf.effectifActuel : 0 };
+        return { nom: service.nom, effectifInitial: sf.totalEtudiants, effectifActuel: sf.effectifActuel, abandons: sf.totalAbandons, tauxRetention: sf.totalEtudiants > 0 ? (sf.effectifActuel / sf.totalEtudiants) * 100 : 100, coutParEtudiant: bs.coutParEtudiant?.coutParEtudiant || 0, coutParEtudiantInitial: bs.coutParEtudiant?.coutParEtudiantInitial || 0, recetteParEtudiant: sf.effectifActuel > 0 ? bs.recettes / sf.effectifActuel : 0 };
       });
 
     // Transversalité
@@ -248,7 +264,7 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
       const entities = {};
       let totalPct = 0;
       (agent.affectations || []).forEach(aff => {
-        const label = aff.entityType === 'direction' ? 'Siège' : aff.entityType === 'poleSupport' ? 'Pôle Support' : (services.find(s => s.id === aff.entityId)?.nom || `Service ${aff.entityId}`);
+        const label = aff.entityType === 'direction' ? 'Siège' : aff.entityType === 'poleSupport' ? 'Pôle Ressources' : (services.find(s => s.id === aff.entityId)?.nom || `Service ${aff.entityId}`);
         entities[label] = (entities[label] || 0) + (parseFloat(aff.pct) || 0);
         totalPct += (parseFloat(aff.pct) || 0);
       });
@@ -277,7 +293,7 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
     const anomaliesTransv = [
       ...alertesPoolRH.map(a => ({ niveau: 'warn', msg: a.msg, cat: 'Pool RH' })),
       ...(Math.abs(totalPctSiege - 100) > 1 && Object.keys(repartSiege).length > 0 ? [{ niveau: totalPctSiege > 100 ? 'error' : 'warn', cat: 'Frais siège', msg: `Répartition frais siège = ${totalPctSiege.toFixed(0)}% (attendu 100%)` }] : []),
-      ...(Math.abs(totalPctPS - 100) > 1 && Object.keys(repartPS).length > 0 ? [{ niveau: totalPctPS > 100 ? 'error' : 'warn', cat: 'Pôle Support', msg: `Répartition Pôle Support = ${totalPctPS.toFixed(0)}% (attendu 100%)` }] : []),
+      ...(Math.abs(totalPctPS - 100) > 1 && Object.keys(repartPS).length > 0 ? [{ niveau: totalPctPS > 100 ? 'error' : 'warn', cat: 'Pôle Ressources', msg: `Répartition Pôle Support = ${totalPctPS.toFixed(0)}% (attendu 100%)` }] : []),
     ];
 
     const nbAlertes = auditItems.filter(a => a.type === 'ER').length + alertesRH.filter(a => a.lvl === 'error').length;
@@ -300,9 +316,22 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
     ...(tauxCouverture < seuilCouverture ? [{ level: 'red', msg: `Taux de couverture ${Math.round(tauxCouverture)}% sous le seuil de ${seuilCouverture}%` }] : []),
     ...(agg.dureeVieReserves !== null && agg.dureeVieReserves < 1 ? [{ level: 'red', msg: `Réserves épuisées dans ${agg.dureeVieReserves.toFixed(1)} an — risque de cessation de paiement` }] : []),
     ...(agg.dureeVieReserves !== null && agg.dureeVieReserves < 2 && agg.dureeVieReserves >= 1 ? [{ level: 'amber', msg: `Réserves limitées à ${agg.dureeVieReserves.toFixed(1)} an au rythme actuel` }] : []),
-    ...(pctMS > 80 ? [{ level: 'amber', msg: `Masse salariale à ${Math.round(pctMS)}% des charges — médiane médico-social : 70–75%` }] : []),
-    ...(daf.pctSubventions > 80 ? [{ level: 'amber', msg: `Dépendance aux subventions à ${Math.round(daf.pctSubventions)}% — vulnérabilité aux décisions publiques` }] : []),
+    ...(pctMS > 80 ? [{ level: 'red',   msg: `Masse salariale à ${Math.round(pctMS)}% des charges — risque structurel (seuil critique : 80%)` }] : []),
+    ...(pctMS > 70 && pctMS <= 80 ? [{ level: 'amber', msg: `Masse salariale à ${Math.round(pctMS)}% des charges — au-dessus de la médiane formation (65–70%)` }] : []),
+    ...(daf.pctSubventions > 85 ? [{ level: 'red',   msg: `Dépendance aux subventions à ${Math.round(daf.pctSubventions)}% — risque structurel critique (seuil critique : 85%)` }] : []),
+    ...(daf.pctSubventions > 70 && daf.pctSubventions <= 85 ? [{ level: 'amber', msg: `Dépendance aux subventions à ${Math.round(daf.pctSubventions)}% — diversifier les recettes propres (seuil de vigilance : 70%)` }] : []),
     ...(daf.tresorerie?.alertesMois?.length >= 3 ? [{ level: 'amber', msg: `${daf.tresorerie.alertesMois.length} mois de trésorerie déficitaire prévus` }] : []),
+    // Vacataires : risque de requalification (seuil légal 450h/an — alerte préventive à 375h)
+    ...(() => {
+      if (!daf.statsVac) return [];
+      const critiques = daf.statsVac.alertes.filter(a => a.type === 'heures');
+      if (critiques.length > 0) return [{ level: 'red', msg: `${critiques.length} vacataire(s) dépasse(nt) 450h/an — risque de requalification en CDI` }];
+      const preventifs = daf.statsVac.parService.flatMap(ps =>
+        ps.vacataires.filter(v => v.heures >= 375 && v.heures < 450)
+      );
+      if (preventifs.length > 0) return [{ level: 'amber', msg: `${preventifs.length} vacataire(s) entre 375 et 450h — surveiller d'ici fin d'année (seuil requalification : 450h)` }];
+      return [];
+    })(),
     ...agg.bServices.map(({ service, bs }) => {
       const rec = bs.recettes - (bs.recettesFD || 0), chg = bs.salaires + bs.exploitation;
       const tc = chg > 0 ? (rec / chg) * 100 : (rec > 0 ? 100 : 0);
@@ -346,7 +375,7 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
         <KpiPill label="Couverture" value={`${Math.round(tauxCouverture)}%`} sub={`Seuil ${seuilCouverture}% · ${tauxCouverture >= seuilCouverture ? 'OK' : 'ALERTE'}`} color={couleurCouv} icon={tauxCouverture >= seuilCouverture ? CheckCircle : AlertTriangle} darkMode={darkMode} help={FINANCIAL_HELP.tauxCouverture} />
         <KpiPill label="Résultat" value={`${resultat >= 0 ? '+' : ''}${Math.round(resultat / 1000)}k€`} sub={resultat >= 0 ? 'Excédent' : 'Déficit'} color={resultat >= 0 ? 'green' : 'red'} icon={resultat >= 0 ? TrendingUp : TrendingDown} darkMode={darkMode} />
         <KpiPill label="CAF" value={`${daf.caf >= 0 ? '+' : ''}${Math.round(daf.caf / 1000)}k€`} sub={`Résultat + ${Math.round(daf.amortTotal / 1000)}k€ amort.`} color={daf.caf >= 0 ? 'green' : 'red'} icon={PiggyBank} darkMode={darkMode} help={{ title: "Capacité d'autofinancement", text: "CAF = Résultat + Amortissements. Mesure la capacité à financer les investissements sans recourir à l'emprunt." }} />
-        <KpiPill label="Réserves" value={agg.reserves > 0 ? `${Math.round(agg.reserves / 1000)}k€` : '—'} sub={daf.solvabiliteMois > 0 ? `${daf.solvabiliteMois.toFixed(1)} mois de charges` : 'Non renseignées'} color={daf.solvabiliteMois >= 6 ? 'green' : daf.solvabiliteMois >= 3 ? 'amber' : agg.reserves > 0 ? 'red' : 'slate'} icon={Shield} darkMode={darkMode} help={FINANCIAL_HELP.reservesAsso} />
+        <KpiPill label="Réserves" value={agg.reserves > 0 ? `${Math.round(agg.reserves / 1000)}k€` : '—'} sub={daf.solvabiliteMois > 0 ? `${daf.solvabiliteMois.toFixed(1)} mois (aj. BFR)` : 'Non renseignées'} color={daf.solvabiliteMois >= 6 ? 'green' : daf.solvabiliteMois >= 3 ? 'amber' : agg.reserves > 0 ? 'red' : 'slate'} icon={Shield} darkMode={darkMode} help={FINANCIAL_HELP.reservesAsso} />
         <KpiPill label="Stress -20% subv." value={`-${Math.round(agg.impactStress / 1000)}k€`} sub="Impact choc subventions" color="violet" icon={Zap} darkMode={darkMode} />
       </div>
 
@@ -396,7 +425,7 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
             </div>
             <div className="space-y-1.5">
               <EntityRow label="Direction / Siège" bs={agg.bd} darkMode={darkMode} seuilCouverture={seuilCouverture} />
-              <EntityRow label="Pôle Support" bs={agg.bp} darkMode={darkMode} seuilCouverture={seuilCouverture} />
+              <EntityRow label="Pôle Ressources" bs={agg.bp} darkMode={darkMode} seuilCouverture={seuilCouverture} />
               {agg.bServices.map(({ service, bs }) => (
                 <EntityRow key={service.id} label={service.nom} bs={bs} darkMode={darkMode} seuilCouverture={seuilCouverture} />
               ))}
@@ -473,7 +502,7 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
                   </defs>
                   <XAxis dataKey="nom" tick={{ fontSize: 9, fill: dm ? '#71717a' : '#94a3b8' }} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={{ background: dm ? '#18181b' : '#fff', border: `1px solid ${dm ? '#3f3f46' : '#e2e8f0'}`, borderRadius: 8, fontSize: 11 }} formatter={v => [`${Math.round(v / 1000)}k€`, 'Solde cumulé']} />
-                  <Area type="monotone" dataKey="soldeCumule" stroke="#3b82f6" strokeWidth={2} fill="url(#gT)" dot={false} />
+                  <Area type="monotone" dataKey="soldeCumule" stroke="#3b82f6" strokeWidth={2} fill="url(#gT)" dot={false} isAnimationActive={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -483,7 +512,7 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
           <div className={`rounded-2xl border p-4 ${dm ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-slate-200'}`}>
             <div className="flex items-center justify-between mb-3">
               <h3 className={`text-xs font-black uppercase tracking-wide flex items-center gap-2 ${dm ? 'text-zinc-400' : 'text-slate-400'}`}><BookOpen size={12} /> Structure des recettes</h3>
-              <span className={`text-xs font-black px-2 py-0.5 rounded-full ${daf.pctSubventions > 80 ? (dm ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-50 text-amber-700') : (dm ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700')}`}>
+              <span className={`text-xs font-black px-2 py-0.5 rounded-full ${daf.pctSubventions > 85 ? (dm ? 'bg-red-900/40 text-red-300' : 'bg-red-50 text-red-700') : daf.pctSubventions > 70 ? (dm ? 'bg-amber-900/40 text-amber-300' : 'bg-amber-50 text-amber-700') : (dm ? 'bg-emerald-900/40 text-emerald-300' : 'bg-emerald-50 text-emerald-700')}`}>
                 Dép. subv. {Math.round(daf.pctSubventions)}%
               </span>
             </div>
@@ -510,11 +539,11 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
           {/* Indicateurs liquidité */}
           <div className="grid grid-cols-2 gap-3">
             <div className={`rounded-2xl border p-3 ${dm ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-slate-200'}`}>
-              <div className={`text-[10px] font-bold uppercase mb-1 ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>Solvabilité</div>
+              <div className={`text-[10px] font-bold uppercase mb-1 ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>Solvabilité (aj. BFR)</div>
               <div className={`text-xl font-black ${daf.solvabiliteMois >= 6 ? (dm ? 'text-emerald-300' : 'text-emerald-700') : daf.solvabiliteMois >= 3 ? (dm ? 'text-amber-300' : 'text-amber-700') : (dm ? 'text-red-300' : 'text-red-600')}`}>
                 {daf.solvabiliteMois > 0 ? `${daf.solvabiliteMois.toFixed(1)} mois` : '—'}
               </div>
-              <div className={`text-[10px] mt-0.5 ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>Réserves / charges/mois</div>
+              <div className={`text-[10px] mt-0.5 ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>(Réserves − BFR) ÷ charges/mois</div>
             </div>
             <div className={`rounded-2xl border p-3 ${dm ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-slate-200'}`}>
               <div className={`text-[10px] font-bold uppercase mb-1 ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>Liquidité janv.</div>
@@ -539,8 +568,8 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
                 <XAxis dataKey="annee" tick={{ fontSize: 11, fontWeight: 700, fill: dm ? '#a1a1aa' : '#64748b' }} tickLine={false} axisLine={false} />
                 <YAxis tickFormatter={v => `${Math.round(v / 1000)}k`} tick={{ fontSize: 10, fill: dm ? '#71717a' : '#94a3b8' }} tickLine={false} axisLine={false} width={36} />
                 <Tooltip contentStyle={{ background: dm ? '#18181b' : '#fff', border: `1px solid ${dm ? '#3f3f46' : '#e2e8f0'}`, borderRadius: 8, fontSize: 11 }} formatter={(v, name) => [`${Math.round(v / 1000)}k€`, name === 'charges' ? 'Charges' : 'Recettes']} />
-                <Bar dataKey="charges" fill={dm ? '#f87171' : '#fca5a5'} radius={[3, 3, 0, 0]} />
-                <Bar dataKey="recettes" fill={dm ? '#34d399' : '#6ee7b7'} radius={[3, 3, 0, 0]} />
+                <Bar dataKey="charges" fill={dm ? '#f87171' : '#fca5a5'} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+                <Bar dataKey="recettes" fill={dm ? '#34d399' : '#6ee7b7'} radius={[3, 3, 0, 0]} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
             <div className="space-y-2">
@@ -627,7 +656,12 @@ export default function DashboardDG({ direction, poleSupport, services, poolRH, 
                     <ProgressBar pct={p.tauxRetention} color={ok ? 'green' : warn ? 'amber' : 'red'} darkMode={darkMode} />
                     <span className={`text-[10px] font-black w-8 shrink-0 ${ok ? (dm ? 'text-emerald-400' : 'text-emerald-600') : warn ? (dm ? 'text-amber-400' : 'text-amber-600') : (dm ? 'text-red-400' : 'text-red-600')}`}>{Math.round(p.tauxRetention)}%</span>
                   </div>
-                  <span className={`text-right font-bold ${dm ? 'text-red-400' : 'text-red-600'}`}>{p.coutParEtudiant > 0 ? `${Math.round(p.coutParEtudiant).toLocaleString()}€` : '—'}</span>
+                  <div className="text-right">
+                    <div className={`font-bold ${dm ? 'text-red-400' : 'text-red-600'}`}>{p.coutParEtudiant > 0 ? `${Math.round(p.coutParEtudiant).toLocaleString()}€` : '—'}</div>
+                    {p.coutParEtudiantInitial > 0 && p.coutParEtudiantInitial !== p.coutParEtudiant && (
+                      <div className={`text-[10px] ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>{Math.round(p.coutParEtudiantInitial).toLocaleString()}€ init.</div>
+                    )}
+                  </div>
                 </div>
               );
             })}

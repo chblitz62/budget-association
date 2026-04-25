@@ -125,7 +125,7 @@ export default function SubventionRegion({
       const b = budgets['poleSupport'];
       const tauxElig = eligibilite['poleSupport'] ?? 50;
       const coutEligible = b.total * (tauxElig / 100);
-      rows.push({ key: 'poleSupport', nom: 'Pôle Support', coutTotal: b.total,
+      rows.push({ key: 'poleSupport', nom: 'Pôle Ressources', coutTotal: b.total,
                   tauxElig, tauxSubv: taux.transversal, coutEligible,
                   subvention: coutEligible * (taux.transversal / 100),
                   detail: { salaires: b.salaires, exploitation: b.exploitation } });
@@ -196,11 +196,11 @@ export default function SubventionRegion({
   };
 
   // ── Styles ────────────────────────────────────────────────────────────────
-  const card  = `rounded-2xl border p-6 mb-6 ${darkMode ? 'bg-gray-800/60 border-white/10' : 'bg-white border-slate-200'}`;
-  const th    = `px-3 py-2 text-left text-xs font-black uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-slate-500'}`;
-  const td    = `px-3 py-2 text-sm ${darkMode ? 'text-gray-200' : 'text-slate-700'}`;
-  const tdR   = `px-3 py-2 text-sm text-right font-semibold tabular-nums ${darkMode ? 'text-gray-200' : 'text-slate-700'}`;
-  const inp   = `rounded px-2 py-1 text-xs font-semibold outline-none border focus:ring-1 focus:ring-teal-400 ${darkMode ? 'bg-gray-600 border-gray-500 text-white' : 'bg-white border-slate-300 text-slate-700'}`;
+  const card  = `rounded-2xl border p-6 mb-6 ${darkMode ? 'bg-zinc-800/60 border-white/10' : 'bg-white border-slate-200'}`;
+  const th    = `px-3 py-2 text-left text-xs font-black uppercase tracking-wide ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`;
+  const td    = `px-3 py-2 text-sm ${darkMode ? 'text-zinc-200' : 'text-slate-700'}`;
+  const tdR   = `px-3 py-2 text-sm text-right font-semibold tabular-nums ${darkMode ? 'text-zinc-200' : 'text-slate-700'}`;
+  const inp   = `rounded px-2 py-1 text-xs font-semibold outline-none border focus:ring-1 focus:ring-teal-400 ${darkMode ? 'bg-zinc-600 border-zinc-500 text-white' : 'bg-white border-slate-300 text-slate-700'}`;
 
   const sectionIconCls = (color) => {
     if (color === 'purple') return darkMode ? 'bg-purple-900/30 text-purple-400' : 'bg-purple-100 text-purple-600';
@@ -213,11 +213,11 @@ export default function SubventionRegion({
         <div className={`p-2 rounded-xl ${sectionIconCls(color)}`}>{icon}</div>
         <div>
           <h3 className={`text-base font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{title}</h3>
-          {badge && <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-400'}`}>{badge}</span>}
+          {badge && <span className={`text-xs ${darkMode ? 'text-zinc-400' : 'text-slate-400'}`}>{badge}</span>}
         </div>
       </div>
       <button onClick={() => setOpen(o => ({ ...o, [id]: !o[id] }))}
-        className={`p-1 rounded-lg ${darkMode ? 'text-gray-400 hover:bg-gray-700' : 'text-slate-400 hover:bg-slate-100'}`}>
+        className={`p-1 rounded-lg ${darkMode ? 'text-zinc-400 hover:bg-zinc-700' : 'text-slate-400 hover:bg-slate-100'}`}>
         {open[id] ? <ChevronUp size={18}/> : <ChevronDown size={18}/>}
       </button>
     </div>
@@ -228,8 +228,8 @@ export default function SubventionRegion({
       <input type="number" min={0} max={100} value={val}
         onChange={e => onChange(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
         className={`${inp} w-14 text-center`} />
-      <span className={`text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>%</span>
-      <div className={`w-16 h-2 rounded-full ${darkMode ? 'bg-gray-600' : 'bg-slate-200'}`}>
+      <span className={`text-xs ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>%</span>
+      <div className={`w-16 h-2 rounded-full ${darkMode ? 'bg-zinc-600' : 'bg-slate-200'}`}>
         <div className="h-full rounded-full bg-teal-500 transition-all" style={{ width: `${val}%` }} />
       </div>
     </div>
@@ -266,7 +266,7 @@ export default function SubventionRegion({
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button onClick={reset}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600' : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'}`}>
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border ${darkMode ? 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600 border-zinc-600' : 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200'}`}>
               <RotateCcw size={13}/> Réinitialiser taux
             </button>
             <button onClick={exportExcel}
@@ -283,10 +283,10 @@ export default function SubventionRegion({
             { label: 'Coût éligible total', val: fmt(grand.coutEligible), sub: 'Après application des % éligibles' },
             { label: 'Subvention demandée', val: fmt(grand.subvention),   sub: `Taux moyen ${grand.coutEligible > 0 ? (grand.subvention/grand.coutEligible*100).toFixed(0) : 0}%` },
           ].map(k => (
-            <div key={k.label} className={`rounded-2xl p-4 text-center border ${darkMode ? 'bg-gray-800/60 border-white/10' : 'bg-white border-slate-200'} shadow-sm`}>
-              <div className={`text-xs font-bold uppercase mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{k.label}</div>
+            <div key={k.label} className={`rounded-2xl p-4 text-center border ${darkMode ? 'bg-zinc-800/60 border-white/10' : 'bg-white border-slate-200'} shadow-sm`}>
+              <div className={`text-xs font-bold uppercase mb-1 ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>{k.label}</div>
               <div className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{k.val}</div>
-              <div className={`text-[10px] mt-1 ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{k.sub}</div>
+              <div className={`text-[10px] mt-1 ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>{k.sub}</div>
             </div>
           ))}
         </div>
@@ -304,8 +304,8 @@ export default function SubventionRegion({
             { field: 'transversal', label: 'Services transversaux',pct: 'text-indigo-500' },
             { field: 'manuel',      label: 'Lignes manuelles',     pct: 'text-orange-500' },
           ].map(({ field, label, pct }) => (
-            <div key={field} className={`p-4 rounded-xl border ${darkMode ? 'bg-gray-700/50 border-gray-600' : 'bg-slate-50 border-slate-200'}`}>
-              <label className={`block text-xs font-bold mb-2 ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>{label}</label>
+            <div key={field} className={`p-4 rounded-xl border ${darkMode ? 'bg-zinc-700/50 border-zinc-600' : 'bg-slate-50 border-slate-200'}`}>
+              <label className={`block text-xs font-bold mb-2 ${darkMode ? 'text-zinc-300' : 'text-slate-600'}`}>{label}</label>
               <div className="flex items-center gap-2">
                 <input type="number" min={0} max={100} step={1} value={taux[field]}
                   onChange={e => setTauxP({ [field]: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
@@ -325,7 +325,7 @@ export default function SubventionRegion({
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
+                <tr className={`border-b ${darkMode ? 'border-zinc-700' : 'border-slate-200'}`}>
                   <th className={th}>Service</th>
                   <th className={`${th} text-right`}>Coût réel annuel</th>
                   <th className={`${th} text-center`}>% Éligible FI</th>
@@ -336,7 +336,7 @@ export default function SubventionRegion({
               </thead>
               <tbody>
                 {rowsFormations.map(r => (
-                  <tr key={r.key} className={`border-b ${darkMode ? 'border-gray-700/40 hover:bg-gray-700/30' : 'border-slate-100 hover:bg-slate-50'}`}>
+                  <tr key={r.key} className={`border-b ${darkMode ? 'border-zinc-700/40 hover:bg-zinc-700/30' : 'border-slate-100 hover:bg-slate-50'}`}>
                     <td className={td}>
                       <div className="font-semibold">{r.nom}</div>
                       {r.detail && <DetailBadge detail={r.detail} />}
@@ -388,7 +388,7 @@ export default function SubventionRegion({
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-slate-200'}`}>
+                  <tr className={`border-b ${darkMode ? 'border-zinc-700' : 'border-slate-200'}`}>
                     <th className={th}>Service</th>
                     <th className={`${th} text-right`}>Coût réel annuel</th>
                     <th className={`${th} text-center`}>% Éligible FI</th>
@@ -400,7 +400,7 @@ export default function SubventionRegion({
                 </thead>
                 <tbody>
                   {rowsTransversal.map(r => (
-                    <tr key={r.key} className={`border-b ${darkMode ? 'border-gray-700/40 hover:bg-gray-700/30' : 'border-slate-100 hover:bg-slate-50'}`}>
+                    <tr key={r.key} className={`border-b ${darkMode ? 'border-zinc-700/40 hover:bg-zinc-700/30' : 'border-slate-100 hover:bg-slate-50'}`}>
                       <td className={td}>
                         {r.isManuel ? (
                           <input value={r.nom} onChange={e => setLignesM(lignesManuel.map(l => l.id === r.key ? { ...l, nom: e.target.value } : l))}
@@ -478,7 +478,7 @@ export default function SubventionRegion({
             <span className={`p-2 rounded-xl ${sectionIconCls('purple')}`}><Zap size={18}/></span>
             <div>
               <h3 className={`font-black text-base ${darkMode ? 'text-white' : 'text-slate-800'}`}>Masse salariale RH éligible</h3>
-              <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Agents cochés « Subv. » dans l'onglet Budget — liaison automatique</p>
+              <p className={`text-xs ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Agents cochés « Subv. » dans l'onglet Budget — liaison automatique</p>
             </div>
             <span className={`ml-auto px-3 py-1 rounded-full text-xs font-bold ${darkMode ? 'bg-violet-900/40 text-violet-300' : 'bg-violet-100 text-violet-700'}`}>
               {personnelEligible.length} agent{personnelEligible.length > 1 ? 's' : ''}
@@ -487,7 +487,7 @@ export default function SubventionRegion({
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className={darkMode ? 'bg-gray-700' : 'bg-slate-50'}>
+                <tr className={darkMode ? 'bg-zinc-700' : 'bg-slate-50'}>
                   <th className={th}>Agent</th>
                   <th className={th}>Service</th>
                   <th className={`${th} text-right`}>Coût annuel</th>
@@ -498,9 +498,9 @@ export default function SubventionRegion({
               </thead>
               <tbody>
                 {personnelEligible.map(p => (
-                  <tr key={p.id} className={`border-b ${darkMode ? 'border-gray-700' : 'border-slate-100'}`}>
+                  <tr key={p.id} className={`border-b ${darkMode ? 'border-zinc-700' : 'border-slate-100'}`}>
                     <td className={td}>{p.titre || 'Sans nom'}</td>
-                    <td className={`${td} text-xs ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>{p._source}</td>
+                    <td className={`${td} text-xs ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>{p._source}</td>
                     <td className={tdR}>{fmt(p.coutAnnuel)}</td>
                     <td className={`${tdR} text-xs`}>{p.pctFI}%</td>
                     <td className={tdR}>{fmt(p.coutSubventionnable)}</td>
@@ -530,7 +530,7 @@ export default function SubventionRegion({
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className={`${darkMode ? 'bg-gray-700' : 'bg-slate-100'}`}>
+                  <tr className={`${darkMode ? 'bg-zinc-700' : 'bg-slate-100'}`}>
                     <th className={th} style={{ width: '38%' }}>Activité / Service</th>
                     <th className={`${th} text-right`}>Coût total (€)</th>
                     <th className={`${th} text-center`}>Éligible</th>
@@ -545,7 +545,7 @@ export default function SubventionRegion({
                     <td className={`${td} font-black text-purple-500`} colSpan={6}>Formations</td>
                   </tr>
                   {rowsFormations.map(r => (
-                    <tr key={r.key} className={`border-b ${darkMode ? 'border-gray-700/50' : 'border-slate-100'}`}>
+                    <tr key={r.key} className={`border-b ${darkMode ? 'border-zinc-700/50' : 'border-slate-100'}`}>
                       <td className={`${td} pl-6`}>{r.nom}</td>
                       <td className={tdR}>{fmt(r.coutTotal)}</td>
                       <td className="px-3 py-2 text-center">
@@ -572,7 +572,7 @@ export default function SubventionRegion({
                     <td className={`${td} font-black text-blue-500`} colSpan={6}>Siège & Services transversaux</td>
                   </tr>
                   {rowsTransversal.map(r => (
-                    <tr key={r.key} className={`border-b ${darkMode ? 'border-gray-700/50' : 'border-slate-100'}`}>
+                    <tr key={r.key} className={`border-b ${darkMode ? 'border-zinc-700/50' : 'border-slate-100'}`}>
                       <td className={`${td} pl-6`}>{r.nom}</td>
                       <td className={tdR}>{fmt(r.coutTotal)}</td>
                       <td className="px-3 py-2 text-center">
@@ -615,8 +615,8 @@ export default function SubventionRegion({
                 { label: 'Autofinancement estimé', val: fmt(grand.coutTotal - grand.subvention) },
                 { label: 'Subvention / coût éligible', val: grand.coutEligible > 0 ? `${(grand.subvention/grand.coutEligible*100).toFixed(1)}%` : '—' },
               ].map(k => (
-                <div key={k.label} className={`p-4 rounded-xl text-center border ${darkMode ? 'bg-gray-700/60 border-gray-600' : 'bg-white border-slate-200'}`}>
-                  <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{k.label}</div>
+                <div key={k.label} className={`p-4 rounded-xl text-center border ${darkMode ? 'bg-zinc-700/60 border-zinc-600' : 'bg-white border-slate-200'}`}>
+                  <div className={`text-xs font-bold mb-1 ${darkMode ? 'text-zinc-400' : 'text-slate-500'}`}>{k.label}</div>
                   <div className={`text-lg font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{k.val}</div>
                 </div>
               ))}

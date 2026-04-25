@@ -175,6 +175,12 @@ export const FINANCIAL_HELP = {
     text: 'Taux de marge = Marge nette ÷ Recettes × 100. Mesure l\'efficacité commerciale de la session. Cible recommandée > 15 %. Négatif = la session coûte plus qu\'elle ne rapporte.',
   },
 
+  // ── Taxe d'apprentissage ───────────────────────────────────────────────────
+  taxeApprentissage: {
+    type: 'info',
+    text: 'Taxe d\'apprentissage : 0,68 % de la masse salariale brute (hors charges). Ressource propre des établissements d\'enseignement reconnus. Collectée par les OPCO et versée sur la base des choix des entreprises. À inscrire en compte 74 « Subventions d\'exploitation ».',
+  },
+
   // ── Transversalité & comptabilité associative ───────────────────────────────
   fondsDedie: {
     type: 'warning',
@@ -203,11 +209,77 @@ export const FINANCIAL_HELP = {
 };
 
 
-export const CHARGES_PATRONALES = 0.42;
-export const TAUX_CHARGE_TOTAL = 1 + CHARGES_PATRONALES; // 1.42
+// ─── Comptes PCG — plan comptable général (associations médico-social / formation) ──────────────
+// Utilisé pour le mapping Dolibarr et l'export journal OD comptable.
+
+export const COMPTES_PCG = [
+  // Charges
+  { compte: '6061', label: 'Fluides (énergie, électricité, gaz)', mots: ['énergie', 'energie', 'electricite', 'électricite', 'electricité', 'électricité', 'gaz', 'fluide', 'chauffage', 'climatisation'] },
+  { compte: '6063', label: 'Eau', mots: ['eau', 'adduction'] },
+  { compte: '6064', label: 'Fournitures / informatique / logiciels', mots: ['fourniture', 'papier', 'informatique', 'logiciel', 'licence', 'logiciels', 'matériel informatique', 'materiel informatique'] },
+  { compte: '6065', label: 'Documentation / abonnements', mots: ['documentation', 'revue', 'abonnement', 'presse', 'livre', 'bibliothèque', 'bibliotheque'] },
+  { compte: '6110', label: 'Sous-traitance générale', mots: ['sous-traitance', 'sous traitance', 'prestataire', 'nettoyage', 'gardiennage', 'sécurité', 'securite', 'entretien espaces verts'] },
+  { compte: '6132', label: 'Loyer / locations immobilières', mots: ['loyer', 'local', 'location immobilière', 'location immobiliere', 'bail', 'loyers'] },
+  { compte: '6135', label: 'Location mobilière / crédit-bail', mots: ['location matériel', 'location materiel', 'leasing', 'credit-bail', 'crédit-bail', 'location longue durée'] },
+  { compte: '6150', label: 'Entretien / réparations', mots: ['entretien', 'maintenance', 'réparation', 'reparation', 'dépannage', 'depannage'] },
+  { compte: '6160', label: 'Assurances', mots: ['assurance', 'multirisque', 'rc pro', 'responsabilité civile', 'responsabilite civile'] },
+  { compte: '6183', label: 'Formation du personnel', mots: ['plan de formation', 'formation du personnel', 'formation interne', 'cpf', 'dif'] },
+  { compte: '6220', label: 'Honoraires (expert-comptable / avocat)', mots: ['honoraire', 'expert-comptable', 'avocat', 'commissaire aux comptes', 'juridique', 'notaire', 'huissier'] },
+  { compte: '6230', label: 'Publicité / communication', mots: ['publicité', 'publicite', 'communication', 'marketing', 'annonce', 'affichage', 'plaquette', 'site internet', 'web'] },
+  { compte: '6250', label: 'Voyages / déplacements professionnels', mots: ['voyage', 'billet', 'avion', 'train', 'sncf'] },
+  { compte: '6251', label: 'Déplacements / missions / carburant', mots: ['déplacement', 'deplacement', 'mission', 'frais de déplacement', 'carburant', 'essence', 'transport en commun', 'indemnite kilometrique', 'indemnité kilométrique'] },
+  { compte: '6257', label: 'Réceptions / restauration', mots: ['restauration', 'repas', 'reception', 'réception', 'hébergement', 'hotel', 'hôtel'] },
+  { compte: '6263', label: 'Téléphonie / internet', mots: ['téléphone', 'telephone', 'internet', 'mobile', 'telecom', 'box', 'sfr', 'orange', 'bouygues'] },
+  { compte: '6411', label: 'Salaires et traitements bruts', mots: ['salaire', 'rémunération', 'remuneration', 'traitement', 'masse salariale'] },
+  { compte: '6451', label: 'Cotisations URSSAF / sécurité sociale', mots: ['charges patronales', 'urssaf', 'cotisation sociale', 'secu', 'sécurité sociale'] },
+  { compte: '6453', label: 'Cotisations retraite / prévoyance', mots: ['retraite', 'prévoyance', 'prevoyance', 'mutuelle', 'chorum', 'ocirp'] },
+  // Recettes
+  { compte: '7060', label: 'Droits d\'inscription / prestations FI', mots: ['droits inscription', "droits d'inscription", 'frais pédagogiques', 'frais pedagogiques', 'inscription'] },
+  { compte: '7063', label: 'Formation continue (FC)', mots: ['formation continue', 'fc prestation', 'inter-entreprise', 'intra-entreprise', 'prestation fc'] },
+  { compte: '7410', label: 'Subvention État / Ministère', mots: ['subvention état', 'subvention etat', 'ministère', 'ministere', 'dgcs', 'dreets', 'national', 'fiphfp'] },
+  { compte: '7411', label: 'Subvention Région / Département / Communes', mots: ['subvention région', 'subvention region', 'subvention département', 'subvention departement', 'région', 'region', 'département', 'departement', 'commune', 'collectivité', 'collectivite', 'ars', 'cd', 'conseil departemental'] },
+  { compte: '7441', label: 'Taxe d\'apprentissage', mots: ['taxe apprentissage', "taxe d'apprentissage", 'ta '] },
+  { compte: '7445', label: 'OPCO / CPDFPE / Uniformation', mots: ['opco', 'ocapiat', 'uniformation', 'cpdfpe', 'agefiph', 'opco santé', 'atlas', 'akto'] },
+  { compte: '7481', label: 'Mécénat / partenariat', mots: ['mécénat', 'mecenat', 'partenariat', 'sponsoring', 'don'] },
+];
+
+/** Retourne le compte PCG le plus probable pour une ligne, d'après son libellé. */
+export function detecterComptePCG(nom) {
+  if (!nom) return '';
+  const n = (nom || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  for (const { compte, mots } of COMPTES_PCG) {
+    if (mots.some(m => {
+      const mn = m.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return n.includes(mn);
+    })) return compte;
+  }
+  return '';
+}
+
+
+// ─── Filières de formation et clés de répartition ────────────────────────────
+// Source unique de vérité pour la ventilation des enveloppes de formation.
+// Somme = 100 %. Modifiable dans l'interface (persisté dans enveloppeFormation.filieres).
+export const FILIERES_DEFAULT = [
+  { id: 'aes',      label: 'AES',      cle: 1.79  },
+  { id: 'es_arras', label: 'ES Arras', cle: 30.25 },
+  { id: 'es_avion', label: 'ES Avion', cle: 16.93 },
+  { id: 'me_arras', label: 'ME Arras', cle: 34.64 },
+  { id: 'me_avion', label: 'ME Avion', cle: 9.58  },
+  { id: 'fc',       label: 'FC',       cle: 6.81  },
+];
+
+// CCN 66 : URSSAF ~40% + prévoyance CHORUM/OCIRP ~3,5% + médecine du travail ~0,5% ≈ 44%
+// Ancienne valeur générique : 0,42 — corrigé 2026-04-18
+export const CHARGES_PATRONALES = 0.44;
+export const TAUX_CHARGE_TOTAL = 1 + CHARGES_PATRONALES; // 1.44
 export const PRIME_SEGUR = 238;
-export const TAUX_TAXE_SALAIRES = 0.0425; // 4,25 % — taux normal taxe sur les salaires (associations non assujetties TVA)
-export const SMIC_MENSUEL = 1801.80;        // SMIC brut mensuel 2025 (net ≈ 1426 €)
+export const TAUX_TAXE_SALAIRES   = 0.0425; // 4,25 % — tranche 1 barème CGI art. 231 (2026)
+export const SEUIL_TAXE_SALAIRES_T2 = 8572;   // au-delà → 8,50 %
+export const SEUIL_TAXE_SALAIRES_T3 = 17114;  // au-delà → 13,60 %
+export const TAUX_TAXE_SALAIRES_T2  = 0.085;
+export const TAUX_TAXE_SALAIRES_T3  = 0.136;
+export const SMIC_MENSUEL = 1841.45;        // SMIC brut mensuel 2026 (+2,2% au 01/11/2025, net ≈ 1458 €)
 export const TAUX_FILLON_MAX = 0.3214;      // Réduction Fillon : taux max sur bas salaires (≤ SMIC)
 export const TAUX_CHARGES_APPRENTI = 0.12;  // Charges patronales réduites apprentis / contrats pro
 export const JOURS_ANNEE = 365;
@@ -275,8 +347,11 @@ export const defaultGlobalParams = {
   inflationAutres: 2.5,
   delaiPaiementClients: 30,
   delaiPaiementFournisseurs: 30,
+  delaiPaiementURSSAF: 45,
   montantSegurETP: 238,
   seuilCouverture: 90,
+  opcoPrevisionnelAnnuel: 0,
+  opcoPrevisionnelHeures: 0,
   rolesPersonnel: [
     { id: 'direction',         label: 'Siège' },
     { id: 'directeur_adjoint', label: 'Directeur adjoint' },
@@ -304,21 +379,51 @@ export const defaultGlobalParams = {
   soldeFDOuverture: 0,   // Solde Fonds Dédiés au 01/01/N (Compte 19)
   tauxSubventionDAF: { fi: 70, transversal: 60, recherche: 30 },
   taxeSalaires: false,
-  tauxTaxeSalaires: 4.25,
+  tauxTaxeSalaires: TAUX_TAXE_SALAIRES * 100, // 4.25 — tranche 1 CGI art. 231 (source unique)
   gestionTVA: false,
   tauxTVAMoyen: 20,
+  coefficientBP: 100,
+  tauxChargesPatronales: 44,
+  // Workflow d'approbation (4.1 / 4.3)
+  // 'brouillon' → 'soumis' → 'valide' → 'gele'  (retour possible sauf depuis 'gele')
+  statutBudget: 'brouillon',
 };
 
 // ─── DAF — Dossier de Demande de Subvention Régionale ─────────────────────────
 
-export const DAF_TAUX_INIT = { fi: 70, transversal: 60, recherche: 30 };
+export const DAF_TAUX_INIT = {
+  fi: 70, transversal: 60, recherche: 30,
+  tauxModulable: false,
+  fiSalaires: 70, fiExploitation: 70, fiInvest: 50,
+};
 
+/// Volumes horaires réglementaires (source : arrêtés ministériels français — mis à jour 2022-2025)
 export const DAF_FORMATIONS_INIT = [
-  { id: 'es',       nom: 'FI Éducateur Spécialisé (ES)',             duree: 3, effectif: 0 },
-  { id: 'me',       nom: 'FI Moniteur Éducateur (ME)',               duree: 2, effectif: 0 },
-  { id: 'caferuis', nom: 'CAFERUIS (Cadres intermédiaires)',          duree: 2, effectif: 0 },
-  { id: 'cafdes',   nom: 'CAFDES (Directeurs)',                       duree: 2, effectif: 0 },
-  { id: 'aes',      nom: 'AES (Accompagnant Éducatif et Social)',     duree: 1, effectif: 0 },
+  {
+    id: 'es', nom: 'FI Éducateur Spécialisé (DEES)', duree: 3, effectif: 0,
+    heuresCours: 1517, heuresPratique: 1925, heuresTotales: 3442,
+    referentiel: 'DEES — Arrêté 06/10/2025 (en vigueur rentrée 2026)',
+  },
+  {
+    id: 'me', nom: 'FI Moniteur Éducateur (DEME)', duree: 2, effectif: 0,
+    heuresCours: 950, heuresPratique: 1050, heuresTotales: 2000,
+    referentiel: 'DEME — Arrêté 05/07/2024 modifié 18/03/2025',
+  },
+  {
+    id: 'aes', nom: 'AES (Accompagnant Éducatif et Social — DEAES)', duree: 1, effectif: 0,
+    heuresCours: 546, heuresPratique: 840, heuresTotales: 1386,
+    referentiel: 'DEAES — Arrêté 30/08/2021 modifié 23/10/2024',
+  },
+  {
+    id: 'caferuis', nom: 'CAFERUIS (Cadres intermédiaires)', duree: 2, effectif: 0,
+    heuresCours: 400, heuresPratique: 420, heuresTotales: 820,
+    referentiel: 'CAFERUIS — Arrêté 31/08/2022',
+  },
+  {
+    id: 'cafdes', nom: 'CAFDES (Directeurs)', duree: 2, effectif: 0,
+    heuresCours: 700, heuresPratique: 510, heuresTotales: 1210,
+    referentiel: 'CAFDES — Arrêté 27/08/2022',
+  },
 ];
 
 export const DAF_COST_LINES = [

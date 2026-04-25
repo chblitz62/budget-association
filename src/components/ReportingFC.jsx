@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Edit2, Check, X, FileSpreadsheet, Download } from 'lucide-react';
+import HelpIcon from './ui/HelpIcon';
 
 const emptyRecord = () => ({
   id: String(Date.now() + Math.random()),
@@ -13,7 +14,7 @@ const emptyRecord = () => ({
   serviceId: null,
 });
 
-const ReportingFC = ({ reportingFC, setReportingFC, services, darkMode, onExportExcel, onExportPdf }) => {
+const ReportingFC = ({ reportingFC, setReportingFC, services, darkMode, globalParams, setGlobalParams, onExportExcel, onExportPdf }) => {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyRecord());
   const [editId, setEditId] = useState(null);
@@ -60,6 +61,11 @@ const ReportingFC = ({ reportingFC, setReportingFC, services, darkMode, onExport
   const totalCout = reportingFC.reduce((s, r) => s + (parseFloat(r.cout) || 0), 0);
   const totalOPCO = reportingFC.reduce((s, r) => s + (parseFloat(r.financementOPCO) || 0), 0);
 
+  const opcoPrevMontant = parseFloat(globalParams?.opcoPrevisionnelAnnuel) || 0;
+  const opcoPrevHeures  = parseFloat(globalParams?.opcoPrevisionnelHeures)  || 0;
+  const tauxRealisationOPCO  = opcoPrevMontant > 0 ? Math.round(totalOPCO / opcoPrevMontant * 100) : null;
+  const tauxRealisationHeures = opcoPrevHeures > 0 ? Math.round(totalHeures / opcoPrevHeures * 100) : null;
+
   const inputCls = `w-full rounded-lg px-2 py-1.5 text-sm outline-none ${darkMode ? 'bg-gray-700 text-white border border-gray-600' : 'bg-white border border-slate-200'}`;
 
   return (
@@ -68,7 +74,10 @@ const ReportingFC = ({ reportingFC, setReportingFC, services, darkMode, onExport
         <div className="flex items-center gap-3">
           <FileSpreadsheet className={darkMode ? 'text-indigo-400' : 'text-indigo-600'} size={28} />
           <div>
-            <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Reporting Formation Continue</h2>
+            <h2 className={`text-xl font-black flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+              Reporting Formation Continue
+              <HelpIcon type="info" position="bottom" wide content="Registre individuel des parcours de formation continue (FC) des salariés. Permet de suivre le volume horaire, les coûts et les prises en charge OPCO. Exportable en Excel et PDF pour transmission aux organismes financeurs." />
+            </h2>
             <span className={`text-xs font-bold ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
               {reportingFC.length} stagiaire{reportingFC.length !== 1 ? 's' : ''} · {totalHeures.toLocaleString('fr-FR')} h · {Math.round(totalCout).toLocaleString('fr-FR')} € (OPCO : {Math.round(totalOPCO).toLocaleString('fr-FR')} €)
             </span>
@@ -98,6 +107,66 @@ const ReportingFC = ({ reportingFC, setReportingFC, services, darkMode, onExport
         </div>
       </div>
 
+      {/* Suivi OPCO : prévisionnel vs. réel */}
+      {setGlobalParams && (
+        <div className={`mb-4 rounded-2xl border p-4 ${darkMode ? 'bg-indigo-900/20 border-indigo-800/40' : 'bg-indigo-50 border-indigo-200'}`}>
+          <div className="flex items-center justify-between mb-3">
+            <span className={`text-xs font-black uppercase tracking-widest ${darkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>Suivi OPCO — prévisionnel vs. réel</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label className={`block text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Budget OPCO prév. (€)</label>
+              <input type="number" min="0" className={`w-full rounded-lg px-2 py-1.5 text-sm outline-none ${darkMode ? 'bg-gray-700 text-white border border-gray-600' : 'bg-white border border-slate-200'}`}
+                value={opcoPrevMontant || ''}
+                onChange={e => setGlobalParams(p => ({ ...p, opcoPrevisionnelAnnuel: parseFloat(e.target.value) || 0 }))}
+                placeholder="0" />
+            </div>
+            <div>
+              <label className={`block text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Heures formation prév.</label>
+              <input type="number" min="0" className={`w-full rounded-lg px-2 py-1.5 text-sm outline-none ${darkMode ? 'bg-gray-700 text-white border border-gray-600' : 'bg-white border border-slate-200'}`}
+                value={opcoPrevHeures || ''}
+                onChange={e => setGlobalParams(p => ({ ...p, opcoPrevisionnelHeures: parseFloat(e.target.value) || 0 }))}
+                placeholder="0" />
+            </div>
+            <div className={`rounded-xl p-3 border ${darkMode ? 'bg-green-900/20 border-green-800/40' : 'bg-green-50 border-green-200'}`}>
+              <div className={`text-xs font-semibold mb-0.5 ${darkMode ? 'text-green-400' : 'text-green-600'}`}>OPCO réalisé</div>
+              <div className={`text-lg font-black ${darkMode ? 'text-green-300' : 'text-green-700'}`}>
+                {Math.round(totalOPCO).toLocaleString('fr-FR')} €
+              </div>
+              {tauxRealisationOPCO !== null && (
+                <div className={`text-xs font-bold mt-0.5 ${tauxRealisationOPCO >= 100 ? (darkMode ? 'text-emerald-400' : 'text-emerald-600') : (darkMode ? 'text-amber-400' : 'text-amber-600')}`}>
+                  {tauxRealisationOPCO}% du prévisionnel
+                </div>
+              )}
+            </div>
+            <div className={`rounded-xl p-3 border ${darkMode ? 'bg-blue-900/20 border-blue-800/40' : 'bg-blue-50 border-blue-200'}`}>
+              <div className={`text-xs font-semibold mb-0.5 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Heures réalisées</div>
+              <div className={`text-lg font-black ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+                {totalHeures.toLocaleString('fr-FR')} h
+              </div>
+              {tauxRealisationHeures !== null && (
+                <div className={`text-xs font-bold mt-0.5 ${tauxRealisationHeures >= 100 ? (darkMode ? 'text-emerald-400' : 'text-emerald-600') : (darkMode ? 'text-amber-400' : 'text-amber-600')}`}>
+                  {tauxRealisationHeures}% du prévisionnel
+                </div>
+              )}
+            </div>
+          </div>
+          {opcoPrevMontant > 0 && totalOPCO > 0 && (
+            <div className="mt-2">
+              <div className={`w-full rounded-full h-2 ${darkMode ? 'bg-zinc-700' : 'bg-slate-200'}`}>
+                <div className={`h-2 rounded-full transition-all ${tauxRealisationOPCO >= 100 ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                  style={{ width: `${Math.min(100, tauxRealisationOPCO)}%` }} />
+              </div>
+              {totalOPCO < opcoPrevMontant && (
+                <p className={`text-xs mt-1 ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>
+                  Reste à percevoir : {Math.round(opcoPrevMontant - totalOPCO).toLocaleString('fr-FR')} €
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Formulaire d'ajout/modification */}
       {showForm && (
         <div className={`mb-4 p-4 rounded-2xl border-2 ${darkMode ? 'bg-gray-700 border-indigo-700' : 'bg-white border-indigo-200'}`}>
@@ -122,15 +191,24 @@ const ReportingFC = ({ reportingFC, setReportingFC, services, darkMode, onExport
               <input type="date" className={inputCls} value={form.dateFin} onChange={e => setForm({ ...form, dateFin: e.target.value })} />
             </div>
             <div>
-              <label className={`block text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Heures</label>
+              <label className={`flex items-center gap-1 text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                Heures
+                <HelpIcon type="info" position="top" content="Durée totale de la formation en heures. Sert à justifier la prise en charge OPCO et à calculer le coût horaire." />
+              </label>
               <input type="number" min="0" step="0.5" className={inputCls} value={form.heures} onChange={e => setForm({ ...form, heures: parseFloat(e.target.value) || 0 })} />
             </div>
             <div>
-              <label className={`block text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Coût (€)</label>
+              <label className={`flex items-center gap-1 text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                Coût (€)
+                <HelpIcon type="info" position="top" content="Coût total brut de la formation avant déduction OPCO. Inclure les frais pédagogiques, déplacement et hébergement si applicable." />
+              </label>
               <input type="number" min="0" className={inputCls} value={form.cout} onChange={e => setForm({ ...form, cout: parseFloat(e.target.value) || 0 })} />
             </div>
             <div>
-              <label className={`block text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>Financement OPCO (€)</label>
+              <label className={`flex items-center gap-1 text-xs font-bold mb-1 ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                Financement OPCO (€)
+                <HelpIcon type="warning" position="top" content="Montant confirmé de prise en charge par l'OPCO. À ne saisir qu'après accord de financement. Le reste à charge employeur = Coût − OPCO." />
+              </label>
               <input type="number" min="0" className={inputCls} value={form.financementOPCO} onChange={e => setForm({ ...form, financementOPCO: parseFloat(e.target.value) || 0 })} />
             </div>
             <div>
@@ -160,8 +238,25 @@ const ReportingFC = ({ reportingFC, setReportingFC, services, darkMode, onExport
           <table className="w-full text-sm">
             <thead>
               <tr className={`${darkMode ? 'bg-gray-700' : 'bg-white/70'}`}>
-                {['Stagiaire', 'Formation', 'Date début', 'Date fin', 'Heures', 'Coût (€)', 'OPCO (€)', 'Service', ''].map((h, i) => (
-                  <th key={i} className={`px-3 py-2 text-left text-xs font-black uppercase ${i >= 4 && i <= 6 ? 'text-right' : ''} ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>{h}</th>
+                {[
+                  { label: 'Stagiaire', help: null },
+                  { label: 'Formation', help: null },
+                  { label: 'Date début', help: null },
+                  { label: 'Date fin', help: null },
+                  { label: 'Heures', help: 'Nombre d\'heures de formation réalisées. Permet de calculer le coût horaire et de justifier auprès de l\'OPCO.', right: true },
+                  { label: 'Coût (€)', help: 'Coût total engagé pour cette formation : frais pédagogiques, déplacement, hébergement. Avant déduction OPCO.', right: true },
+                  { label: 'OPCO (€)', help: 'Montant pris en charge par l\'OPCO (Opérateur de Compétences). Le reste à charge employeur = Coût − OPCO.', right: true },
+                  { label: 'Service', help: null },
+                  { label: '', help: null },
+                ].map((h, i) => (
+                  <th key={i} className={`px-3 py-2 text-left text-xs font-black uppercase ${h.right ? 'text-right' : ''} ${darkMode ? 'text-gray-400' : 'text-slate-500'}`}>
+                    {h.help ? (
+                      <span className={`flex items-center gap-1 ${h.right ? 'justify-end' : ''}`}>
+                        {h.label}
+                        <HelpIcon type="info" position="bottom" content={h.help} />
+                      </span>
+                    ) : h.label}
+                  </th>
                 ))}
               </tr>
             </thead>

@@ -8,12 +8,13 @@ import * as XLSX from 'xlsx';
 import {
   Plus, Trash2, FileSpreadsheet, ChevronDown, ChevronUp,
   GraduationCap, Building2, Search, Info, Calculator,
-  Percent, Link, Link2Off, RefreshCw, Target,
+  Percent, Link, Link2Off, RefreshCw, Target, Layers, Users,
 } from 'lucide-react';
 import {
   DAF_TAUX_INIT, DAF_FORMATIONS_INIT, DAF_COST_LINES, DAF_TRANSVERSAL_INIT,
-  calculerStatsFormation,
+  calculerStatsFormation, FILIERES_DEFAULT,
 } from '../utils/constants';
+import { calculerEnveloppeParFiliere } from '../utils/calculations';
 import { formatEuro } from '../utils/formatting';
 import { AlertTriangle } from 'lucide-react';
 
@@ -31,6 +32,7 @@ export default function DAF({
   calculerBudgetService,
   calculerBudgetDirection,
   calculerBudgetPoleSupport,
+  enveloppeFormation      = null,
 }) {
   // Taux par défaut : globalParams > localStorage > DAF_TAUX_INIT
   const tauxDefaut = globalParams?.tauxSubventionDAF ?? DAF_TAUX_INIT;
@@ -144,17 +146,39 @@ export default function DAF({
         const effectifActuel = stats.effectifActuel;
         if (effectifActuel > 0) coeff = { ...coeff, effectif: effectifActuel };
 
-        // Coût personnel depuis budget
+        // Coût personnel + exploitation depuis budget
         if (calculerBudgetService) {
           const b = calculerBudgetService(srv);
-          coeff = { ...coeff, couts: { ...coeff.couts, personnel: Math.round(b.salaires) } };
+          coeff = {
+            ...coeff,
+            couts: { ...coeff.couts, personnel: Math.round(b.salaires) },
+            exploitationBudget: Math.round(b.exploitation || 0),
+          };
         }
       }
     }
 
-    const coutTotal = DAF_COST_LINES.reduce((s, { key }) => s + (parseFloat(coeff.couts[key]) || 0), 0);
-    return { ...coeff, coutTotal, coutEligible: coutTotal, subvention: coutTotal * (taux.fi / 100) };
-  }), [formations, taux.fi, useBudgetLink, serviceLinks, services, calculerBudgetService]);
+    const coutTotal = DAF_COST_LINES.reduce((s, { key }) => s + (parseFloat(coeff.couts[key]) || 0), 0)
+      + (coeff.exploitationBudget || 0);
+
+    let coutEligible, subvention;
+    if (taux.tauxModulable) {
+      const cSalaires = parseFloat(coeff.couts.personnel) || 0;
+      const cExploit  = (parseFloat(coeff.couts.locaux) || 0)
+                      + (parseFloat(coeff.couts.admin)   || 0)
+                      + (parseFloat(coeff.couts.autres)  || 0)
+                      + (coeff.exploitationBudget || 0);
+      const cInvest   = parseFloat(coeff.couts.materiel) || 0;
+      coutEligible = cSalaires * ((taux.fiSalaires ?? 70) / 100)
+                   + cExploit  * ((taux.fiExploitation ?? 70) / 100)
+                   + cInvest   * ((taux.fiInvest ?? 50) / 100);
+      subvention = coutEligible;
+    } else {
+      coutEligible = coutTotal;
+      subvention = coutTotal * (taux.fi / 100);
+    }
+    return { ...coeff, coutTotal, coutEligible, subvention };
+  }), [formations, taux.fi, taux.tauxModulable, taux.fiSalaires, taux.fiExploitation, taux.fiInvest, useBudgetLink, serviceLinks, services, calculerBudgetService]);
 
   const rowsTransversal = useMemo(() => {
     const rows = transversal.map(t => {
@@ -294,22 +318,43 @@ export default function DAF({
     XLSX.writeFile(wb, `daf_subvention_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  // ── Enveloppe formation par filière (calculée, non saisie) ─────────────────
+  const enveloppeFilieresCalc = useMemo(() => {
+    if (!enveloppeFormation) return null;
+    const filieres = enveloppeFormation.filieres?.length > 0
+      ? enveloppeFormation.filieres : FILIERES_DEFAULT;
+
+    const subv = services.reduce((s, svc) =>
+      s + (calculerBudgetService?.(svc)?.subventionRegionAgents || 0), 0);
+    const dir    = calculerBudgetDirection?.(direction)?.salaires || 0;
+    const ps     = calculerBudgetPoleSupport?.(poleSupport)?.salaires || 0;
+    const svcs   = services.reduce((s, svc) => s + (calculerBudgetService?.(svc)?.salaires || 0), 0);
+    const dirExp = calculerBudgetDirection?.(direction)?.exploitation || 0;
+    const psExp  = calculerBudgetPoleSupport?.(poleSupport)?.exploitation || 0;
+    const svcsExp= services.reduce((s, svc) => s + (calculerBudgetService?.(svc)?.exploitation || 0), 0);
+
+    return calculerEnveloppeParFiliere(
+      filieres, subv, dir + ps + svcs, dirExp + psExp + svcsExp
+    );
+  }, [enveloppeFormation, services, direction, poleSupport,
+      calculerBudgetService, calculerBudgetDirection, calculerBudgetPoleSupport]);
+
   // ── Helpers UI ─────────────────────────────────────────────────────────────
   const toggle  = (k) => setOpen(o => ({ ...o, [k]: !o[k] }));
   const toggleF = (id) => setOpenFormation(o => ({ ...o, [id]: !o[id] }));
 
   const dm = darkMode;
   const cl = {
-    card:    dm ? 'bg-gray-800 border-gray-700'  : 'bg-white border-gray-200',
-    th:      dm ? 'bg-gray-700/80 text-gray-300' : 'bg-gray-50 text-gray-600',
-    td:      dm ? 'text-gray-200 border-gray-700': 'text-gray-700 border-gray-200',
-    inp:     dm ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800',
+    card:    dm ? 'bg-zinc-800 border-zinc-700'  : 'bg-white border-slate-200',
+    th:      dm ? 'bg-zinc-700/80 text-zinc-300' : 'bg-slate-50 text-zinc-600',
+    td:      dm ? 'text-zinc-200 border-zinc-700': 'text-zinc-700 border-slate-200',
+    inp:     dm ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-white border-slate-300 text-zinc-800',
     badge:   dm ? 'bg-teal-900/40 text-teal-300' : 'bg-teal-50 text-teal-700 border border-teal-200',
-    section: dm ? 'bg-gray-800/50' : 'bg-gray-50',
-    total:   dm ? 'bg-gray-700/60 text-gray-100' : 'bg-gray-100 text-gray-800',
+    section: dm ? 'bg-zinc-800/50' : 'bg-slate-50',
+    total:   dm ? 'bg-zinc-700/60 text-zinc-100' : 'bg-slate-100 text-zinc-800',
     accent:  dm ? 'text-teal-400'  : 'text-teal-600',
-    muted:   dm ? 'text-gray-400'  : 'text-gray-500',
-    title:   dm ? 'text-white'     : 'text-gray-900',
+    muted:   dm ? 'text-zinc-400'  : 'text-zinc-500',
+    title:   dm ? 'text-white'     : 'text-zinc-900',
   };
 
   const NumInput = ({ value, onChange, step = '1000', className = '' }) => (
@@ -333,7 +378,7 @@ export default function DAF({
       onClick={() => toggle(id)}
       className={`w-full flex items-center gap-3 p-4 rounded-2xl border shadow-sm hover:shadow-md transition-all ${cl.card}`}
     >
-      <div className={`p-2 rounded-xl ${dm ? 'bg-gray-700' : 'bg-gray-100'}`}>{icon}</div>
+      <div className={`p-2 rounded-xl ${dm ? 'bg-zinc-700' : 'bg-slate-100'}`}>{icon}</div>
       <div className="flex-1 text-left">
         <div className={`font-bold text-base ${cl.title}`}>{title}</div>
         {subtitle && <div className={`text-xs mt-0.5 ${cl.muted}`}>{subtitle}</div>}
@@ -356,6 +401,14 @@ export default function DAF({
             <p className={`text-sm mt-0.5 ${cl.muted}`}>
               Formations Initiales · Services transversaux / Siège · Recherche
             </p>
+            <div className={`flex items-start gap-2 mt-2 px-3 py-2 rounded-xl border text-xs max-w-xl ${
+              dm ? 'bg-amber-900/30 border-amber-700/50 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-800'
+            }`}>
+              <Info size={14} className="mt-0.5 shrink-0" />
+              <span>
+                <strong>Périmètre spécifique :</strong> Ce dossier calcule la <strong>subvention demandable à la Région</strong> sur la base des charges éligibles (FI, transversal, recherche). Son résultat diffère du budget opérationnel de l'onglet <em>Analyse</em>, qui couvre l'ensemble des charges de fonctionnement de l'association.
+              </span>
+            </div>
           </div>
           <div className="flex gap-2 flex-wrap">
             <button
@@ -364,7 +417,7 @@ export default function DAF({
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
                 useBudgetLink
                   ? 'bg-teal-500 text-white border-teal-600 shadow'
-                  : dm ? 'bg-gray-700 text-gray-300 border-gray-600' : 'bg-white text-gray-600 border-gray-300'
+                  : dm ? 'bg-zinc-700 text-zinc-300 border-zinc-600' : 'bg-white text-zinc-600 border-slate-300'
               }`}
             >
               {useBudgetLink ? <Link size={14}/> : <Link2Off size={14}/>}
@@ -433,6 +486,40 @@ export default function DAF({
               </div>
             ))}
           </div>
+          {/* Taux modulables FI par type de charge */}
+          <div className={`mt-4 rounded-xl border p-4 ${dm ? 'border-zinc-700 bg-zinc-800/60' : 'border-slate-200 bg-slate-50'}`}>
+            <label className={`flex items-center gap-2 text-sm font-bold cursor-pointer mb-3 ${dm ? 'text-white' : 'text-slate-700'}`}>
+              <input type="checkbox" checked={!!taux.tauxModulable}
+                onChange={e => setTauxP({ tauxModulable: e.target.checked })}
+                className="rounded" />
+              Taux FI différenciés par type de charge (salaires / exploitation / investissements)
+            </label>
+            {taux.tauxModulable && (
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { key: 'fiSalaires',     label: 'Salaires & charges', icon: <Users size={13}/>,
+                    cardDm: 'border-teal-800/40 bg-teal-900/20', cardLm: 'border-teal-200 bg-teal-50',
+                    lblDm: 'text-teal-400', lblLm: 'text-teal-600', pctDm: 'text-teal-300', pctLm: 'text-teal-700' },
+                  { key: 'fiExploitation', label: 'Exploitation',       icon: <Building2 size={13}/>,
+                    cardDm: 'border-blue-800/40 bg-blue-900/20', cardLm: 'border-blue-200 bg-blue-50',
+                    lblDm: 'text-blue-400', lblLm: 'text-blue-600', pctDm: 'text-blue-300', pctLm: 'text-blue-700' },
+                  { key: 'fiInvest',       label: 'Investissements',    icon: <Layers size={13}/>,
+                    cardDm: 'border-purple-800/40 bg-purple-900/20', cardLm: 'border-purple-200 bg-purple-50',
+                    lblDm: 'text-purple-400', lblLm: 'text-purple-600', pctDm: 'text-purple-300', pctLm: 'text-purple-700' },
+                ].map(({ key, label, icon, cardDm, cardLm, lblDm, lblLm, pctDm, pctLm }) => (
+                  <div key={key} className={`rounded-lg p-3 border ${dm ? cardDm : cardLm}`}>
+                    <div className={`flex items-center gap-1 text-xs font-semibold mb-2 ${dm ? lblDm : lblLm}`}>
+                      {icon} {label}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <PctInput value={taux[key] ?? 70} onChange={v => setTauxP({ [key]: v })}/>
+                      <span className={`text-xs font-bold ${dm ? pctDm : pctLm}`}>%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -486,8 +573,11 @@ export default function DAF({
                         ))}
                       </select>
                       {serviceLinks[f.id] && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${dm ? 'bg-teal-800 text-teal-200' : 'bg-teal-100 text-teal-700'}`}>
-                          Effectif &amp; personnel auto
+                        <span
+                          title="Données synchronisées depuis le service lié : effectif (net d'abandons), coût personnel (salaires + charges + Ségur) et charges d'exploitation (loyers, fournitures, etc.)"
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold cursor-help ${dm ? 'bg-teal-800 text-teal-200' : 'bg-teal-100 text-teal-700'}`}
+                        >
+                          Effectif, personnel &amp; exploitation auto
                         </span>
                       )}
                     </div>
@@ -548,6 +638,22 @@ export default function DAF({
                           </tr>
                         );
                       })}
+                      {f.exploitationBudget > 0 && (
+                        <tr className={`border-b ${cl.td}`}>
+                          <td className="p-2">
+                            Exploitation (budget)
+                            <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${dm ? 'bg-teal-800 text-teal-300' : 'bg-teal-100 text-teal-700'}`}>auto</span>
+                          </td>
+                          <td className="p-2 w-44">
+                            <span className={`block text-right font-semibold text-sm px-2 py-1.5 rounded-lg ${dm ? 'bg-teal-900/30 text-teal-300' : 'bg-teal-50 text-teal-700'}`}>
+                              {fmt(f.exploitationBudget)}
+                            </span>
+                          </td>
+                          <td className={`p-2 text-right text-xs font-medium ${cl.muted}`}>
+                            {f.coutTotal > 0 ? `${Math.round(f.exploitationBudget / f.coutTotal * 100)}%` : '—'}
+                          </td>
+                        </tr>
+                      )}
                       <tr className={`font-bold ${cl.total}`}>
                         <td className="p-2 rounded-bl-lg">Total</td>
                         <td className="p-2 text-right">{fmt(f.coutTotal)}</td>
@@ -556,15 +662,23 @@ export default function DAF({
                     </tbody>
                   </table>
 
-                  {/* Indicateurs par stagiaire */}
-                  {f.effectif > 0 && f.coutTotal > 0 && (
-                    <div className={`text-xs p-3 rounded-xl ${dm ? 'bg-gray-700/50 text-gray-400' : 'bg-gray-50 text-gray-500 border border-gray-200'}`}>
-                      <span>Coût annuel / stagiaire : <strong>{fmt(f.coutTotal / f.effectif)}</strong></span>
-                      {f.duree > 1 && (
-                        <span className="ml-4">Coût total du cursus ({f.duree} ans) : <strong>{fmt(f.coutTotal * f.duree)}</strong></span>
-                      )}
-                    </div>
-                  )}
+                  {/* Indicateurs par stagiaire + référentiel */}
+                  <div className={`text-xs p-3 rounded-xl space-y-1 ${dm ? 'bg-zinc-700/50 text-zinc-400' : 'bg-slate-50 text-zinc-500 border border-slate-200'}`}>
+                    {f.effectif > 0 && f.coutTotal > 0 && (
+                      <div>
+                        <span>Coût annuel / stagiaire : <strong>{fmt(f.coutTotal / f.effectif)}</strong></span>
+                        {f.duree > 1 && (
+                          <span className="ml-4">Coût total du cursus ({f.duree} ans) : <strong>{fmt(f.coutTotal * f.duree)}</strong></span>
+                        )}
+                      </div>
+                    )}
+                    {f.heuresTotales > 0 && (
+                      <div className={dm ? 'text-zinc-500' : 'text-slate-400'}>
+                        Volume réglementaire : <strong>{f.heuresCours}h cours + {f.heuresPratique}h pratique = {f.heuresTotales}h</strong>
+                        {f.referentiel && <span className="ml-2 italic">({f.referentiel})</span>}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -687,7 +801,7 @@ export default function DAF({
               {rowRecherche.servicesRecherche.map(s => {
                 const b = calculerBudgetService(s);
                 return (
-                  <div key={s.id} className={`rounded-xl p-3 text-sm ${dm ? 'bg-gray-700' : 'bg-slate-50 border border-slate-200'}`}>
+                  <div key={s.id} className={`rounded-xl p-3 text-sm ${dm ? 'bg-zinc-700' : 'bg-slate-50 border border-slate-200'}`}>
                     <div className="flex items-center justify-between">
                       <span className={`font-bold ${dm ? 'text-white' : 'text-slate-700'}`}>{s.nom}</span>
                       <span className={`font-black ${dm ? 'text-purple-300' : 'text-purple-700'}`}>{fmt(b?.total || 0)}</span>
@@ -715,7 +829,7 @@ export default function DAF({
           ) : (
             /* ── Mode manuel legacy (aucun service Recherche) ── */
             <div className="space-y-3">
-              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${dm ? 'bg-gray-700 text-gray-400' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${dm ? 'bg-zinc-700 text-zinc-400' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
                 <Info size={13}/>
                 Créez un service de type « Recherche » dans l'onglet Budget pour lier automatiquement ses coûts.
               </div>
@@ -829,7 +943,7 @@ export default function DAF({
                 </tr>
 
                 {/* Total général */}
-                <tr className={`font-extrabold text-base ${dm ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                <tr className={`font-extrabold text-base ${dm ? 'bg-zinc-700 text-white' : 'bg-slate-100 text-zinc-900'}`}>
                   <td className="p-4">TOTAL GÉNÉRAL</td>
                   <td className="p-4 text-right">{fmt(grand.coutTotal)}</td>
                   <td className="p-4 text-center">—</td>
@@ -843,7 +957,7 @@ export default function DAF({
 
           {/* Indicateurs globaux */}
           {grand.coutTotal > 0 && (
-            <div className={`p-4 border-t flex flex-wrap gap-5 text-sm ${dm ? 'border-gray-700 bg-gray-800/60' : 'border-gray-100 bg-gray-50'}`}>
+            <div className={`p-4 border-t flex flex-wrap gap-5 text-sm ${dm ? 'border-zinc-700 bg-zinc-800/60' : 'border-slate-100 bg-slate-50'}`}>
               <div className={`flex items-center gap-2 ${cl.muted}`}>
                 <Target size={14} className={cl.accent}/>
                 Taux de couverture :
@@ -859,6 +973,34 @@ export default function DAF({
               </div>
             </div>
           )}
+          {/* Enveloppe formation par filière — lien calculé (2.9) */}
+          {enveloppeFilieresCalc && enveloppeFilieresCalc.enveloppeGlobale !== 0 && (
+            <div className={`p-4 border-t ${dm ? 'border-zinc-700' : 'border-slate-200'}`}>
+              <p className={`text-xs font-black uppercase tracking-widest mb-3 ${cl.muted}`}>
+                Enveloppe formation disponible par filière — calculée automatiquement
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {enveloppeFilieresCalc.lignes.map((l) => {
+                  const positif = l.enveloppe >= 0;
+                  return (
+                    <div key={l.id} className={`p-3 rounded-xl border ${dm ? 'bg-zinc-700/60 border-zinc-600' : 'bg-slate-50 border-slate-200'}`}>
+                      <p className={`text-xs font-bold mb-0.5 ${cl.muted}`}>{l.label}</p>
+                      <p className={`text-sm font-black ${positif ? cl.accent : dm ? 'text-red-400' : 'text-red-600'}`}>
+                        {fmt(l.enveloppe)}
+                      </p>
+                      <p className={`text-[10px] ${cl.muted}`}>{fmt(l.mensuel)}/mois · clé {l.cle}%</p>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className={`text-xs mt-2 ${cl.muted}`}>
+                Enveloppe globale : <span className={`font-black ${enveloppeFilieresCalc.enveloppeGlobale >= 0 ? cl.accent : dm ? 'text-red-400' : 'text-red-600'}`}>
+                  {fmt(enveloppeFilieresCalc.enveloppeGlobale)}
+                </span> — Subvention Région − (Salaires + Exploitation)
+              </p>
+            </div>
+          )}
+
           {/* Alerte écart > 10% entre dossier DAF et budget prévisionnel */}
           {useBudgetLink && totalBudgetApp > 0 && grand.coutTotal > 0 && (() => {
             const ecart = (grand.coutTotal - totalBudgetApp) / totalBudgetApp;

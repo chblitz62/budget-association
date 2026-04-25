@@ -795,8 +795,181 @@ export const exportToExcel = (direction, services, globalParams, poleSupport = n
 
     const date = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(wb, `Budget_AFERTES_${date}.xlsx`);
+    try { localStorage.setItem('lastExcelExportDate', Date.now().toString()); } catch (_) {}
+    window.dispatchEvent(new CustomEvent('storage-excel-export', { detail: { ts: Date.now() } }));
   } catch (err) {
     alert(`Erreur lors de l'export Excel : ${err.message}`);
+  }
+};
+
+/**
+ * Export EPRD/ERRD — État Prévisionnel des Recettes et Dépenses (organisme de formation)
+ * Si balanceComptable est fournie, ajoute un onglet ERRD et un onglet Écarts.
+ */
+export const exportEPRD = (direction, services, poleSupport, globalParams, balanceComptable = null) => {
+  try {
+    const annee = globalParams?.anneeExercice || new Date().getFullYear();
+    const assoc = globalParams?.nomAssociation || 'AFERTES';
+    const wb = XLSX.utils.book_new();
+
+    const bdDir = calculerBudgetDirection(direction, null, annee);
+    const bdPS  = poleSupport ? calculerBudgetPoleSupport(poleSupport, null, annee) : null;
+    const bdSvcs = services.map(s => ({ nom: s.nom, budget: calculerBudgetService(s, null, annee) }));
+
+    // ── EPRD ──────────────────────────────────────────────────────────
+    const eprd = [];
+    eprd.push([`ÉTAT PRÉVISIONNEL DES RECETTES ET DES DÉPENSES — ${annee}`]);
+    eprd.push([assoc]);
+    eprd.push([`Édité le : ${new Date().toLocaleDateString('fr-FR')}`]);
+    eprd.push([]);
+
+    // Colonnes : section | service | poste | compte | prévisionnel
+    eprd.push(['Section', 'Entité', 'Poste', 'Compte PCG', `Prévisionnel ${annee} (€)`]);
+
+    const ligneEPRD = (section, entite, poste, compte, montant) =>
+      [section, entite, poste, compte, montant ? formatEuro(montant) : ''];
+
+    let totCharges = 0, totRecettes = 0;
+
+    // ── CHARGES ──────────────────────────────────────────────────────
+    eprd.push(['--- CHARGES ---', '', '', '', '']);
+
+    const addChargesEntite = (section, nom, bd) => {
+      if (!bd) return;
+      eprd.push(ligneEPRD(section, nom, 'Salaires et charges sociales', '64', bd.salaires));
+      totCharges += bd.salaires;
+      const exploit = bd.exploitation ?? bd.chargesSiege ?? 0;
+      if (exploit) {
+        eprd.push(ligneEPRD(section, nom, 'Charges d\'exploitation', '60-65', exploit));
+        totCharges += exploit;
+      }
+      if (bd.amortissements) {
+        eprd.push(ligneEPRD(section, nom, 'Dotations aux amortissements', '68', bd.amortissements));
+        totCharges += bd.amortissements;
+      }
+      if (bd.interets) {
+        eprd.push(ligneEPRD(section, nom, 'Charges financières (intérêts)', '66', bd.interets));
+        totCharges += bd.interets;
+      }
+    };
+
+    addChargesEntite('Gestion', 'Direction / Siège', bdDir);
+    if (bdPS) addChargesEntite('Gestion', 'Pôle Ressource', bdPS);
+    bdSvcs.forEach(({ nom, budget }) => {
+      const section = nom.toLowerCase().includes('fc') || nom.toLowerCase().includes('continue') ? 'FC' : 'FI';
+      addChargesEntite(section, nom, budget);
+    });
+
+    eprd.push([]);
+    eprd.push(['', 'TOTAL CHARGES', '', '', formatEuro(totCharges)]);
+    eprd.push([]);
+
+    // ── PRODUITS ──────────────────────────────────────────────────────
+    eprd.push(['--- PRODUITS ---', '', '', '', '']);
+
+    const addRecettesEntite = (section, nom, bd) => {
+      if (!bd) return;
+      const recettes = bd.recettes ?? 0;
+      if (recettes) {
+        eprd.push(ligneEPRD(section, nom, 'Prestations / Subventions', '70-74', recettes));
+        totRecettes += recettes;
+      }
+      if (bd.subventionRegionAgents) {
+        eprd.push(ligneEPRD(section, nom, 'Subvention Région (agents éligibles)', '74', bd.subventionRegionAgents));
+        totRecettes += bd.subventionRegionAgents;
+      }
+    };
+
+    addRecettesEntite('Gestion', 'Direction / Siège', bdDir);
+    if (bdPS) addRecettesEntite('Gestion', 'Pôle Ressource', bdPS);
+    bdSvcs.forEach(({ nom, budget }) => {
+      const section = nom.toLowerCase().includes('fc') || nom.toLowerCase().includes('continue') ? 'FC' : 'FI';
+      addRecettesEntite(section, nom, budget);
+    });
+
+    eprd.push([]);
+    eprd.push(['', 'TOTAL PRODUITS', '', '', formatEuro(totRecettes)]);
+    eprd.push([]);
+
+    const solde = totRecettes - totCharges;
+    eprd.push(['', 'RÉSULTAT PRÉVISIONNEL', '', '', formatEuro(solde)]);
+    eprd.push(['', solde >= 0 ? '→ EXCÉDENT PRÉVISIONNEL' : '→ DÉFICIT PRÉVISIONNEL', '', '', '']);
+
+    // Récapitulatif par section
+    eprd.push([]);
+    eprd.push(['RÉCAPITULATIF PAR SECTION']);
+    eprd.push(['Section', 'Charges', 'Produits', 'Résultat', '']);
+    const sections = {};
+    bdSvcs.forEach(({ nom, budget }) => {
+      const sec = nom.toLowerCase().includes('fc') || nom.toLowerCase().includes('continue') ? 'FC' : 'FI';
+      if (!sections[sec]) sections[sec] = { charges: 0, produits: 0 };
+      sections[sec].charges  += budget.total ?? 0;
+      sections[sec].produits += (budget.recettes ?? 0) + (budget.subventionRegionAgents ?? 0);
+    });
+    sections['Gestion'] = {
+      charges:  bdDir.total + (bdPS?.total ?? 0),
+      produits: (bdDir.recettes ?? 0) + (bdPS?.recettes ?? 0),
+    };
+    Object.entries(sections).forEach(([sec, { charges, produits }]) => {
+      eprd.push([sec, formatEuro(charges), formatEuro(produits), formatEuro(produits - charges), '']);
+    });
+
+    const wsEPRD = XLSX.utils.aoa_to_sheet(eprd);
+    setColumnWidths(wsEPRD, [12, 25, 30, 12, 18]);
+    XLSX.utils.book_append_sheet(wb, wsEPRD, `EPRD ${annee}`);
+
+    // ── ERRD (si balance comptable disponible) ────────────────────────
+    if (balanceComptable?.entries?.length) {
+      const errd = [];
+      errd.push([`ÉTAT RÉALISÉ DES RECETTES ET DES DÉPENSES — ${balanceComptable.annee}`]);
+      errd.push([assoc]);
+      errd.push([`Source : ${balanceComptable.fileName || 'Balance comptable importée'} — ${new Date(balanceComptable.importedAt).toLocaleDateString('fr-FR')}`]);
+      errd.push([]);
+
+      errd.push(['Compte', 'Intitulé', 'Débit', 'Crédit', 'Solde', 'Catégorie']);
+      balanceComptable.entries.forEach(e => {
+        errd.push([e.compte, e.intitule, formatEuro(e.debit), formatEuro(e.credit), formatEuro(e.solde), e.categorie]);
+      });
+      errd.push([]);
+      errd.push(['', 'TOTAL CHARGES RÉALISÉES', '', '', formatEuro(balanceComptable.totalCharges), '']);
+      errd.push(['', 'TOTAL PRODUITS RÉALISÉS',  '', '', formatEuro(balanceComptable.totalRecettes), '']);
+      errd.push(['', 'RÉSULTAT RÉALISÉ',          '', '', formatEuro(balanceComptable.totalRecettes - balanceComptable.totalCharges), '']);
+
+      const wsERRD = XLSX.utils.aoa_to_sheet(errd);
+      setColumnWidths(wsERRD, [12, 35, 14, 14, 14, 14]);
+      XLSX.utils.book_append_sheet(wb, wsERRD, `ERRD ${balanceComptable.annee}`);
+
+      // ── Écarts EPRD vs ERRD ─────────────────────────────────────────
+      const ecarts = [];
+      ecarts.push(['COMPARAISON EPRD / ERRD']);
+      ecarts.push([assoc]);
+      ecarts.push([]);
+      ecarts.push(['Poste', `EPRD ${annee} (€)`, `ERRD ${balanceComptable.annee} (€)`, 'Écart (€)', 'Écart (%)']);
+
+      const rows = [
+        { label: 'Charges personnel (64)',   previsionnel: bdSvcs.reduce((s, { budget: b }) => s + b.salaires, 0) + bdDir.salaires + (bdPS?.salaires ?? 0),         realise: (balanceComptable.entries || []).filter(e => e.categorie === 'salaires').reduce((s, e) => s + Math.abs(e.solde), 0) },
+        { label: 'Charges exploitation',     previsionnel: bdSvcs.reduce((s, { budget: b }) => s + (b.exploitation ?? 0), 0) + bdDir.chargesSiege + (bdPS?.exploitation ?? 0), realise: (balanceComptable.entries || []).filter(e => e.categorie === 'exploitation').reduce((s, e) => s + Math.abs(e.solde), 0) },
+        { label: 'Amortissements (68)',       previsionnel: bdSvcs.reduce((s, { budget: b }) => s + (b.amortissements ?? 0), 0), realise: (balanceComptable.entries || []).filter(e => e.categorie === 'amortissements').reduce((s, e) => s + Math.abs(e.solde), 0) },
+        { label: 'Total charges',             previsionnel: totCharges, realise: balanceComptable.totalCharges },
+        { label: 'Produits / recettes (7)',   previsionnel: totRecettes, realise: balanceComptable.totalRecettes },
+        { label: 'Résultat',                  previsionnel: solde, realise: balanceComptable.totalRecettes - balanceComptable.totalCharges },
+      ];
+
+      rows.forEach(({ label, previsionnel, realise }) => {
+        const ecart = realise - previsionnel;
+        const ecartPct = previsionnel !== 0 ? `${(ecart / Math.abs(previsionnel) * 100).toFixed(1)}%` : 'N/A';
+        ecarts.push([label, formatEuro(previsionnel), formatEuro(realise), formatEuro(ecart), ecartPct]);
+      });
+
+      const wsEcarts = XLSX.utils.aoa_to_sheet(ecarts);
+      setColumnWidths(wsEcarts, [30, 18, 18, 18, 10]);
+      XLSX.utils.book_append_sheet(wb, wsEcarts, 'Écarts EPRD-ERRD');
+    }
+
+    const date = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `EPRD_${assoc}_${annee}_${date}.xlsx`);
+  } catch (err) {
+    alert(`Erreur lors de l'export EPRD : ${err.message}`);
   }
 };
 

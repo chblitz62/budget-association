@@ -1,13 +1,14 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, Cell } from 'recharts';
 import { Users, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import HelpIcon from './ui/HelpIcon';
 
 export default function ChargeFormateurs({ darkMode, services, direction, poleSupport }) {
   const data = useMemo(() => {
     // 1. Collecter tous les formateurs
     const allFormateurs = [
       ...(direction?.personnel || []).filter(p => p.role === 'formateur').map(p => ({ ...p, site: 'Siège / Direction' })),
-      ...(poleSupport?.personnel || []).filter(p => p.role === 'formateur').map(p => ({ ...p, site: 'Pôle Support' })),
+      ...(poleSupport?.personnel || []).filter(p => p.role === 'formateur').map(p => ({ ...p, site: 'Pôle Ressources' })),
       ...services.flatMap(s => (s.personnel || []).filter(p => p.role === 'formateur').map(p => ({ ...p, site: s.nom })))
     ];
 
@@ -47,7 +48,7 @@ export default function ChargeFormateurs({ darkMode, services, direction, poleSu
 
   const siteColors = {
     'Siège / Direction': '#8b5cf6',
-    'Pôle Support': '#06b6d4',
+    'Pôle Ressources': '#06b6d4',
     'Avion': '#3b82f6',
     'Saint Laurent': '#10b981',
     'FC / Autres': '#f59e0b',
@@ -70,16 +71,22 @@ export default function ChargeFormateurs({ darkMode, services, direction, poleSu
             <Users size={24} />
           </div>
           <div>
-            <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>Charge de travail Formateurs</h2>
+            <h2 className={`text-xl font-black flex items-center gap-2 ${darkMode ? 'text-white' : 'text-slate-800'}`}>
+              Charge de travail Formateurs
+              <HelpIcon type="info" position="bottom" wide content="Ce graphique empilé représente la répartition des heures annuelles de chaque formateur par site d'intervention. La ligne rouge à 1 607 h correspond à 100 % d'un ETP légal. Au-dessus : risque de surcharge ; en dessous de 70 % : potentiel inexploité." />
+            </h2>
             <p className={`text-xs font-bold ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Vue transversale par site (Animation + Préparation + Hors-prod)</p>
           </div>
         </div>
         <div className="flex gap-4">
-            <div className="text-right">
-                <div className={`text-[10px] font-bold uppercase ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Taux moyen</div>
-                <div className={`text-xl font-black ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
-                    {Math.round(data.reduce((s, d) => s + d.tauxOccupation, 0) / data.length)}%
+            <div className="text-right flex items-start gap-1">
+                <div>
+                  <div className={`text-[10px] font-bold uppercase ${darkMode ? 'text-gray-500' : 'text-slate-400'}`}>Taux moyen</div>
+                  <div className={`text-xl font-black ${darkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+                      {Math.round(data.reduce((s, d) => s + d.tauxOccupation, 0) / data.length)}%
+                  </div>
                 </div>
+                <HelpIcon type="info" position="left" content="Taux d'occupation moyen = heures chargées / capacité annuelle (1 607 h × ETP). Zone verte : 70–105 %. En dessous : sous-activité. Au-dessus : risque surcharge / heures supplémentaires non provisionnées." />
             </div>
         </div>
       </div>

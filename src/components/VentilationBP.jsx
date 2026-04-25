@@ -116,7 +116,7 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
   // Construire la liste des entités cibles
   const entities = useMemo(() => [
     { id: 'direction',   label: 'Direction / Siège',  icon: 'dir'     },
-    { id: 'poleSupport', label: 'Pôle Support',        icon: 'ps'      },
+    { id: 'poleSupport', label: 'Pôle Ressources',        icon: 'ps'      },
     ...services.map(s => ({ id: `service-${s.id}`, label: s.nom, icon: 'svc' })),
     { id: 'ignore',      label: '— Ignorer —',         icon: 'ign'     },
   ], [services]);
@@ -449,21 +449,21 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
   // ── Classes de style ───────────────────────────────────────────────────────
   const dm = darkMode;
   const cl = {
-    card:   dm ? 'bg-gray-800 border-gray-700'  : 'bg-white border-gray-200',
-    th:     dm ? 'bg-gray-700/80 text-gray-300' : 'bg-gray-50 text-gray-600',
-    td:     dm ? 'text-gray-200 border-gray-700': 'text-gray-700 border-gray-200',
-    inp:    dm ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-800',
-    muted:  dm ? 'text-gray-400' : 'text-gray-500',
-    title:  dm ? 'text-white'    : 'text-gray-900',
-    row:    dm ? 'hover:bg-gray-700/40' : 'hover:bg-gray-50',
-    badge:  dm ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600',
+    card:   dm ? 'bg-zinc-800 border-zinc-700'  : 'bg-white border-slate-200',
+    th:     dm ? 'bg-zinc-700/80 text-zinc-300' : 'bg-slate-50 text-zinc-600',
+    td:     dm ? 'text-zinc-200 border-zinc-700': 'text-zinc-700 border-slate-200',
+    inp:    dm ? 'bg-zinc-700 border-zinc-600 text-white' : 'bg-white border-slate-300 text-zinc-800',
+    muted:  dm ? 'text-zinc-400' : 'text-zinc-500',
+    title:  dm ? 'text-white'    : 'text-zinc-900',
+    row:    dm ? 'hover:bg-zinc-700/40' : 'hover:bg-slate-50',
+    badge:  dm ? 'bg-zinc-700 text-zinc-300' : 'bg-slate-100 text-zinc-600',
   };
 
   const catColor = (cat) => {
     if (cat === 'recette')    return dm ? 'text-teal-400'   : 'text-teal-600';
     if (cat === 'personnel')  return dm ? 'text-blue-400'   : 'text-blue-600';
     if (cat === 'charge')     return dm ? 'text-orange-400' : 'text-orange-600';
-    return dm ? 'text-gray-500' : 'text-gray-400';
+    return dm ? 'text-zinc-500' : 'text-zinc-400';
   };
   const catLabel = { recette: 'Recette', personnel: 'Personnel', charge: 'Charge', ignore: 'Ignoré' };
 
@@ -500,8 +500,8 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
                 <button
                   onClick={() => setViewMode(v => v === 'detail' ? 'ventilation' : 'detail')}
                   className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
-                    dm ? 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
-                       : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                    dm ? 'bg-zinc-700 text-zinc-300 border-zinc-600 hover:bg-zinc-600'
+                       : 'bg-white text-zinc-600 border-slate-300 hover:bg-slate-50'
                   }`}
                 >
                   {viewMode === 'detail' ? <><BarChart3 size={14}/> Ventilation</> : <><Layers size={14}/> Détail</>}
@@ -525,8 +525,8 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
               <button
                 onClick={reset}
                 className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
-                  dm ? 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-red-900/40 hover:text-red-300'
-                     : 'bg-white text-gray-500 border-gray-300 hover:bg-red-50 hover:text-red-600'
+                  dm ? 'bg-zinc-700 text-zinc-300 border-zinc-600 hover:bg-red-900/40 hover:text-red-300'
+                     : 'bg-white text-zinc-500 border-slate-300 hover:bg-red-50 hover:text-red-600'
                 }`}
               >
                 <RefreshCw size={14}/> Nouveau fichier
@@ -593,11 +593,11 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
           className={`rounded-2xl border-2 border-dashed p-14 text-center cursor-pointer transition-all ${
             drag
               ? dm ? 'border-teal-400 bg-teal-900/20' : 'border-teal-400 bg-teal-50'
-              : dm ? 'border-gray-600 hover:border-teal-500 hover:bg-gray-700/30' : 'border-gray-300 hover:border-teal-400 hover:bg-teal-50/30'
+              : dm ? 'border-zinc-600 hover:border-teal-500 hover:bg-zinc-700/30' : 'border-slate-300 hover:border-teal-400 hover:bg-teal-50/30'
           }`}
         >
           <input ref={fileRef} type="file" accept=".xlsx,.xls,.ods" className="hidden" onChange={e => handleFile(e.target.files[0])}/>
-          <FileSpreadsheet size={48} className={`mx-auto mb-4 ${dm ? 'text-gray-500' : 'text-gray-400'}`}/>
+          <FileSpreadsheet size={48} className={`mx-auto mb-4 ${dm ? 'text-zinc-500' : 'text-zinc-400'}`}/>
           <p className={`text-lg font-bold mb-2 ${cl.title}`}>
             Glisser-déposer le fichier Excel ici
           </p>
@@ -718,7 +718,7 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
                 preview.push({ label, section: curSection, montant, cat: curCat, isSection: false });
               }
               return (
-                <div className={`rounded-xl overflow-hidden border ${dm ? 'border-gray-700' : 'border-gray-200'}`}>
+                <div className={`rounded-xl overflow-hidden border ${dm ? 'border-zinc-700' : 'border-slate-200'}`}>
                   <div className={`px-3 py-2 text-xs font-bold flex items-center justify-between ${cl.th}`}>
                     <span>Aperçu de la structure détectée</span>
                     <span className={cl.muted}>{preview.filter(p => !p.isSection).length} lignes de données · {preview.filter(p => p.isSection).length} sections</span>
@@ -734,8 +734,8 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
                       </thead>
                       <tbody>
                         {preview.map((p, i) => p.isSection ? (
-                          <tr key={i} className={`border-t ${dm ? 'bg-gray-700/60' : 'bg-gray-100'}`}>
-                            <td colSpan={3} className={`p-2 font-bold text-xs uppercase tracking-wide ${dm ? 'text-gray-300' : 'text-gray-500'}`}>
+                          <tr key={i} className={`border-t ${dm ? 'bg-zinc-700/60' : 'bg-slate-100'}`}>
+                            <td colSpan={3} className={`p-2 font-bold text-xs uppercase tracking-wide ${dm ? 'text-zinc-300' : 'text-zinc-500'}`}>
                               ── {p.label}
                             </td>
                           </tr>
@@ -771,7 +771,7 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
           {/* Bouton reconfigurer */}
           <button
             onClick={() => setPhase('mapping')}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border transition-all ${dm ? 'bg-gray-700 border-gray-600 text-gray-400 hover:text-white' : 'bg-white border-gray-300 text-gray-500 hover:text-gray-800'}`}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border transition-all ${dm ? 'bg-zinc-700 border-zinc-600 text-zinc-400 hover:text-white' : 'bg-white border-slate-300 text-zinc-500 hover:text-zinc-800'}`}
           >
             <Settings2 size={13}/> Reconfigurer le mapping
           </button>
@@ -780,7 +780,7 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
           {viewMode === 'detail' && (
             <div className={`rounded-2xl border ${cl.card} shadow overflow-hidden`}>
               {/* Barre de filtres */}
-              <div className={`p-3 flex flex-wrap items-center gap-2 border-b ${dm ? 'border-gray-700 bg-gray-800/60' : 'border-gray-100 bg-gray-50'}`}>
+              <div className={`p-3 flex flex-wrap items-center gap-2 border-b ${dm ? 'border-zinc-700 bg-zinc-800/60' : 'border-slate-100 bg-slate-50'}`}>
                 {/* Recherche texte */}
                 <div className="relative flex-1 min-w-40">
                   <Search size={13} className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${cl.muted}`}/>
@@ -811,7 +811,7 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
                   className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs border transition-all ${
                     showIgnored
                       ? dm ? 'bg-amber-900/30 border-amber-700 text-amber-300' : 'bg-amber-50 border-amber-300 text-amber-700'
-                      : dm ? 'border-gray-600 text-gray-400' : 'border-gray-300 text-gray-500'
+                      : dm ? 'border-zinc-600 text-zinc-400' : 'border-slate-300 text-zinc-500'
                   }`}
                 >
                   {showIgnored ? <Eye size={12}/> : <EyeOff size={12}/>}
@@ -841,7 +841,7 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
                         </td>
                         <td className="p-2 max-w-[160px]">
                           {l.section
-                            ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium truncate block ${dm ? 'bg-gray-700 text-gray-400' : 'bg-gray-100 text-gray-500'}`} title={l.section}>{l.section}</span>
+                            ? <span className={`text-xs px-1.5 py-0.5 rounded font-medium truncate block ${dm ? 'bg-zinc-700 text-zinc-400' : 'bg-slate-100 text-zinc-500'}`} title={l.section}>{l.section}</span>
                             : <span className={`text-xs ${cl.muted}`}>—</span>
                           }
                         </td>
@@ -893,7 +893,7 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
               </div>
 
               {/* Totaux filtrés */}
-              <div className={`p-3 border-t flex flex-wrap gap-4 text-sm ${dm ? 'border-gray-700 bg-gray-800/60' : 'border-gray-100 bg-gray-50'}`}>
+              <div className={`p-3 border-t flex flex-wrap gap-4 text-sm ${dm ? 'border-zinc-700 bg-zinc-800/60' : 'border-slate-100 bg-slate-50'}`}>
                 <span className={cl.muted}>Sélection — Recettes : <strong className="text-teal-600">{fmt(lignesFiltrees.filter(l => l.categorie === 'recette').reduce((s, l) => s + l.montant, 0))}</strong></span>
                 <span className={cl.muted}>Charges : <strong className="text-orange-500">{fmt(lignesFiltrees.filter(l => l.categorie !== 'recette' && l.categorie !== 'ignore').reduce((s, l) => s + l.montant, 0))}</strong></span>
               </div>
@@ -937,7 +937,7 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
                             </tr>
                             {/* Détail des lignes de ce service */}
                             {isOpen && v.lignes.map(l => (
-                              <tr key={l.idx} className={`border-b ${cl.td} ${dm ? 'bg-gray-700/20' : 'bg-gray-50/80'}`}>
+                              <tr key={l.idx} className={`border-b ${cl.td} ${dm ? 'bg-zinc-700/20' : 'bg-slate-50/80'}`}>
                                 <td className="p-2 pl-8 text-xs">
                                   <Tag size={11} className={`inline mr-1.5 ${catColor(l.categorie)}`}/>
                                   {l.label}
@@ -956,7 +956,7 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
                       })}
 
                       {/* Total général */}
-                      <tr className={`font-extrabold text-base ${dm ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-900'}`}>
+                      <tr className={`font-extrabold text-base ${dm ? 'bg-zinc-700 text-white' : 'bg-slate-100 text-zinc-900'}`}>
                         <td className="p-4">TOTAL</td>
                         <td className="p-4 text-right text-teal-600">{fmt(totaux.recettes)}</td>
                         <td className="p-4 text-right text-blue-600">{fmt(totaux.personnel)}</td>
@@ -992,7 +992,7 @@ export default function VentilationBP({ darkMode, services = [], direction, pole
                               <span className="text-orange-500">{fmt(v.totalCharges)}</span>
                             </span>
                           </div>
-                          <div className={`h-4 rounded-full overflow-hidden ${dm ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                          <div className={`h-4 rounded-full overflow-hidden ${dm ? 'bg-zinc-700' : 'bg-slate-100'}`}>
                             <div className="h-full flex">
                               <div className="h-full bg-teal-500/70 transition-all" style={{ width: `${pctR}%` }}/>
                               <div className="h-full bg-orange-400/70 transition-all" style={{ width: `${pctC * 0.8}%` }}/>

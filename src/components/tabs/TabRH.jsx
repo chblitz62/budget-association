@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Users, GraduationCap, Calendar, AlertTriangle, UserCheck, ExternalLink } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, ResponsiveContainer } from 'recharts';
 import PlanningAbsences from '../PlanningAbsences';
@@ -8,6 +8,7 @@ import {
   calculerETPReelParMoisParService,
   calculerStatsVacataires,
   calculerSalaireAnnuel,
+  calculerIndicateursOETH,
 } from '../../utils/calculations';
 import { CHARGES_PATRONALES, CHARGES_VACATAIRE, SEUIL_RATIO_VACATAIRE, JOURS_OUVRES_AN, PRIME_SEGUR } from '../../utils/constants';
 
@@ -16,6 +17,7 @@ export default function TabRH({
   direction,
   poleSupport,
   services,
+  poolRH,
   planningAbsences,
   setPlanningAbsences,
   globalParams,
@@ -29,7 +31,25 @@ export default function TabRH({
   setDonneesN1,
   setShowImportN1,
 }) {
+  const pool = poolRH || [];
   const roleLabel = { direction: 'Siège', formateur: 'Formateur', administratif: 'Administratif', technique: 'Technique', documentation: 'Documentation', autre: 'Autre' };
+
+  const tousPersonnels = useMemo(() => [
+    ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction' })),
+    ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Ressources' })),
+    ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom }))),
+    ...pool.map(p => ({ ...p, source: 'Pool RH', isPoolRH: true })),
+  ], [direction, poleSupport, services, pool]);
+
+  const oethIndicateurs = useMemo(
+    () => calculerIndicateursOETH(tousPersonnels),
+    [tousPersonnels]
+  );
+
+  const etpReelData = useMemo(() => {
+    const result = calculerETPReelParMoisParService(services, direction, poleSupport, planningAbsences, 2026, pool);
+    return { ...result, lignesActives: result.lignes.filter(l => l.etp > 0) };
+  }, [services, direction, poleSupport, planningAbsences, pool]);
 
   return (
     <>
@@ -37,8 +57,9 @@ export default function TabRH({
       {(() => {
         const tousP = [
           ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction', couleur: 'slate' })),
-          ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support', couleur: 'cyan' })),
+          ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Ressources', couleur: 'cyan' })),
           ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom, couleur: 'teal' }))),
+          ...pool.map(p => ({ ...p, source: 'Pool RH', couleur: 'purple', isPoolRH: true })),
         ];
         const agentsMS = calculerPresenceEquipe(tousP, planningAbsences, 2026);
         const total = tousP.reduce((acc, p) => {
@@ -158,12 +179,19 @@ export default function TabRH({
                     const etpReel = p.presence.etpReel;
                     const etpDelta = parseFloat(p.etp) - etpReel;
                     return (
-                      <tr key={idx} id={`agent-rh-${p.id}`} className={`border-t transition-all duration-700 ${focusedAgentId === p.id ? (darkMode ? 'bg-yellow-900/40' : 'bg-yellow-50') : (darkMode ? 'border-gray-700' : 'border-slate-100')} ${isDir ? (darkMode ? 'bg-violet-900/10' : 'bg-violet-50/50') : ''}`}>
+                      <tr key={idx} id={`agent-rh-${p.id}`} className={`border-t transition-all duration-700 ${focusedAgentId === p.id ? (darkMode ? 'bg-yellow-900/40' : 'bg-yellow-50') : (darkMode ? 'border-gray-700' : 'border-slate-100')} ${p.isPoolRH ? (darkMode ? 'bg-purple-900/10' : 'bg-purple-50/40') : isDir ? (darkMode ? 'bg-violet-900/10' : 'bg-violet-50/50') : ''}`}>
                         <td className={`py-1.5 pl-1 font-bold max-w-[180px]`}>
-                          <button onClick={() => navigateToBudgetAgent(p.id)} className={`group/link flex items-center gap-1 text-left font-bold truncate max-w-full ${darkMode ? 'text-white hover:text-teal-300' : 'text-slate-800 hover:text-teal-600'} transition-colors`} title={`Voir ${p.titre} dans Budget`}>
-                            <span className="truncate">{p.titre}</span>
-                            <ExternalLink size={10} className="opacity-0 group-hover/link:opacity-100 shrink-0 transition-opacity" />
-                          </button>
+                          {p.isPoolRH ? (
+                            <span className={`flex items-center gap-1.5 font-bold truncate max-w-full ${darkMode ? 'text-purple-200' : 'text-purple-800'}`}>
+                              <span className={`shrink-0 px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${darkMode ? 'bg-purple-800 text-purple-300' : 'bg-purple-100 text-purple-600'}`}>Pool</span>
+                              <span className="truncate">{p.titre || <span className="italic opacity-50">Sans nom</span>}</span>
+                            </span>
+                          ) : (
+                            <button onClick={() => navigateToBudgetAgent(p.id)} className={`group/link flex items-center gap-1 text-left font-bold truncate max-w-full ${darkMode ? 'text-white hover:text-teal-300' : 'text-slate-800 hover:text-teal-600'} transition-colors`} title={`Voir ${p.titre} dans Budget`}>
+                              <span className="truncate">{p.titre}</span>
+                              <ExternalLink size={10} className="opacity-0 group-hover/link:opacity-100 shrink-0 transition-opacity" />
+                            </button>
+                          )}
                         </td>
                         <td className={`py-1.5 text-xs ${darkMode ? 'text-gray-400' : 'text-slate-500'} max-w-[120px] truncate`} title={p.source}>{p.source}</td>
                         <td className="py-1.5">
@@ -233,8 +261,9 @@ export default function TabRH({
         const ANNEE = 2026;
         const tousAgents = [
           ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction' })),
-          ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support' })),
+          ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Ressources' })),
           ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom }))),
+          ...pool.map(p => ({ ...p, source: 'Pool RH', isPoolRH: true })),
         ];
         const agentsAvecPresence = calculerPresenceEquipe(tousAgents, planningAbsences, ANNEE);
         const totalETPContrat = agentsAvecPresence.reduce((s, a) => s + parseFloat(a.etp), 0);
@@ -540,8 +569,9 @@ export default function TabRH({
         const ANNEE = 2026;
         const tousP = [
           ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction' })),
-          ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support' })),
+          ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Ressources' })),
           ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom }))),
+          ...pool.map(p => ({ ...p, source: 'Pool RH', isPoolRH: true })),
         ];
         const avecAge = tousP.filter(p => p.anneeNaissance > 0);
 
@@ -666,34 +696,12 @@ export default function TabRH({
 
       {/* ═══ RQTH / AGEFIPH ═══ */}
       {(() => {
-        const tousPersonnels = [
-          ...(direction?.personnel || []).map(p => ({ ...p, source: 'Direction' })),
-          ...(poleSupport?.personnel || []).map(p => ({ ...p, source: 'Pôle Support' })),
-          ...services.flatMap(s => (s.personnel || []).map(p => ({ ...p, source: s.nom }))),
-        ];
-        const totalETP = tousPersonnels.reduce((s, p) => s + (parseFloat(p.etp) || 0), 0);
-        const rqthPersonnels = tousPersonnels.filter(p => p.rqth);
-        const totalETPRqth = rqthPersonnels.reduce((s, p) => s + (parseFloat(p.etp) || 0), 0);
-
+        const {
+          totalETP, totalETPRqth, obligationETP,
+          contributionEstimee: contribution, aidesEstimees,
+          estConforme, tauxRqth, agentsRqth: rqthPersonnels, nbAgents,
+        } = oethIndicateurs;
         const SEUIL_OETH = 20;
-        const TAUX_OETH = 0.06;
-        const SMIC_HORAIRE = 11.88;
-        const HEURES_ANNUELLES = 1820;
-        const SMIC_ANNUEL = SMIC_HORAIRE * HEURES_ANNUELLES;
-
-        const obligationETP = totalETP >= SEUIL_OETH ? totalETP * TAUX_OETH : 0;
-        const ecartETP = totalETPRqth - obligationETP;
-        const estConforme = ecartETP >= 0 || totalETP < SEUIL_OETH;
-
-        const unitesMontantContrib = 400;
-        const contribution = !estConforme && totalETP >= SEUIL_OETH
-          ? Math.abs(ecartETP) * SMIC_ANNUEL * (unitesMontantContrib / HEURES_ANNUELLES)
-          : 0;
-
-        const AIDE_EMPLOI_DURABLE = 1800;
-        const aidesEstimees = estConforme && totalETPRqth > 0 ? totalETPRqth * AIDE_EMPLOI_DURABLE : 0;
-
-        const tauxRqth = totalETP > 0 ? (totalETPRqth / totalETP) * 100 : 0;
         const fmt = n => Math.round(n).toLocaleString('fr-FR');
 
         return (
@@ -721,7 +729,7 @@ export default function TabRH({
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
               {[
-                { label: 'Effectif total (ETP)', val: totalETP.toFixed(1), sub: `${tousPersonnels.length} agents`, color: darkMode ? 'text-slate-300' : 'text-slate-700', bg: darkMode ? 'bg-gray-700' : 'bg-white' },
+                { label: 'Effectif total (ETP)', val: totalETP.toFixed(1), sub: `${nbAgents} agents`, color: darkMode ? 'text-slate-300' : 'text-slate-700', bg: darkMode ? 'bg-gray-700' : 'bg-white' },
                 { label: 'ETP RQTH', val: totalETPRqth.toFixed(1), sub: `${rqthPersonnels.length} agents · ${tauxRqth.toFixed(1)}%`, color: darkMode ? 'text-orange-300' : 'text-orange-700', bg: darkMode ? 'bg-orange-900/30' : 'bg-orange-50' },
                 { label: totalETP >= SEUIL_OETH ? 'Obligation OETH (6%)' : 'Obligation OETH', val: totalETP >= SEUIL_OETH ? obligationETP.toFixed(1) + ' ETP' : 'Non applicable', sub: totalETP >= SEUIL_OETH ? `Seuil ≥ ${SEUIL_OETH} ETP` : `Effectif < ${SEUIL_OETH} ETP`, color: darkMode ? 'text-blue-300' : 'text-blue-700', bg: darkMode ? 'bg-blue-900/30' : 'bg-blue-50' },
                 estConforme
@@ -779,19 +787,15 @@ export default function TabRH({
         direction={direction}
         poleSupport={poleSupport}
         services={services}
+        poolRH={pool}
         planningAbsences={planningAbsences}
         setPlanningAbsences={setPlanningAbsences}
         darkMode={darkMode}
       />
 
       {/* TABLEAU ETP RÉEL PAR MOIS PAR SERVICE */}
-      {(() => {
-        const ANNEE = 2026;
-        const { lignes, total, totalContractuel, moisLabels } = calculerETPReelParMoisParService(
-          services, direction, poleSupport, planningAbsences, ANNEE
-        );
-        const lignesActives = lignes.filter(l => l.etp > 0);
-        if (lignesActives.length === 0) return null;
+      {etpReelData.lignesActives.length > 0 && (() => {
+        const { lignesActives, total, totalContractuel, moisLabels } = etpReelData;
         return (
           <div className={`rounded-3xl shadow-lg border-2 p-6 mb-8 ${darkMode ? 'bg-gray-800 border-teal-900' : 'bg-gradient-to-br from-teal-50 to-emerald-50 border-teal-200'}`}>
             <div className="flex items-center gap-3 mb-5">

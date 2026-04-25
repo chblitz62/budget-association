@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, Users, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, X } from 'lucide-react';
-import { calculerSalaireAnnuel, verifierCoherencePoolRH } from '../utils/calculations';
+import { calculerSalaireAnnuel, verifierCoherencePoolRH, syncPoolRH } from '../utils/calculations';
 import { PRIME_SEGUR } from '../utils/constants';
 
 const ROLES = [
@@ -24,6 +24,8 @@ function newAgent() {
     role: 'administratif',
     typeContrat: 'CDI',
     tauxChargesManuel: null,
+    eligibleSubvention: false,
+    tauxSubvRegion: 100,
     multiAffectation: true,
     affectations: [],
   };
@@ -35,7 +37,7 @@ function sumPct(affectations) {
 
 function EntityLabel({ aff, services, direction, poleSupport }) {
   if (aff.entityType === 'direction') return <span>Direction / Siège</span>;
-  if (aff.entityType === 'poleSupport') return <span>Pôle Support</span>;
+  if (aff.entityType === 'poleSupport') return <span>Pôle Ressources</span>;
   const svc = (services || []).find(s => s.id === aff.entityId);
   return <span>{svc ? svc.nom : `Service #${aff.entityId}`}</span>;
 }
@@ -47,7 +49,7 @@ export default function PoolRHManager({ poolRH, setPoolRH, services, direction, 
 
   const entities = [
     { entityType: 'direction', entityId: null, label: 'Direction / Siège' },
-    { entityType: 'poleSupport', entityId: null, label: 'Pôle Support' },
+    { entityType: 'poleSupport', entityId: null, label: 'Pôle Ressources' },
     ...(services || []).map(s => ({ entityType: 'service', entityId: s.id, label: s.nom })),
   ];
 
@@ -62,7 +64,8 @@ export default function PoolRHManager({ poolRH, setPoolRH, services, direction, 
   const cancelEdit = () => { setEditingId(null); setEditForm(null); };
 
   const saveEdit = () => {
-    setPoolRH(poolRH.map(a => a.id === editingId ? { ...editForm } : a));
+    const updated = poolRH.map(a => a.id === editingId ? { ...editForm } : a);
+    setPoolRH(syncPoolRH(updated));
     setEditingId(null);
     setEditForm(null);
   };
@@ -251,7 +254,7 @@ export default function PoolRHManager({ poolRH, setPoolRH, services, direction, 
                     {/* Champs agent */}
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                       <div>
-                        <label className={`block text-xs mb-1 ${label}`}>Nom / Poste</label>
+                        <label className={`block text-xs mb-1 ${label}`}>Nom du salarié</label>
                         <input className={input} value={data.titre || ''} onChange={e => setField('titre', e.target.value)} placeholder="Ex. Chargé RH" autoFocus />
                       </div>
                       <div>
@@ -286,6 +289,21 @@ export default function PoolRHManager({ poolRH, setPoolRH, services, direction, 
                           value={data.tauxChargesManuel ?? ''}
                           placeholder="Auto"
                           onChange={e => setField('tauxChargesManuel', e.target.value === '' ? null : parseFloat(e.target.value))} />
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={!!data.eligibleSubvention} onChange={e => setField('eligibleSubvention', e.target.checked)} className="w-4 h-4 accent-violet-500" />
+                          <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-slate-600'}`}>Subvention Région</span>
+                        </label>
+                        {data.eligibleSubvention && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <input className={`w-16 px-2 py-1 rounded border text-sm text-right ${darkMode ? 'bg-violet-900/40 border-violet-600 text-violet-200' : 'bg-violet-50 border-violet-300 text-violet-700'}`}
+                              type="number" min="0" max="100"
+                              value={data.tauxSubvRegion ?? 100}
+                              onChange={e => setField('tauxSubvRegion', Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))} />
+                            <span className={`text-xs ${darkMode ? 'text-violet-400' : 'text-violet-500'}`}>% pris en charge</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
