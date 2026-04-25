@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Save, Moon, Sun, Settings, Eye, EyeOff, Brain, BookOpen,
+  Settings,
   Banknote, TrendingDown, CheckCircle, AlertTriangle, AlertCircle,
   Target, Users, GraduationCap, Bell, ChevronDown, ChevronUp,
   Home, Building2, BarChart3, Clock, UserCheck, Landmark, Calculator,
@@ -22,13 +22,7 @@ import ModalRoles from '../modals/ModalRoles';
 import ModalReset from '../modals/ModalReset';
 import ModalPassword from '../modals/ModalPassword';
 import EcoFinPanel from '../EcoFinPanel';
-
-const TAB_NAMES = {
-  dashboard: 'Tableau de bord', budget: 'Budget', analyse: 'Analyse',
-  rh: 'RH', temps: 'Temps de travail', formation: 'Formation',
-  vacataires: 'Vacataires', subvention: 'Subvention',
-  daf: 'DAF', parametres: 'Paramètres', reporting: 'Reporting',
-};
+import TopBar from './TopBar';
 
 const TAB_LIST = [
   { id: 'dashboard',  label: 'Tableau de bord', icon: <Home size={15}/> },
@@ -119,111 +113,28 @@ export default function Layout({
         <ModalHardReset darkMode={dm} onClose={() => setShowHardReset(false)} />
       )}
 
-      {/* ═══ HEADER FIXE ═══ */}
-      <div className={`fixed top-0 left-0 right-0 z-50 h-14 flex items-center justify-between px-4 gap-4 border-b no-print transition-colors duration-300
-        ${dm ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-        <div className="flex items-center gap-3 flex-shrink-0" style={{ paddingLeft: sidebarOpen ? '256px' : '56px', transition: 'padding-left 0.3s cubic-bezier(0.4,0,0.2,1)' }}>
-          <img src="/logo.png" alt="" className={`h-7 ${dm ? 'brightness-200' : ''}`} onError={e => e.target.style.display='none'} />
-          <div>
-            <span className={`text-sm font-black ${dm ? 'text-white' : 'text-slate-800'}`}>Budget Association</span>
-            <span className={`hidden sm:inline text-[11px] ml-2 ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>
-              · {TAB_NAMES[activeTab] || activeTab}
-            </span>
-          </div>
-        </div>
-
-        <div className="hidden md:flex items-center gap-2 flex-1 justify-center">
-          {[
-            { label: 'Solde',     val: `${soldeGlobal >= 0 ? '+' : ''}${Math.round(soldeGlobal/1000)}k €`, color: soldeGlobal >= 0 ? 'text-emerald-500' : 'text-rose-500' },
-            { label: 'ETP',       val: totalETP.toFixed(1),                                                  color: dm ? 'text-zinc-200' : 'text-slate-700' },
-            { label: 'Couverture', val: `${Math.round(tauxCouverture)} %`,                                   color: tauxCouverture >= 100 ? 'text-emerald-500' : 'text-rose-500' },
-          ].map(k => (
-            <div key={k.label} className={`text-center px-3 py-1 rounded-lg ${dm ? 'bg-zinc-900' : 'bg-slate-50'}`}>
-              <div className={`text-[9px] font-bold uppercase tracking-wide ${dm ? 'text-zinc-600' : 'text-slate-400'}`}>{k.label}</div>
-              <div className={`text-xs font-black font-mono-numbers ${k.color}`}>{k.val}</div>
-            </div>
-          ))}
-          {stressTest !== 0 && (
-            <div className="text-center px-3 py-1 rounded-lg bg-amber-500/15 border border-amber-500/25">
-              <div className="text-[9px] font-bold uppercase tracking-wide text-amber-500">Stress {stressTest > 0 ? '+' : ''}{stressTest}%</div>
-              <div className={`text-xs font-black font-mono-numbers ${stressImpact >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                {stressImpact >= 0 ? '+' : ''}{Math.round(stressImpact/1000)}k €
-              </div>
-            </div>
-          )}
-          {coefficientBP !== 100 && (
-            <button onClick={() => setActiveTab('parametres')}
-              className="text-center px-3 py-1 rounded-lg bg-amber-500/15 border border-amber-500/25 hover:bg-amber-500/25 transition-colors">
-              <div className="text-[9px] font-bold uppercase tracking-wide text-amber-500">Coeff BP</div>
-              <div className="text-xs font-black font-mono-numbers text-amber-400">{coefficientBP.toFixed(1)} %</div>
-            </button>
-          )}
-          {(() => {
-            const statut = globalParams?.statutBudget || 'brouillon';
-            const meta = {
-              brouillon: { label: 'Brouillon', bg: 'bg-slate-500/15 border-slate-500/25', txt: 'text-slate-400' },
-              soumis:    { label: 'Soumis',    bg: 'bg-blue-500/15 border-blue-500/25',   txt: 'text-blue-400'  },
-              valide:    { label: 'Validé ✓',  bg: 'bg-emerald-500/15 border-emerald-500/25', txt: 'text-emerald-400' },
-              gele:      { label: 'Gelé 🔒',   bg: 'bg-violet-500/15 border-violet-500/25',   txt: 'text-violet-400'  },
-            };
-            const m = meta[statut] || meta.brouillon;
-            return (
-              <button onClick={() => setActiveTab('parametres')}
-                className={`text-center px-3 py-1 rounded-lg border ${m.bg} hover:opacity-80 transition-opacity`}
-                title="Statut du budget — cliquer pour changer dans Paramètres">
-                <div className={`text-[9px] font-bold uppercase tracking-wide ${m.txt}`}>Statut</div>
-                <div className={`text-xs font-black ${m.txt}`}>{m.label}</div>
-              </button>
-            );
-          })()}
-        </div>
-
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button onClick={sauvegarderBudget}
-            className="bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 text-xs shadow-md shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:-translate-y-0.5 transition-all duration-150">
-            <Save size={13} /> Sauver
-          </button>
-          <button onClick={() => setDarkMode(!dm)}
-            className={`p-2 rounded-xl text-sm ${dm ? 'bg-yellow-500 text-gray-900' : 'bg-zinc-800 text-white'}`}>
-            {dm ? <Sun size={14} /> : <Moon size={14} />}
-          </button>
-          <button onClick={() => setActiveTab('parametres')}
-            className={`p-2 rounded-xl border transition-colors ${dm ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-            title="Paramètres">
-            <Settings size={14} />
-          </button>
-          <button onClick={() => setPrivacyMode(v => !v)}
-            title={privacyMode ? 'Désactiver le mode confidentialité' : 'Mode confidentialité — masquer les montants'}
-            className={`p-2 rounded-xl border transition-all ${
-              privacyMode
-                ? 'bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-500/30'
-                : dm ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-rose-400'
-                     : 'border-slate-200 text-slate-500 hover:bg-rose-50 hover:text-rose-500'
-            }`}>
-            {privacyMode ? <EyeOff size={14} /> : <Eye size={14} />}
-          </button>
-          <button onClick={() => setShowEcoFin(v => !v)}
-            title="Panneau Éco-Fin — Glossaire DAF"
-            className={`p-2 rounded-xl border transition-all ${
-              showEcoFin
-                ? 'bg-indigo-500 border-indigo-500 text-white shadow-md shadow-indigo-500/30'
-                : dm ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-indigo-400'
-                     : 'border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-500'
-            }`}>
-            <BookOpen size={14} />
-          </button>
-          <button onClick={() => setShowAICopilot(v => !v)}
-            title="Copilote IA — Analyse stratégique"
-            className={`p-2 rounded-xl border transition-all ${
-              showAICopilot
-                ? 'bg-violet-500 border-violet-500 text-white shadow-md shadow-violet-500/30'
-                : dm ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-violet-400'
-                     : 'border-slate-200 text-slate-500 hover:bg-violet-50 hover:text-violet-500'
-            }`}>
-            <Brain size={14} />
-          </button>
-        </div>
-      </div>
+      {/* ═══ HEADER MODERNE — Soft SaaS 64px ═══ */}
+      <TopBar
+        darkMode={dm}
+        setDarkMode={setDarkMode}
+        sidebarOpen={sidebarOpen}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        soldeGlobal={soldeGlobal}
+        totalETP={totalETP}
+        tauxCouverture={tauxCouverture}
+        stressTest={stressTest}
+        stressImpact={stressImpact}
+        coefficientBP={coefficientBP}
+        globalParams={globalParams}
+        privacyMode={privacyMode}
+        setPrivacyMode={setPrivacyMode}
+        showAICopilot={showAICopilot}
+        setShowAICopilot={setShowAICopilot}
+        showEcoFin={showEcoFin}
+        setShowEcoFin={setShowEcoFin}
+        sauvegarderBudget={sauvegarderBudget}
+      />
 
       <EcoFinPanel darkMode={dm} open={showEcoFin} onClose={() => setShowEcoFin(false)} />
 
@@ -285,7 +196,7 @@ export default function Layout({
         />
 
         <div className="main-content p-4 md:p-6 transition-all duration-300"
-             style={{ marginLeft: sidebarOpen ? '256px' : '56px', marginRight: showAICopilot ? '320px' : '0', paddingTop: 'calc(56px + 1.5rem)' }}>
+             style={{ marginLeft: sidebarOpen ? '256px' : '56px', marginRight: showAICopilot ? '320px' : '0', paddingTop: 'calc(64px + 1.5rem)' }}>
           <div className="max-w-[1600px] mx-auto">
 
             {/* KPI globaux — masqués sur le dashboard (DashboardDG a ses propres KPIs) */}

@@ -77,7 +77,7 @@ const SidebarNav = ({ services, darkMode, isOpen, onToggle, activeTab, onTabChan
 
   return (
     <div className={`sidebar-container fixed left-0 z-40 transition-all duration-300 no-print ${isOpen ? 'w-64' : 'w-14'}`}
-         style={{ top: '56px', height: 'calc(100vh - 56px)' }}>
+         style={{ top: '64px', height: 'calc(100vh - 64px)' }}>
       <div className={`h-full flex flex-col border-r ${darkMode ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-slate-200'} shadow-xl`}>
 
         <button

@@ -1,5 +1,5 @@
 # Roadmap — AFERTES Budget Association
-Dernière mise à jour : 2026-04-25 | Version : 4.8 (Phase 8 Sprint 1 complet — tokens + DataPanel + atomiques — 317 tests verts)
+Dernière mise à jour : 2026-04-25 | Version : 4.9 (Phase 8 S2.1 livré — TopBar + ToolsMenu — 331 tests verts)
 
 ---
 
@@ -111,7 +111,7 @@ Dernière mise à jour : 2026-04-25 | Version : 4.8 (Phase 8 Sprint 1 complet �
 - [x] **S1.1 Design tokens centralisés** : `src/styles/tokens.js` — surface/text/button/status/spacing/iconProps. Source unique pour toute la couche présentation. *(Implémenté 2026-04-25)*
 - [x] **S1.2 Composant atomique `<DataPanel>`** : header standardisé (icône pastille tone + title + subtitle novice + help bulle), summary toujours visible, content collapsible, emptyState slot. + `<PanelStat>`, `<PanelStatusBadge>`, `<EmptyState>` réutilisables. *(Implémenté 2026-04-25)*
 - [x] **S1.3 Composants atomiques restants** : `<Card>` (3 variantes + Header/Body/Footer), `<Button>` (5 variantes + leftIcon/rightIcon/loading/iconOnly/fullWidth + 3 sizes), `<Modal>` (animations zoom-in/fade-in, focus trap, ESC, body scroll lock, restitution focus + sub-composants Header/Body/Footer + `<ConfirmModal>` prêt à l'emploi), `<Pill>` + `<Badge>` (5 statuts). Animations natives Tailwind (zoom-in, slide-up, fade-in dans tailwind.config.js — pas de dépendance ajoutée). 22 tests dédiés. *(Implémenté 2026-04-25)*
-- [ ] **S2.1 Layout shell modernisé** : Header 64px en 3 zones distinctes ; déplacer Privacy/EcoFin/AI dans dropdown `<ToolsMenu>` avec `MoreHorizontal` ; KPI band reformaté (3 KPIs hero centrés, 36px tabular-nums).
+- [x] **S2.1 Layout shell modernisé** : `<TopBar>` 64px en 3 zones (logo+page · KPIs hero centrés · actions) ; `<ToolsMenu>` dropdown regroupant Privacy/EcoFin/AI/Dark mode/Paramètres avec `MoreHorizontal` ; surface glass `bg-white/80 backdrop-blur-xl` ; sidebar repositionnée à `top: 64px`. Header désormais lisible (typographie 18-20px tabular-nums vs 12px ancienne) ; badges secondaires (statut budget, coeff BP, stress test) en `<Pill>` rounded-full visibles UNIQUEMENT si actifs (réduction bruit visuel novice). 14 tests dédiés. *(Implémenté 2026-04-25)*
 - [ ] **S2.2 KPIs topbar redesignés** : passage de 12px à 16-20px lisibles, libellés humanisés ("Solde" → "Résultat prévisionnel"), tooltip riche au survol expliquant l'impact.
 
 ### 🟠 P2 — Sprint 3-4 (Navigation + Dashboard) — ≤ 4 jours
@@ -171,6 +171,7 @@ Dernière mise à jour : 2026-04-25 | Version : 4.8 (Phase 8 Sprint 1 complet �
 | 2026-04-25 | **Phase 8 — Design tokens Soft SaaS** | `src/styles/tokens.js` source unique (surfaces glass, palette 5 statuts, typographie hero/title/body/label, grille 8px, Lucide thin) — fondation du refactoring UI/UX |
 | 2026-04-25 | **Phase 8 — Composant `<DataPanel>`** | Template novice-friendly : header standardisé (icône pastille + title + subtitle pédagogique + help), summary toujours visible, content collapsible, slot emptyState ; + `<PanelStat>` (KPI hero 36px), `<PanelStatusBadge>`, `<EmptyState>` |
 | 2026-04-25 | **Phase 8 — Atomiques Card/Button/Modal/Pill** | `<Card>` 3 variantes + Header/Body/Footer ; `<Button>` 5 variantes (primary/secondary/ghost/tertiary/destructive) + loading + leftIcon/rightIcon/iconOnly + 3 sizes ; `<Modal>` animations zoom-in + focus trap + ESC + body scroll lock + `<ConfirmModal>` ; `<Pill>` + `<Badge>` 5 statuts ; animations natives tailwind.config |
+| 2026-04-25 | **Phase 8 — TopBar 64px + ToolsMenu** | Header en 3 zones distinctes (logo+page / KPIs hero centrés / actions) ; `<ToolsMenu>` dropdown regroupe 5 actions secondaires (Privacy/EcoFin/AI/Dark mode/Paramètres) ; KPIs lisibles 18-20px vs 12px ; badges secondaires en pills affichés UNIQUEMENT si actifs |
 
 ---
 
