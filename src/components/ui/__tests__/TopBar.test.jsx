@@ -27,11 +27,22 @@ const baseProps = {
 };
 
 describe('<TopBar />', () => {
-  it('rend les 3 KPIs hero (Résultat, ETP, Couverture)', () => {
+  it('rend les 3 KPIs hero (Résultat, Effectifs, Couverture) avec libellés humanisés', () => {
     render(<TopBar {...baseProps} />);
     expect(screen.getByText('Résultat')).toBeInTheDocument();
-    expect(screen.getByText('ETP')).toBeInTheDocument();
+    expect(screen.getByText('Effectifs')).toBeInTheDocument();
     expect(screen.getByText('Couverture')).toBeInTheDocument();
+  });
+
+  it('affiche un smart dot indicator par niveau (success/warning/danger)', () => {
+    const { container, rerender } = render(<TopBar {...baseProps} soldeGlobal={5000} tauxCouverture={102} />);
+    // 3 dots colorés, succès = bg-emerald-500
+    const dotsAllSuccess = container.querySelectorAll('.bg-emerald-500');
+    expect(dotsAllSuccess.length).toBeGreaterThan(0);
+
+    rerender(<TopBar {...baseProps} soldeGlobal={-5000} tauxCouverture={85} />);
+    const dotsDanger = container.querySelectorAll('.bg-rose-500');
+    expect(dotsDanger.length).toBeGreaterThan(0);
   });
 
   it('affiche le solde au format +Xk avec couleur emerald si positif', () => {

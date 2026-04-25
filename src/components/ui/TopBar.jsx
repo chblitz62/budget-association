@@ -4,6 +4,7 @@ import { surface, text } from '../../styles/tokens';
 import Button from './Button';
 import Pill from './Pill';
 import ToolsMenu from './ToolsMenu';
+import HoverTip from './HoverTip';
 
 const TAB_NAMES = {
   dashboard: 'Tableau de bord', budget: 'Budget', analyse: 'Analyse',
@@ -59,10 +60,23 @@ export default function TopBar({
   const pageName = TAB_NAMES[activeTab] || activeTab;
   const statut = globalParams?.statutBudget || 'brouillon';
 
-  // Couleurs sémantiques pour KPIs (inline pour éviter Tailwind dynamique)
-  const soldeColor = soldeGlobal >= 0 ? 'text-emerald-500' : 'text-rose-500';
-  const couvColor = tauxCouverture >= 100 ? 'text-emerald-500' : tauxCouverture >= 90 ? 'text-amber-500' : 'text-rose-500';
+  // Couleurs + niveaux sémantiques pour KPIs
+  const soldeLevel = soldeGlobal >= 0 ? 'success' : 'danger';
+  const soldeColor = soldeLevel === 'success' ? 'text-emerald-500' : 'text-rose-500';
+  const couvLevel = tauxCouverture >= 100 ? 'success' : tauxCouverture >= 90 ? 'warning' : 'danger';
+  const couvColor = couvLevel === 'success' ? 'text-emerald-500' : couvLevel === 'warning' ? 'text-amber-500' : 'text-rose-500';
   const etpColor = dm ? 'text-zinc-100' : 'text-slate-800';
+
+  // Interprétations pédagogiques pour le tooltip riche
+  const soldeInterpretation = soldeGlobal >= 0
+    ? '✓ L\'association dégage un excédent. Pensez à provisionner pour les exercices à venir.'
+    : '⚠ L\'association puise dans ses réserves. À surveiller : ratio recettes/charges, dépendance subventions.';
+  const couvInterpretation = tauxCouverture >= 100
+    ? '✓ Vos recettes couvrent intégralement vos charges.'
+    : tauxCouverture >= 90
+      ? '⚠ Sous-financement modéré (90–100 %). À combler par optimisation ou recettes complémentaires.'
+      : '✕ Sous-financement critique (<90 %). Action urgente : revoir charges ou abonder les recettes.';
+  const etpInterpretation = `${totalETP.toFixed(1)} équivalents temps plein actuellement budgétés. 1 ETP = 1 poste à temps complet (35 h/semaine).`;
 
   // Statuts budget en Pill
   const statutPillVariant = ({
@@ -109,31 +123,56 @@ export default function TopBar({
 
         {/* ── Zone 2 : KPIs hero ───────────────────────────────────── */}
         <div className="hidden md:flex items-center gap-6 flex-1 justify-center">
-          <KpiHero
-            label="Résultat"
-            value={`${soldeGlobal >= 0 ? '+' : ''}${Math.round(soldeGlobal / 1000)}`}
-            unit="k €"
-            colorClass={soldeColor}
-            dm={dm}
-            hint={soldeGlobal >= 0 ? 'Excédent prévisionnel' : 'Déficit prévisionnel'}
-          />
+          <HoverTip
+            darkMode={dm}
+            level={soldeLevel}
+            title="Résultat prévisionnel"
+            description="Différence entre les recettes et les charges projetées sur l'exercice. C'est le bénéfice ou le déficit attendu."
+            interpretation={soldeInterpretation}
+          >
+            <KpiHero
+              label="Résultat"
+              value={`${soldeGlobal >= 0 ? '+' : ''}${Math.round(soldeGlobal / 1000)}`}
+              unit="k €"
+              colorClass={soldeColor}
+              dm={dm}
+              level={soldeLevel}
+            />
+          </HoverTip>
           <KpiSeparator dm={dm} />
-          <KpiHero
-            label="ETP"
-            value={totalETP.toFixed(1)}
-            colorClass={etpColor}
-            dm={dm}
-            hint="Équivalents temps plein"
-          />
+          <HoverTip
+            darkMode={dm}
+            level="info"
+            title="Effectifs (ETP)"
+            description="Équivalents Temps Plein. 1 ETP = 1 poste à temps complet (35 h/semaine, toute l'année). Un agent à mi-temps compte pour 0,5 ETP."
+            interpretation={etpInterpretation}
+          >
+            <KpiHero
+              label="Effectifs"
+              value={totalETP.toFixed(1)}
+              unit="ETP"
+              colorClass={etpColor}
+              dm={dm}
+              level="info"
+            />
+          </HoverTip>
           <KpiSeparator dm={dm} />
-          <KpiHero
-            label="Couverture"
-            value={`${Math.round(tauxCouverture)}`}
-            unit="%"
-            colorClass={couvColor}
-            dm={dm}
-            hint={tauxCouverture >= 100 ? 'Recettes ≥ Charges' : 'Recettes < Charges'}
-          />
+          <HoverTip
+            darkMode={dm}
+            level={couvLevel}
+            title="Taux de couverture"
+            description="Part des charges couverte par les recettes. À 100 %, l'équilibre est atteint. Au-dessus, vous générez un excédent ; en dessous, vous puisez dans les réserves."
+            interpretation={couvInterpretation}
+          >
+            <KpiHero
+              label="Couverture"
+              value={`${Math.round(tauxCouverture)}`}
+              unit="%"
+              colorClass={couvColor}
+              dm={dm}
+              level={couvLevel}
+            />
+          </HoverTip>
 
           {/* Badges secondaires — affichés UNIQUEMENT si actifs */}
           {(stressTest !== 0 || coefficientBP !== 100 || statut !== 'brouillon') && (
@@ -195,10 +234,22 @@ export default function TopBar({
 
 // ── Sous-composants ───────────────────────────────────────────────────
 
-const KpiHero = ({ label, value, unit, colorClass, dm, hint }) => (
-  <div className="text-center group" title={hint}>
-    <div className={`text-[10px] font-semibold uppercase tracking-wider leading-none mb-1 ${dm ? 'text-zinc-500' : 'text-slate-500'}`}>
-      {label}
+// Smart indicator dot (subtle status signal — pas d'alerte agressive)
+const DOT_COLOR = {
+  success: 'bg-emerald-500',
+  warning: 'bg-amber-500',
+  danger:  'bg-rose-500',
+  info:    'bg-indigo-500',
+  neutral: 'bg-slate-400',
+};
+
+const KpiHero = React.forwardRef(({ label, value, unit, colorClass, dm, level = 'neutral' }, ref) => (
+  <div ref={ref} className="text-center group cursor-help select-none">
+    <div className="flex items-center justify-center gap-1.5 mb-1">
+      <span className={`w-1.5 h-1.5 rounded-full ${DOT_COLOR[level]} ${level === 'danger' || level === 'warning' ? 'animate-pulse' : ''}`} />
+      <span className={`text-[10px] font-semibold uppercase tracking-wider leading-none ${dm ? 'text-zinc-500' : 'text-slate-500'}`}>
+        {label}
+      </span>
     </div>
     <div className="flex items-baseline justify-center gap-0.5">
       <span className={`text-lg lg:text-xl font-bold tabular-nums leading-tight ${colorClass}`}>
@@ -211,7 +262,8 @@ const KpiHero = ({ label, value, unit, colorClass, dm, hint }) => (
       )}
     </div>
   </div>
-);
+));
+KpiHero.displayName = 'KpiHero';
 
 const KpiSeparator = ({ dm }) => (
   <div className={`w-px h-8 ${dm ? 'bg-zinc-800' : 'bg-slate-200'}`} />
