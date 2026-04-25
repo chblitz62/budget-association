@@ -23,18 +23,19 @@ import ModalReset from '../modals/ModalReset';
 import ModalPassword from '../modals/ModalPassword';
 import EcoFinPanel from '../EcoFinPanel';
 import TopBar from './TopBar';
+import TabBar from './TabBar';
 
 const TAB_LIST = [
-  { id: 'dashboard',  label: 'Tableau de bord', icon: <Home size={15}/> },
-  { id: 'budget',     label: 'Budget',           icon: <Building2 size={15}/> },
-  { id: 'analyse',    label: 'Analyse',          icon: <BarChart3 size={15}/> },
-  { id: 'rh',         label: 'RH',               icon: <Users size={15}/> },
-  { id: 'temps',      label: 'Temps',            icon: <Clock size={15}/> },
-  { id: 'formation',  label: 'Formation',        icon: <GraduationCap size={15}/> },
-  { id: 'vacataires', label: 'Vacataires',       icon: <Users size={15}/> },
-  { id: 'subvention', label: 'Subvention',       icon: <Landmark size={15}/> },
-  { id: 'daf',        label: 'DAF',              icon: <Calculator size={15}/> },
-  { id: 'parametres', label: 'Paramètres',       icon: <Settings size={15}/> },
+  { id: 'dashboard',  label: 'Tableau de bord', icon: <Home size={15} strokeWidth={1.5}/>,         essential: true  },
+  { id: 'budget',     label: 'Budget',           icon: <Building2 size={15} strokeWidth={1.5}/>,    essential: true  },
+  { id: 'analyse',    label: 'Analyse',          icon: <BarChart3 size={15} strokeWidth={1.5}/>,    essential: true  },
+  { id: 'rh',         label: 'RH',               icon: <Users size={15} strokeWidth={1.5}/>,        essential: false },
+  { id: 'temps',      label: 'Temps',            icon: <Clock size={15} strokeWidth={1.5}/>,        essential: false },
+  { id: 'formation',  label: 'Formation',        icon: <GraduationCap size={15} strokeWidth={1.5}/>,essential: false },
+  { id: 'vacataires', label: 'Vacataires',       icon: <UserCheck size={15} strokeWidth={1.5}/>,    essential: false },
+  { id: 'subvention', label: 'Subvention',       icon: <Landmark size={15} strokeWidth={1.5}/>,     essential: false },
+  { id: 'daf',        label: 'DAF',              icon: <Calculator size={15} strokeWidth={1.5}/>,   essential: false },
+  { id: 'parametres', label: 'Paramètres',       icon: <Settings size={15} strokeWidth={1.5}/>,     essential: false },
 ];
 
 const KPI_COLORS = {
@@ -275,23 +276,16 @@ export default function Layout({
             <ModalReset darkMode={dm} showResetModal={showResetModal} setShowResetModal={setShowResetModal} onConfirm={handleGlobalReset} />
             <ModalPassword darkMode={dm} showPasswordModal={showPasswordModal} setShowPasswordModal={setShowPasswordModal} />
 
-            {/* Barre d'onglets — masquée si sidebar ouverte */}
-            <div className={`mb-8 p-1.5 rounded-2xl no-print backdrop-blur-md border transition-all duration-500 ${sidebarOpen ? 'hidden lg:hidden' : ''} ${dm ? 'bg-zinc-900/80 border-zinc-700/40' : 'bg-slate-100/90 border-slate-200/60'}`}>
-              <div className="flex gap-1 overflow-x-auto scrollbar-none">
-                {TAB_LIST.map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 whitespace-nowrap ${
-                      activeTab === tab.id
-                        ? dm ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/30' : 'bg-white text-indigo-700 shadow-md shadow-indigo-100'
-                        : dm ? 'text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/60' : 'text-slate-500 hover:text-slate-700 hover:bg-white/70'
-                    }`}
-                  >
-                    {tab.icon} {tab.label}
-                  </button>
-                ))}
-              </div>
+            {/* Barre d'onglets — Progressive Disclosure (Mode Novice / Expert) */}
+            <div className={sidebarOpen ? 'hidden lg:hidden' : ''}>
+              <TabBar
+                tabs={TAB_LIST}
+                activeTab={activeTab}
+                onChange={setActiveTab}
+                expertMode={!!globalParams?.expertMode}
+                onToggleExpertMode={() => setGlobalParams({ ...globalParams, expertMode: !globalParams?.expertMode })}
+                darkMode={dm}
+              />
             </div>
 
             {/* Bannière intégrité audit trail */}
