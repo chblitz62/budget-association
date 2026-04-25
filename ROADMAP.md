@@ -1,5 +1,5 @@
 # Roadmap — AFERTES Budget Association
-Dernière mise à jour : 2026-04-25 | Version : 4.4 (Tier 1 + 3/6 Tier 2 livrés — 264 tests verts)
+Dernière mise à jour : 2026-04-25 | Version : 4.5 (Tier 1 + 5/6 Tier 2 livrés — 283 tests verts)
 
 ---
 
@@ -78,10 +78,10 @@ Dernière mise à jour : 2026-04-25 | Version : 4.4 (Tier 1 + 3/6 Tier 2 livrés
 ### ⚠️ Tier 2 — Avant clôture 2026 (≤ 90 jours)
 - [ ] **Backend Supabase + RBAC 4 rôles** (DG, DAF, Resp. site, Comptable) : multi-utilisateurs concurrents, séparation des fonctions saisie/validation.
 - [x] **C3 — Bilan prévisionnel actif/passif équilibré** : `bilanPrevisionnel.js` + `BilanPrevisionnelPanel.jsx` — Actif (immo nettes, stocks, créances, disponibilités) = Passif (capitaux propres, provisions, dettes financières/fournisseurs/URSSAF, découvert) ; vérification d'équilibre à 1 € près ; export CSV. 8 tests. *(Implémenté 2026-04-25)*
-- [ ] **F1 — TVA multi-taux différenciée** : 5,5/10/20 par recette ou charge (formation continue Art. 261 4-4° CGI vs annexes assujetties).
+- [x] **F1 — TVA multi-taux différenciée** : `tvaMultiTaux.js` + `TVAMultiTauxPanel.jsx` — taux 0/5,5/10/20, agrégation par taux, coefficient de déduction (CA assujetti / CA total) pour activité mixte BOI-TVA-DED-20-10, TVA collectée/déductible, solde à reverser ou crédit, alerte activité mixte. 10 tests. *(Implémenté 2026-04-25)*
 - [x] **F2 — Provision IDR actuarielle** : `provisionIDR.js` + `ProvisionIDRPanel.jsx` — méthode UCP / IAS 19 / ANC 2013-02. Hypothèses paramétrables (taux actu., turn-over, âge retraite 64, charges 47 %, mortalité). Calcul agent par agent : engagement nominal × P_présence × P_survie × actualisation. Table détaillée + export CSV. 10 tests. *(Implémenté 2026-04-25)*
 - [x] **A1 — Détection double-comptage Pool RH ↔ personnel direct** : `doubleComptageDetection.js` — match exact (numeroAgent) + fuzzy (slug du titre), 3 niveaux de confiance (haute/moyenne/basse), surcoût annuel estimé. Intégré dans audit prédictif. 9 tests. *(Implémenté 2026-04-25)*
-- [ ] **C4 — Tableau de financement (PCG 532-7)** : ressources/emplois durables.
+- [x] **C4 — Tableau de financement (PCG 532-7)** : `tableauFinancement.js` + `TableauFinancementPanel.jsx` — Ressources durables (CAF + emprunts + subv. invest. + cessions) vs Emplois durables (investissements + remboursements capital + distribution résultat). CAF = Résultat + Dot.amort + Dot.prov. ΔFRNG = Ress. − Emplois. ΔTrésorerie = ΔFRNG − ΔBFR. 9 tests. *(Implémenté 2026-04-25)*
 
 ### 💡 Tier 3 — Roadmap 2027
 - [ ] **DSN paie automatisée** (déjà Phase 6) : import via API DSN-FI.
@@ -118,6 +118,8 @@ Dernière mise à jour : 2026-04-25 | Version : 4.4 (Tier 1 + 3/6 Tier 2 livrés
 | 2026-04-25 | **C3 — Bilan prévisionnel actif/passif** | Bilan équilibré construit du budget (immo, BFR, capitaux propres, dettes, trésorerie) ; export CSV |
 | 2026-04-25 | **A1 — Détection double-comptage Pool RH** | Réconciliation Pool RH ↔ personnel direct ; match numéro agent + fuzzy ; surcoût estimé ; intégré audit prédictif |
 | 2026-04-25 | **F2 — Provision IDR actuarielle UCP** | Méthode IAS 19 / ANC 2013-02 ; turn-over + actualisation + survie ; hypothèses paramétrables ; tableau agent par agent |
+| 2026-04-25 | **F1 — TVA multi-taux différenciée** | Taux 0/5,5/10/20 par recette/charge ; coefficient de déduction activité mixte ; alerte BOI-TVA-DED-20-10 ; préparation CA3 |
+| 2026-04-25 | **C4 — Tableau de financement PCG 532-7** | Ressources/emplois durables ; CAF ; ΔFRNG ; ΔBFR ; ΔTrésorerie ; export CSV |
 
 ---
 

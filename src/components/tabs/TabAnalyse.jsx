@@ -10,6 +10,8 @@ import AuditPredictifPanel from '../AuditPredictifPanel';
 import CompteResultatPanel from '../CompteResultatPanel';
 import BilanPrevisionnelPanel from '../BilanPrevisionnelPanel';
 import ProvisionIDRPanel from '../ProvisionIDRPanel';
+import TVAMultiTauxPanel from '../TVAMultiTauxPanel';
+import TableauFinancementPanel from '../TableauFinancementPanel';
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Line, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 
 export default function TabAnalyse({
@@ -122,6 +124,24 @@ export default function TabAnalyse({
         poleSupport={poleSupport}
         globalParams={globalParams}
         setGlobalParams={setGlobalParams}
+      />
+
+      {/* ═══ TVA MULTI-TAUX DIFFÉRENCIÉE (CGI 261 4-4°) ═══ */}
+      <TVAMultiTauxPanel
+        darkMode={darkMode}
+        direction={direction}
+        services={services}
+        poleSupport={poleSupport}
+        globalParams={globalParams}
+      />
+
+      {/* ═══ TABLEAU DE FINANCEMENT (PCG 532-7) ═══ */}
+      <TableauFinancementPanel
+        darkMode={darkMode}
+        direction={direction}
+        services={services}
+        poleSupport={poleSupport}
+        globalParams={globalParams}
       />
 
       {/* ═══ SYNTHÈSE CONSOLIDÉE CROSS-MODULES ═══ */}
