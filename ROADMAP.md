@@ -13,7 +13,7 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 
 - [x] **Design System Soft SaaS** : Tokens centralisés, surfaces glass, atomiques (Card, Button, Modal, Pill, Badge), TopBar 64px, Sidebar floating glass.
 - [~] **Bibliothèque de "Smart Indicators"** : `<HoverTip>` riche (titre + description + interprétation contextuelle) · dots sémantiques 5 niveaux avec animate-pulse warning/danger · `<PanelStat>` KPI hero. *Reste : jauges d'énergie, alertes masse salariale visuelles.*
-- [~] **Mode Novice (Progressive Disclosure)** : Sidebar "Premiers pas" (4 onboarding actions) · 3 onglets essentiels + bouton "Plus" disclosure · Dashboard "Synthèse Simple" avec hero status ✓/⚠/✕ · libellés humanisés (Solde→Résultat, ETP→Effectifs). *Reste : tour guidé react-joyride, glossaire inline auto sur termes techniques.*
+- [~] **Mode Novice (Progressive Disclosure)** : Sidebar "Premiers pas" (4 onboarding actions) · 3 onglets essentiels + bouton "Plus" disclosure · Dashboard "Synthèse Simple" avec hero status ✓/⚠/✕ · libellés humanisés (Solde→Résultat, ETP→Effectifs) · `<Term>` glossaire inline auto (BFR/ETP/FRNG/CAF/Ségur soulignés pointillés + tooltip définition+levier). *Reste : tour guidé react-joyride.*
 - [ ] **Universal Search & Commands** : Raccourcis clavier (Type 'Spotlight') pour naviguer entre les filières et les salariés.
 - [~] **Tableaux de Bord Sémantiques** : `<NoviceDashboard>` Synthèse Simple livré (hero status + 3 KPIs hero + AreaChart trésorerie soft + top 3 vigilances + CTA mode expert). *Reste : "Stories" par promo/filière, sankey flux financiers.*
 
@@ -78,10 +78,10 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 | S5.1 | `<DataTable>` moderne (padding, hover, empty) | ⏳ | — |
 | S5.2 | Modals Soft (animations + focus trap) | ✅ via `<Modal>` | — |
 | S5.3 | Migration 6 panels analyse vers `<DataPanel>` | ⏳ | — |
-| S6.1 | `<Term>` glossaire inline auto | ⏳ | — |
+| S6.1 | `<Term>` glossaire inline auto | ✅ | 13 |
 | S6.2 | Tour guidé `react-joyride` 5 étapes | ⏳ | — |
 
-**Phase 8 : 9/14 sprints livrés** | **84 tests dédiés** | **379/379 verts | Build ✓**
+**Phase 8 : 10/14 sprints livrés** | **97 tests dédiés** | **392/392 verts | Build ✓**
 
 ---
 

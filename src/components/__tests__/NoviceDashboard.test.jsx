@@ -116,7 +116,7 @@ describe('<NoviceDashboard />', () => {
     renderWithCtx(<NoviceDashboard darkMode={false} />, {
       kpiGlobaux: { totalRecettes: 100, totalCharges: 100, soldeGlobal: 0, tauxCouverture: 95, totalETP: 12.5 },
     });
-    expect(screen.getByText('Effectifs (ETP)')).toBeInTheDocument();
+    expect(screen.getByText(/Effectifs/)).toBeInTheDocument();
     expect(screen.getByText('12.5')).toBeInTheDocument();
     expect(screen.getByText(/Taux de couverture/i)).toBeInTheDocument();
     expect(screen.getByText(/Niveau d'alerte/i)).toBeInTheDocument();

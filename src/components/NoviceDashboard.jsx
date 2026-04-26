@@ -9,6 +9,7 @@ import { surface, text, status as statusToken } from '../styles/tokens';
 import { axisProps, gridProps, tooltipProps, lineColors } from '../styles/chartTheme';
 import Button from './ui/Button';
 import HoverTip from './ui/HoverTip';
+import Term from './ui/Term';
 
 const fmtK = (n) => `${n >= 0 ? '+' : ''}${Math.round((n || 0) / 1000)} k €`;
 const fmtNum = (n) => Math.round(n || 0).toLocaleString('fr-FR');
@@ -147,11 +148,11 @@ export default function NoviceDashboard({ darkMode = false, onToggleExpertMode }
 
       {/* Stats secondaires en bandeau discret */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <SmallStat dm={dm} icon={Users} label="Effectifs (ETP)" value={totalETP.toFixed(1)} />
+        <SmallStat dm={dm} icon={Users} label={<>Effectifs (<Term darkMode={dm}>ETP</Term>)</>} value={totalETP.toFixed(1)} />
         <SmallStat
           dm={dm}
           icon={Target}
-          label="Taux de couverture"
+          label={<Term darkMode={dm} id="taux_couverture">Taux de couverture</Term>}
           value={`${Math.round(tauxCouverture)} %`}
           accent={tauxCouverture >= 100 ? 'emerald' : tauxCouverture >= 90 ? 'amber' : 'rose'}
         />
