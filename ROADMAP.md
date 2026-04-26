@@ -62,6 +62,57 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 
 ---
 
+## 🏗️ Axe 6 : Pilotage Analytique Multidimensionnel (Expert Comptable)
+*Objectif : Passer d'une vision globale à une analyse de rentabilité par centre de profit.*
+
+- [ ] **Moteur de Ventilation Quadridimensionnel** : Restructuration du `BudgetContext` pour supporter les "Splits".
+    *   **S6.1 : Normalisation du Schéma** : Migration vers `AnalyticValue { total, splits: [] }`.
+    *   **S6.2 : Référentiel de Structure (Dictionnaire)** : Module de paramétrage (CRUD) des Unités (Lieux, Services, Filières) pour supprimer les libellés en dur.
+    *   **S6.3 : Moteur de Clés de Répartition (Overheads)** : Algorithme de réallocation automatique des frais de siège et charges indirectes vers les unités opérationnelles.
+    *   **S6.4 : Sélecteur de Contexte Analytique** : Toggle global UI pour basculer toute l'application en vue "Site" ou "Service".
+- [ ] **Contrôle Budgétaire Analytique (Prévu vs Réel)** :
+    *   **Matching Engine** : Interface de "tagging" pour affecter les écritures de la balance comptable importée (Réel) aux sections analytiques (Prévu).
+    *   **Analyse des Écarts** : Dashboard de comparaison avec alertes sur les dérives par centre de profit.
+- [ ] **Expertise Comptable Approfondie** :
+    *   **Amortissements Analytiques** : Module de calcul de la charge d'usure des immobilisations par site pour un résultat net analytique fidèle.
+    *   **Middleware IDR/TVA Analytique** : Ventilation automatique des charges fiscales et provisions.
+- [ ] **Dashboards de Profitabilité par Unité (P&L Analytique)** :
+    - **Espace Lieu** : Compte de résultat par site géographique avec réallocation des frais de siège.
+    - **Espace Service** : Analyse des marges par fonction (Pédagogie vs Restauration vs Technique).
+- [ ] **Analyse RH par Centre de Coût (Professionnel)** : Liaison dynamique entre `PoolRHManager.jsx` et les sections analytiques.
+- [ ] **Calcul du Coût de Revient par Unité d'Œuvre (Étudiant)** : Automatisation du calcul du coût complet par étudiant (Charges directes + Quote-part frais de structure).
+- [ ] **Reporting de Contribution** : Visualisation de la marge contributive par section pour identifier les leviers de performance.
+
+---
+
+## 🤝 Axe 7 : Gouvernance Associative & Engagement
+*Objectif : Valoriser l'impact social et sécuriser les fonds publics.*
+
+- [ ] **Moteur de Fonds Dédiés (CRC 2018-06)** : Calcul automatique des reports de subventions non consommées et gestion des écritures d'engagement au passif du bilan.
+- [ ] **Valorisation du Bénévolat (Compta Classe 8)** : Module de saisie et de valorisation financière des contributions volontaires (heures bénévoles) pour le "Compte de Résultat Élargi".
+- [ ] **Reporting Stratégique CPOM (5 ans)** : Dashboard pluriannuel comparant les objectifs négociés avec les financeurs (Région, ARS) et la trajectoire budgétaire réelle cumulée.
+- [ ] **Générateur de Rapport de Gestion pour l'AG** : Export automatisé d'une synthèse visuelle, pédagogique et commentée destinée aux administrateurs.
+
+---
+
+## 🌿 Axe 8 : Pilotage RSE & Budget Vert
+*Objectif : Aligner la finance sur les objectifs de transition écologique.*
+
+- [ ] **Indicateurs de Performance Sociale** : Suivi des index d'égalité, taux d'emploi handicap et turn-over par service analytique.
+- [ ] **Module "Budget Vert"** : Classification des dépenses selon leur impact environnemental (Taxonomie verte simplifiée) pour les rapports financeurs.
+- [ ] **Calculateur d'Empreinte Carbone** : Estimation des émissions de CO2 par parcours de formation (calcul basé sur les unités d'œuvre : fluides, repas, déplacements).
+
+---
+
+## 🛡️ Axe 9 : Sécurisation du Cycle d'Achat & Engagements
+*Objectif : Maîtriser les dépenses dès l'intention d'achat.*
+
+- [ ] **Workflow de Demande d'Achat (DA)** : Circuit de validation électronique (Collaborateur → Responsable → DAF) avant engagement.
+- [x] **Suivi du "Reste à Engager"** : `resteAEngager.js` + `ResteAEngagerPanel.jsx` — Budget exploitation annuel − Engagements ouverts par entité (Siège/Pôle/Services). Taux d'engagement avec 4 niveaux (✓ &lt; 70 % · ⚠ 70-90 % · ✕ 90-100 % · 🔴 dépassement &gt; 100 %). Barre de progression colorée + bannière alerte + recommandation contextuelle DAF. Intégré TabAnalyse, total consolidé en footer. 16 tests.
+- [ ] **Coffre-Fort Numérique (Doc-Hub)** : Archivage sécurisé des pièces justificatives (contrats, conventions, factures) lié à l'Audit Trail.
+
+---
+
 ## 📊 État d'avancement Phase 8 — Modernisation UI/UX
 
 | Sprint | Livrable | Statut | Tests |
@@ -92,6 +143,7 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 | **Sécurité** | Zéro Défaut Audit | Validation sans réserve par le Commissaire aux Comptes | 🟢 PBKDF2 600k + audit trail signé + FEC opposable |
 | **Pilotage** | Agilité Totale | Nouveau scénario "Stress-test" en < 5 min | 🟡 Multi-scénarios livré, stress-test simplifié à finaliser |
 | **Rentabilité** | Maîtrise des Coûts | Marge nette précise par filière de formation | 🟡 Coût/diplômé + enveloppe filière, CCHS à venir |
+| **Analytique** | Vision 360° | Ventilation 100% des charges par Lieu/Service/Étudiant | 🔴 À démarrer (Axe 6) |
 
 ---
 
@@ -99,8 +151,9 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 1. **Avril 2026** ✅ : Phase 7 Conformité (FEC, CR PCG, Bilan, IDR, TVA, Tableau financement) + Phase 8 P1+P2 UI Modernisation.
 2. **Mai 2026** : Finaliser Mode Novice (tour guidé + glossaire inline auto) + Recharts modernisés globalement.
 3. **Juin 2026** : Workflow d'approbation multiniveaux complet + Stress-Test trésorerie ciblé subventions.
-4. **Septembre 2026** : Module CCHS + Analyse rentabilité Business Unit par filière.
-5. **Décembre 2026** : IA Prescriptive narrative + Connecteurs ETL DSN/Compta + Backend Supabase RBAC.
+4. **Juillet 2026** : Lancement **Axe 6** — Refonte Moteur Analytique (Splits multidimensionnels).
+5. **Septembre 2026** : Module CCHS + Analyse rentabilité Business Unit par filière + Dashboard par Lieu.
+6. **Décembre 2026** : IA Prescriptive narrative + Connecteurs ETL DSN/Compta + Backend Supabase RBAC.
 
 ---
 

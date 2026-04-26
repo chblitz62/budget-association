@@ -12,6 +12,7 @@ import BilanPrevisionnelPanel from '../BilanPrevisionnelPanel';
 import ProvisionIDRPanel from '../ProvisionIDRPanel';
 import TVAMultiTauxPanel from '../TVAMultiTauxPanel';
 import TableauFinancementPanel from '../TableauFinancementPanel';
+import ResteAEngagerPanel from '../ResteAEngagerPanel';
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Line, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 
 export default function TabAnalyse({
@@ -141,6 +142,16 @@ export default function TabAnalyse({
         direction={direction}
         services={services}
         poleSupport={poleSupport}
+        globalParams={globalParams}
+      />
+
+      {/* ═══ RESTE À ENGAGER (RAE) — Cycle d'achat ═══ */}
+      <ResteAEngagerPanel
+        darkMode={darkMode}
+        direction={direction}
+        services={services}
+        poleSupport={poleSupport}
+        engagements={engagements}
         globalParams={globalParams}
       />
 
