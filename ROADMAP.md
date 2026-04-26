@@ -74,14 +74,14 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 | S3.1 | Sidebar floating glass + section "Premiers pas" | ✅ | 9 |
 | S3.2 | `<TabBar>` Mode Essentiel (3 onglets + Plus) | ✅ | 9 |
 | S4.1 | `<NoviceDashboard>` Synthèse Simple | ✅ | 11 |
-| S4.2 | Recharts modernisés globalement (thin, soft fills) | 🟡 partiel | — |
+| S4.2 | Recharts modernisés (`chartTheme.jsx`) | ✅ | 10 |
 | S5.1 | `<DataTable>` moderne (padding, hover, empty) | ⏳ | — |
 | S5.2 | Modals Soft (animations + focus trap) | ✅ via `<Modal>` | — |
 | S5.3 | Migration 6 panels analyse vers `<DataPanel>` | ⏳ | — |
 | S6.1 | `<Term>` glossaire inline auto | ⏳ | — |
 | S6.2 | Tour guidé `react-joyride` 5 étapes | ⏳ | — |
 
-**Phase 8 : 8/14 sprints livrés** | **74 tests dédiés** | **369/369 verts | Build ✓**
+**Phase 8 : 9/14 sprints livrés** | **84 tests dédiés** | **379/379 verts | Build ✓**
 
 ---
 

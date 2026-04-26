@@ -6,6 +6,7 @@ import {
 import { Area, AreaChart, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useBudget } from '../contexts/BudgetContext';
 import { surface, text, status as statusToken } from '../styles/tokens';
+import { axisProps, gridProps, tooltipProps, lineColors } from '../styles/chartTheme';
 import Button from './ui/Button';
 import HoverTip from './ui/HoverTip';
 
@@ -176,29 +177,20 @@ export default function NoviceDashboard({ darkMode = false, onToggleExpertMode }
             <AreaChart data={moisData} margin={{ top: 5, right: 5, bottom: 0, left: -10 }}>
               <defs>
                 <linearGradient id="grRecettes" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                  <stop offset="0%" stopColor={lineColors.emerald} stopOpacity={0.25} />
+                  <stop offset="100%" stopColor={lineColors.emerald} stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="grCharges" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.18} />
-                  <stop offset="100%" stopColor="#f43f5e" stopOpacity={0} />
+                  <stop offset="0%" stopColor={lineColors.rose} stopOpacity={0.18} />
+                  <stop offset="100%" stopColor={lineColors.rose} stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={dm ? '#27272a' : '#e2e8f0'} vertical={false} />
-              <XAxis dataKey="nom" stroke={dm ? '#71717a' : '#94a3b8'} fontSize={11} tickLine={false} axisLine={false} />
-              <YAxis stroke={dm ? '#71717a' : '#94a3b8'} fontSize={11} tickLine={false} axisLine={false} unit=" k€" />
-              <RTooltip
-                contentStyle={{
-                  backgroundColor: dm ? '#18181b' : '#ffffff',
-                  border: `1px solid ${dm ? '#3f3f46' : '#e2e8f0'}`,
-                  borderRadius: 12,
-                  fontSize: 12,
-                }}
-                labelStyle={{ fontWeight: 700, color: dm ? '#e4e4e7' : '#0f172a' }}
-                formatter={(value, name) => [`${value} k€`, name]}
-              />
-              <Area type="monotone" dataKey="Recettes" stroke="#10b981" strokeWidth={1.5} fill="url(#grRecettes)" />
-              <Area type="monotone" dataKey="Charges"  stroke="#f43f5e" strokeWidth={1.5} fill="url(#grCharges)"  />
+              <CartesianGrid {...gridProps(dm)} />
+              <XAxis dataKey="nom" {...axisProps(dm)} />
+              <YAxis {...axisProps(dm)} unit=" k€" />
+              <RTooltip {...tooltipProps(dm)} formatter={(value, name) => [`${value} k€`, name]} />
+              <Area type="monotone" dataKey="Recettes" stroke={lineColors.emerald} strokeWidth={1.5} fill="url(#grRecettes)" />
+              <Area type="monotone" dataKey="Charges"  stroke={lineColors.rose}    strokeWidth={1.5} fill="url(#grCharges)"  />
             </AreaChart>
           </ResponsiveContainer>
         </div>

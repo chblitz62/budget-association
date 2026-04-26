@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { TrendingUp, TrendingDown, BarChart3, Calendar, Target, Users, FileSpreadsheet, Clock, Bell, Leaf, GitCompare, AlertTriangle, RefreshCw, Edit3, CheckCircle, Presentation, Wand2 } from 'lucide-react';
 import NoviceDashboard from '../NoviceDashboard';
+import { axisProps, gridProps, tooltipProps, legendProps, lineColors, barStroke } from '../../styles/chartTheme';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Area, AreaChart } from 'recharts';
 import DashboardDG from '../DashboardDG';
 import TabTresorerie from '../TabTresorerie';
@@ -580,17 +581,14 @@ export default function TabDashboard({
                 Siège: Math.round(s.budgetDirection),
                 Amortissements: Math.round(s.amortissements)
               }))}>
-                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#374151' : '#e2e8f0'} />
-                <XAxis dataKey="name" stroke={darkMode ? '#9ca3af' : '#64748b'} />
-                <YAxis stroke={darkMode ? '#9ca3af' : '#64748b'} tickFormatter={(v) => `${Math.round(v/1000)}k`} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: darkMode ? '#1f2937' : '#fff', border: 'none', borderRadius: '12px' }}
-                  formatter={(value) => `${value.toLocaleString()} €`}
-                />
-                <Legend />
-                <Bar dataKey="Budget" fill="#14b8a6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Siège" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Amortissements" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <CartesianGrid {...gridProps(darkMode)} />
+                <XAxis dataKey="name" {...axisProps(darkMode)} />
+                <YAxis {...axisProps(darkMode)} tickFormatter={(v) => `${Math.round(v/1000)}k`} unit=" €" />
+                <Tooltip {...tooltipProps(darkMode)} formatter={(value) => `${value.toLocaleString()} €`} />
+                <Legend {...legendProps(darkMode)} />
+                <Bar dataKey="Budget"         fill={lineColors.indigo}  {...barStroke} />
+                <Bar dataKey="Siège"          fill={lineColors.violet}  {...barStroke} />
+                <Bar dataKey="Amortissements" fill={lineColors.amber}   {...barStroke} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -613,11 +611,11 @@ export default function TabDashboard({
                   dataKey="value"
                   label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
                 >
-                  {['#14b8a6', '#8b5cf6', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899'].map((color, index) => (
-                    <Cell key={`cell-${index}`} fill={color} />
+                  {[lineColors.indigo, lineColors.violet, lineColors.amber, lineColors.rose, lineColors.cyan, lineColors.emerald].map((color, index) => (
+                    <Cell key={`cell-${index}`} fill={color} stroke={darkMode ? '#0f172a' : '#ffffff'} strokeWidth={2} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => `${value.toLocaleString()} €`} />
+                <Tooltip {...tooltipProps(darkMode)} formatter={(value) => `${value.toLocaleString()} €`} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -656,42 +654,42 @@ export default function TabDashboard({
                 <AreaChart data={projection36} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                   <defs>
                     <linearGradient id="gradEncaiss" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
+                      <stop offset="0%" stopColor={lineColors.emerald} stopOpacity={0.25} />
+                      <stop offset="100%" stopColor={lineColors.emerald} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradDecaiss" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                      <stop offset="0%" stopColor={lineColors.rose} stopOpacity={0.18} />
+                      <stop offset="100%" stopColor={lineColors.rose} stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="gradCumul" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                      <stop offset="0%" stopColor={lineColors.indigo} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={lineColors.indigo} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#374151' : '#e2e8f0'} />
+                  <CartesianGrid {...gridProps(darkMode)} />
                   <XAxis
                     dataKey="moisAbsolu"
-                    stroke={darkMode ? '#9ca3af' : '#64748b'}
+                    {...axisProps(darkMode)}
                     tickFormatter={(v) => {
                       const m = projection36[v - 1];
                       if (!m) return '';
                       return m.moisAnnee === 1 ? String(m.annee) : (m.moisAnnee === 7 ? m.nomMois : '');
                     }}
-                    tick={{ fontSize: 10 }}
+                    fontSize={10}
                   />
-                  <YAxis stroke={darkMode ? '#9ca3af' : '#64748b'} tickFormatter={(v) => `${Math.round(v/1000)}k`} tick={{ fontSize: 10 }} />
+                  <YAxis {...axisProps(darkMode)} tickFormatter={(v) => `${Math.round(v/1000)}k`} fontSize={10} unit=" €" />
                   <Tooltip
-                    contentStyle={{ backgroundColor: darkMode ? '#1f2937' : '#fff', border: 'none', borderRadius: '12px', fontSize: 12 }}
+                    {...tooltipProps(darkMode)}
                     formatter={(value, name) => [`${value.toLocaleString()} €`, name]}
                     labelFormatter={(v) => {
                       const m = projection36[v - 1];
                       return m ? `${m.nomMois} ${m.annee}` : '';
                     }}
                   />
-                  <Legend />
-                  <Area type="monotone" dataKey="encaissements" name="Encaissements" stroke="#14b8a6" fill="url(#gradEncaiss)" strokeWidth={1.5} dot={false} />
-                  <Area type="monotone" dataKey="decaissements" name="Décaissements" stroke="#ef4444" fill="url(#gradDecaiss)" strokeWidth={1.5} dot={false} />
-                  <Area type="monotone" dataKey="soldeCumule"   name="Solde cumulé" stroke="#6366f1" fill="url(#gradCumul)"   strokeWidth={2}   dot={false} />
+                  <Legend {...legendProps(darkMode)} />
+                  <Area type="monotone" dataKey="encaissements" name="Encaissements" stroke={lineColors.emerald} fill="url(#gradEncaiss)" strokeWidth={1.5} dot={false} />
+                  <Area type="monotone" dataKey="decaissements" name="Décaissements" stroke={lineColors.rose}    fill="url(#gradDecaiss)" strokeWidth={1.5} dot={false} />
+                  <Area type="monotone" dataKey="soldeCumule"   name="Solde cumulé"  stroke={lineColors.indigo}  fill="url(#gradCumul)"   strokeWidth={2}   dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
 
