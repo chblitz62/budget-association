@@ -14,6 +14,7 @@ import TVAMultiTauxPanel from '../TVAMultiTauxPanel';
 import TableauFinancementPanel from '../TableauFinancementPanel';
 import ResteAEngagerPanel from '../ResteAEngagerPanel';
 import ValorisationBenevolatPanel from '../ValorisationBenevolatPanel';
+import FondsDediesPanel from '../FondsDediesPanel';
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Line, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 
 export default function TabAnalyse({
@@ -49,6 +50,8 @@ export default function TabAnalyse({
   setEngagements = null,
   benevoles = [],
   setBenevoles = null,
+  fondsDedies = [],
+  setFondsDedies = null,
   appendAuditEntry = null,
 }) {
   const getProvisions = getProvisionsProp || (() => calculerProvisions(direction, services, globalParams, poleSupport));
@@ -164,6 +167,14 @@ export default function TabAnalyse({
         darkMode={darkMode}
         benevoles={benevoles}
         setBenevoles={setBenevoles}
+        appendAuditEntry={appendAuditEntry}
+      />
+
+      {/* ═══ FONDS DÉDIÉS — Reports CRC 2018-06 ═══ */}
+      <FondsDediesPanel
+        darkMode={darkMode}
+        fondsDedies={fondsDedies}
+        setFondsDedies={setFondsDedies}
         appendAuditEntry={appendAuditEntry}
       />
 

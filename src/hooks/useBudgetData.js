@@ -26,6 +26,7 @@ export const useBudgetData = () => {
   const [engagements, setEngagements] = useState(() => loadFromStorage('assoc_engagements', []));
   const [benevoles, setBenevoles]               = useState(() => loadFromStorage('assoc_benevoles', []));
   const [repartitionTemps, setRepartitionTemps] = useState(() => loadFromStorage('assoc_repartition_temps', {}));
+  const [fondsDedies, setFondsDedies]           = useState(() => loadFromStorage('assoc_fonds_dedies', []));
 
   const [auditTrail, setAuditTrail] = useState(() => {
     try { return JSON.parse(localStorage.getItem('assoc_audit_trail') || '[]'); } catch { return []; }
@@ -99,8 +100,9 @@ export const useBudgetData = () => {
     assoc_repartition_temps:   repartitionTemps,
     assoc_rolling_forecast:    rollingForecast,
     assoc_engagements:         engagements,
+    assoc_fonds_dedies:        fondsDedies,
   }), [globalParams, direction, services, poolRH, poleSupport, pilotageSites,
-       planningAbsences, enveloppeFormation, reportingFC, donneesN1, balanceComptable, benevoles, repartitionTemps, rollingForecast, engagements]);
+       planningAbsences, enveloppeFormation, reportingFC, donneesN1, balanceComptable, benevoles, repartitionTemps, rollingForecast, engagements, fondsDedies]);
 
   // Sauvegarde atomique de toutes les données métier (debounce 300ms)
   useEffect(() => {
@@ -173,6 +175,7 @@ export const useBudgetData = () => {
     repartitionTemps, setRepartitionTemps,
     rollingForecast, setRollingForecast,
     engagements, setEngagements,
+    fondsDedies, setFondsDedies,
     auditTrail, appendAuditEntry, auditChainStatus,
   };
 };

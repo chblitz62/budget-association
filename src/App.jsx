@@ -85,6 +85,7 @@ const BudgetTool = () => {
     donneesN1, setDonneesN1,
     balanceComptable, setBalanceComptable,
     benevoles, setBenevoles,
+    fondsDedies, setFondsDedies,
     repartitionTemps, setRepartitionTemps,
     engagements, setEngagements,
     msETP, coefficientBP,
@@ -367,6 +368,7 @@ const BudgetTool = () => {
           balanceComptable={balanceComptable} setShowBalanceImport={setShowBalanceImport}
           engagements={engagements} setEngagements={setEngagements}
           benevoles={benevoles} setBenevoles={setBenevoles}
+          fondsDedies={fondsDedies} setFondsDedies={setFondsDedies}
           appendAuditEntry={appendAuditEntry}
         />
       )}
