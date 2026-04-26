@@ -77,11 +77,11 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 | S4.2 | Recharts modernisés (`chartTheme.jsx`) | ✅ | 10 |
 | S5.1 | `<DataTable>` composable (padding 12px, sortable, empty intégré) | ✅ | 19 |
 | S5.2 | Modals Soft (animations + focus trap) | ✅ via `<Modal>` | — |
-| S5.3 | Migration 6 panels analyse vers `<DataPanel>` | ⏳ | — |
+| S5.3 | Migration panels analyse vers `<DataTable>` | ✅ partiel (3/6) | — |
 | S6.1 | `<Term>` glossaire inline auto | ✅ | 13 |
 | S6.2 | Tour guidé `react-joyride` 5 étapes | ⏳ | — |
 
-**Phase 8 : 11/14 sprints livrés** | **116 tests dédiés** | **411/411 verts | Build ✓**
+**Phase 8 : 12/14 sprints livrés** (S5.3 partiel) | **116 tests dédiés** | **411/411 verts | Build ✓**
 
 ---
 

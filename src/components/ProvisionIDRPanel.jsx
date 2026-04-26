@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { TrendingUp, ChevronDown, ChevronUp, Settings, Download } from 'lucide-react';
 import { calculerProvisionIDR, DEFAULT_IDR_HYPOTHESES } from '../utils/provisionIDR';
+import DataTable from './ui/DataTable';
 
 const fmt = (n) => Math.round(n || 0).toLocaleString('fr-FR') + ' €';
 const pct = (n, d = 1) => (n * 100).toFixed(d) + ' %';
@@ -139,44 +140,44 @@ export default function ProvisionIDRPanel({ darkMode, direction, services, poleS
             Aucun agent éligible : renseigner anneeNaissance et dateEntree pour activer le calcul.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className={dm ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-100 text-slate-700'}>
-                  <th className="text-left p-2">Agent</th>
-                  <th className="text-left p-2">Source</th>
-                  <th className="text-right p-2">Âge</th>
-                  <th className="text-right p-2">Anc.</th>
-                  <th className="text-right p-2">Reste</th>
-                  <th className="text-right p-2">P. présence</th>
-                  <th className="text-right p-2">Actu.</th>
-                  <th className="text-right p-2">Nominal</th>
-                  <th className="text-right p-2">UCP</th>
-                  <th className="text-right p-2">Avec charges</th>
-                </tr>
-              </thead>
-              <tbody>
-                {idr.agents.map((a, i) => (
-                  <tr key={a.id || i} className={i % 2 === 0 ? (dm ? 'bg-zinc-900/30' : 'bg-white') : (dm ? 'bg-zinc-800/40' : 'bg-slate-50/70')}>
-                    <td className={`p-2 font-bold ${dm ? 'text-zinc-200' : 'text-slate-800'}`}>{a.nom}</td>
-                    <td className={`p-2 ${dm ? 'text-zinc-400' : 'text-slate-500'}`}>{a.source}</td>
-                    <td className={`p-2 text-right font-mono ${dm ? 'text-zinc-300' : 'text-slate-700'}`}>{a.age}</td>
-                    <td className={`p-2 text-right font-mono ${dm ? 'text-zinc-300' : 'text-slate-700'}`}>{a.anciennete}</td>
-                    <td className={`p-2 text-right font-mono ${dm ? 'text-zinc-300' : 'text-slate-700'}`}>{a.anneesRestantes}</td>
-                    <td className={`p-2 text-right font-mono ${dm ? 'text-zinc-400' : 'text-slate-500'}`}>{pct(a.probabilitePresence)}</td>
-                    <td className={`p-2 text-right font-mono ${dm ? 'text-zinc-400' : 'text-slate-500'}`}>{pct(a.coefficientActualisation)}</td>
-                    <td className={`p-2 text-right font-mono ${dm ? 'text-zinc-300' : 'text-slate-600'}`}>{fmt(a.provisionNominale)}</td>
-                    <td className={`p-2 text-right font-mono font-bold ${dm ? 'text-amber-300' : 'text-amber-700'}`}>{fmt(a.provisionUCP)}</td>
-                    <td className={`p-2 text-right font-mono font-bold ${dm ? 'text-rose-300' : 'text-rose-700'}`}>{fmt(a.provisionAvecCharges)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className={`mt-3 text-[10px] italic ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>
-              Méthode UCP : engagement_actuel = engagement_retraite × (anc/anc_totale) × (1−turnOver)^n × (1−mortalité)^n × (1+i)^(−n).
-              Conforme ANC 2013-02 et IAS 19. La provision avec charges constitue le montant à inscrire au compte 153.
-            </p>
-          </div>
+          <>
+          <DataTable darkMode={dm} variant="borderless">
+            <DataTable.Head>
+              <DataTable.Row>
+                <DataTable.HeadCell darkMode={dm}>Agent</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm}>Source</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm} align="right">Âge</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm} align="right">Anc.</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm} align="right">Reste</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm} align="right">P. présence</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm} align="right">Actu.</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm} align="right">Nominal</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm} align="right">UCP</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm} align="right">Avec charges</DataTable.HeadCell>
+              </DataTable.Row>
+            </DataTable.Head>
+            <DataTable.Body>
+              {idr.agents.map((a, i) => (
+                <DataTable.Row key={a.id || i}>
+                  <DataTable.Cell darkMode={dm} bold>{a.nom}</DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} className={dm ? 'text-zinc-400' : 'text-slate-500'}>{a.source}</DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} align="right" mono>{a.age}</DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} align="right" mono>{a.anciennete}</DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} align="right" mono>{a.anneesRestantes}</DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} align="right" mono className={dm ? 'text-zinc-400' : 'text-slate-500'}>{pct(a.probabilitePresence)}</DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} align="right" mono className={dm ? 'text-zinc-400' : 'text-slate-500'}>{pct(a.coefficientActualisation)}</DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} align="right" mono>{fmt(a.provisionNominale)}</DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} align="right" mono bold className={dm ? 'text-amber-300' : 'text-amber-700'}>{fmt(a.provisionUCP)}</DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} align="right" mono bold className={dm ? 'text-rose-300' : 'text-rose-700'}>{fmt(a.provisionAvecCharges)}</DataTable.Cell>
+                </DataTable.Row>
+              ))}
+            </DataTable.Body>
+          </DataTable>
+          <p className={`mt-3 text-[10px] italic ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>
+            Méthode UCP : engagement_actuel = engagement_retraite × (anc/anc_totale) × (1−turnOver)^n × (1−mortalité)^n × (1+i)^(−n).
+            Conforme ANC 2013-02 et IAS 19. La provision avec charges constitue le montant à inscrire au compte 153.
+          </p>
+        </>
         )
       )}
     </div>

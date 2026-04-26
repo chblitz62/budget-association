@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { FileText, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { calculerCompteResultat } from '../utils/compteResultat';
+import DataTable from './ui/DataTable';
 
 const fmt = (n) => Math.round(n || 0).toLocaleString('fr-FR') + ' €';
 
@@ -101,88 +102,114 @@ export default function CompteResultatPanel({ darkMode, direction, services, pol
       </div>
 
       {expanded && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr>
-                <th className={`text-left p-2 ${cellHeader}`}>Section</th>
-                <th className={`text-left p-2 ${cellHeader}`}>Compte PCG</th>
-                <th className={`text-left p-2 ${cellHeader}`}>Libellé</th>
-                <th className={`text-right p-2 ${cellHeader}`}>Charges (€)</th>
-                <th className={`text-right p-2 ${cellHeader}`}>Produits (€)</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div>
+          <DataTable darkMode={darkMode} variant="borderless">
+            <DataTable.Head>
+              <DataTable.Row>
+                <DataTable.HeadCell darkMode={darkMode}>Section</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={darkMode}>Compte PCG</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={darkMode}>Libellé</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={darkMode} align="right">Charges (€)</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={darkMode} align="right">Produits (€)</DataTable.HeadCell>
+              </DataTable.Row>
+            </DataTable.Head>
+            <DataTable.Body>
               {/* Charges Exploitation */}
-              <tr><td colSpan={5} className={`p-2 font-black ${sectionRow}`}>I — Charges d'exploitation</td></tr>
+              <DataTable.Row>
+                <DataTable.Cell darkMode={darkMode} className={`font-black ${sectionRow}`} colSpan={5}>
+                  I — Charges d'exploitation
+                </DataTable.Cell>
+              </DataTable.Row>
               {cr.charges.filter(c => c.section === 'Exploitation').map((c, i) => (
-                <tr key={`ce-${i}`} className={i % 2 === 0 ? rowEven : rowOdd}>
-                  <td className="p-2">Exploitation</td>
-                  <td className="p-2 font-mono">{c.code}</td>
-                  <td className="p-2">{c.libelle}</td>
-                  <td className="p-2 text-right font-mono">{fmt(c.montant)}</td>
-                  <td className="p-2 text-right font-mono">—</td>
-                </tr>
+                <DataTable.Row key={`ce-${i}`}>
+                  <DataTable.Cell darkMode={darkMode}>Exploitation</DataTable.Cell>
+                  <DataTable.Cell darkMode={darkMode} mono>{c.code}</DataTable.Cell>
+                  <DataTable.Cell darkMode={darkMode}>{c.libelle}</DataTable.Cell>
+                  <DataTable.Cell darkMode={darkMode} align="right" mono>{fmt(c.montant)}</DataTable.Cell>
+                  <DataTable.Cell darkMode={darkMode} align="right">—</DataTable.Cell>
+                </DataTable.Row>
               ))}
-              <tr className={totalRow}>
-                <td colSpan={3} className="p-2 font-black text-right">Sous-total charges exploitation</td>
-                <td className="p-2 text-right font-black font-mono">{fmt(cr.totaux.totalChargesExploitation)}</td>
-                <td className="p-2"></td>
-              </tr>
+              <DataTable.Row highlight>
+                <DataTable.Cell darkMode={darkMode} bold align="right" colSpan={3} className={totalRow}>
+                  Sous-total charges exploitation
+                </DataTable.Cell>
+                <DataTable.Cell darkMode={darkMode} mono bold align="right" className={totalRow}>
+                  {fmt(cr.totaux.totalChargesExploitation)}
+                </DataTable.Cell>
+                <DataTable.Cell darkMode={darkMode} className={totalRow} />
+              </DataTable.Row>
 
               {/* Produits Exploitation */}
-              <tr><td colSpan={5} className={`p-2 font-black ${sectionRow}`}>II — Produits d'exploitation</td></tr>
+              <DataTable.Row>
+                <DataTable.Cell darkMode={darkMode} className={`font-black ${sectionRow}`} colSpan={5}>
+                  II — Produits d'exploitation
+                </DataTable.Cell>
+              </DataTable.Row>
               {cr.produits.filter(p => p.section === 'Exploitation').map((p, i) => (
-                <tr key={`pe-${i}`} className={i % 2 === 0 ? rowEven : rowOdd}>
-                  <td className="p-2">Exploitation</td>
-                  <td className="p-2 font-mono">{p.code}</td>
-                  <td className="p-2">{p.libelle}</td>
-                  <td className="p-2 text-right font-mono">—</td>
-                  <td className="p-2 text-right font-mono">{fmt(p.montant)}</td>
-                </tr>
+                <DataTable.Row key={`pe-${i}`}>
+                  <DataTable.Cell darkMode={darkMode}>Exploitation</DataTable.Cell>
+                  <DataTable.Cell darkMode={darkMode} mono>{p.code}</DataTable.Cell>
+                  <DataTable.Cell darkMode={darkMode}>{p.libelle}</DataTable.Cell>
+                  <DataTable.Cell darkMode={darkMode} align="right">—</DataTable.Cell>
+                  <DataTable.Cell darkMode={darkMode} align="right" mono>{fmt(p.montant)}</DataTable.Cell>
+                </DataTable.Row>
               ))}
-              <tr className={totalRow}>
-                <td colSpan={4} className="p-2 font-black text-right">Sous-total produits exploitation</td>
-                <td className="p-2 text-right font-black font-mono">{fmt(cr.totaux.totalProduitsExploitation)}</td>
-              </tr>
-              <tr className={resultRow(cr.totaux.resultatExploitation >= 0)}>
-                <td colSpan={4} className="p-2 font-black text-right">RÉSULTAT D'EXPLOITATION</td>
-                <td className="p-2 text-right font-black font-mono">
+              <DataTable.Row highlight>
+                <DataTable.Cell darkMode={darkMode} bold align="right" colSpan={4} className={totalRow}>
+                  Sous-total produits exploitation
+                </DataTable.Cell>
+                <DataTable.Cell darkMode={darkMode} mono bold align="right" className={totalRow}>
+                  {fmt(cr.totaux.totalProduitsExploitation)}
+                </DataTable.Cell>
+              </DataTable.Row>
+              <DataTable.Row level={cr.totaux.resultatExploitation >= 0 ? 'success' : 'danger'}>
+                <DataTable.Cell darkMode={darkMode} bold align="right" colSpan={4} className={resultRow(cr.totaux.resultatExploitation >= 0)}>
+                  RÉSULTAT D'EXPLOITATION
+                </DataTable.Cell>
+                <DataTable.Cell darkMode={darkMode} mono bold align="right" className={resultRow(cr.totaux.resultatExploitation >= 0)}>
                   {cr.totaux.resultatExploitation >= 0 ? '+' : ''}{fmt(cr.totaux.resultatExploitation)}
-                </td>
-              </tr>
+                </DataTable.Cell>
+              </DataTable.Row>
 
               {/* Financier */}
               {(cr.charges.some(c => c.section === 'Financier') || cr.produits.some(p => p.section === 'Financier')) && (
                 <>
-                  <tr><td colSpan={5} className={`p-2 font-black ${sectionRow}`}>III — Résultat financier</td></tr>
+                  <DataTable.Row>
+                    <DataTable.Cell darkMode={darkMode} className={`font-black ${sectionRow}`} colSpan={5}>
+                      III — Résultat financier
+                    </DataTable.Cell>
+                  </DataTable.Row>
                   {cr.charges.filter(c => c.section === 'Financier').map((c, i) => (
-                    <tr key={`cf-${i}`} className={rowOdd}>
-                      <td className="p-2">Financier</td>
-                      <td className="p-2 font-mono">{c.code}</td>
-                      <td className="p-2">{c.libelle}</td>
-                      <td className="p-2 text-right font-mono">{fmt(c.montant)}</td>
-                      <td className="p-2 text-right font-mono">—</td>
-                    </tr>
+                    <DataTable.Row key={`cf-${i}`}>
+                      <DataTable.Cell darkMode={darkMode}>Financier</DataTable.Cell>
+                      <DataTable.Cell darkMode={darkMode} mono>{c.code}</DataTable.Cell>
+                      <DataTable.Cell darkMode={darkMode}>{c.libelle}</DataTable.Cell>
+                      <DataTable.Cell darkMode={darkMode} align="right" mono>{fmt(c.montant)}</DataTable.Cell>
+                      <DataTable.Cell darkMode={darkMode} align="right">—</DataTable.Cell>
+                    </DataTable.Row>
                   ))}
-                  <tr className={resultRow(cr.totaux.resultatFinancier >= 0)}>
-                    <td colSpan={4} className="p-2 font-black text-right">Résultat financier</td>
-                    <td className="p-2 text-right font-black font-mono">
+                  <DataTable.Row level={cr.totaux.resultatFinancier >= 0 ? 'success' : 'danger'}>
+                    <DataTable.Cell darkMode={darkMode} bold align="right" colSpan={4} className={resultRow(cr.totaux.resultatFinancier >= 0)}>
+                      Résultat financier
+                    </DataTable.Cell>
+                    <DataTable.Cell darkMode={darkMode} mono bold align="right" className={resultRow(cr.totaux.resultatFinancier >= 0)}>
                       {cr.totaux.resultatFinancier >= 0 ? '+' : ''}{fmt(cr.totaux.resultatFinancier)}
-                    </td>
-                  </tr>
+                    </DataTable.Cell>
+                  </DataTable.Row>
                 </>
               )}
 
               {/* Résultat net final */}
-              <tr className={resultRow(cr.totaux.resultatNet >= 0)} style={{ borderTop: '2px solid currentColor' }}>
-                <td colSpan={4} className="p-3 font-black text-right text-base">RÉSULTAT NET DE L'EXERCICE</td>
-                <td className="p-3 text-right font-black font-mono text-base">
+              <DataTable.Row level={cr.totaux.resultatNet >= 0 ? 'success' : 'danger'}>
+                <DataTable.Cell darkMode={darkMode} bold align="right" colSpan={4} className={`${resultRow(cr.totaux.resultatNet >= 0)} text-base`}>
+                  RÉSULTAT NET DE L'EXERCICE
+                </DataTable.Cell>
+                <DataTable.Cell darkMode={darkMode} mono bold align="right" className={`${resultRow(cr.totaux.resultatNet >= 0)} text-base`}>
                   {cr.totaux.resultatNet >= 0 ? '+' : ''}{fmt(cr.totaux.resultatNet)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </DataTable.Cell>
+              </DataTable.Row>
+            </DataTable.Body>
+          </DataTable>
           <p className={`mt-3 text-[10px] italic ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>
             Présentation conforme PCG associatif (CRC 99-01, Règl. ANC 2018-06). Les libellés et codes sont indicatifs ;
             l'imputation définitive relève du logiciel comptable certifié.

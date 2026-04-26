@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Receipt, ChevronDown, ChevronUp, Download, AlertTriangle } from 'lucide-react';
 import { calculerSyntheseTVA, TAUX_TVA_USUELS } from '../utils/tvaMultiTaux';
+import DataTable from './ui/DataTable';
 
 const fmt = (n) => Math.round(n || 0).toLocaleString('fr-FR') + ' €';
 const pct = (n) => (n * 100).toFixed(1) + ' %';
@@ -111,44 +112,46 @@ export default function TVAMultiTauxPanel({ darkMode, direction, services, poleS
       )}
 
       {expanded && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className={dm ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-100 text-slate-700'}>
-                <th className="text-left p-2">Taux</th>
-                <th className="text-right p-2">Recettes HT</th>
-                <th className="text-right p-2">TVA collectée</th>
-                <th className="text-right p-2">Charges HT</th>
-                <th className="text-right p-2">TVA déductible</th>
-                <th className="text-right p-2">Solde</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div>
+          <DataTable darkMode={dm} variant="borderless">
+            <DataTable.Head>
+              <DataTable.Row>
+                <DataTable.HeadCell darkMode={dm}>Taux</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm} align="right">Recettes HT</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm} align="right">TVA collectée</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm} align="right">Charges HT</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm} align="right">TVA déductible</DataTable.HeadCell>
+                <DataTable.HeadCell darkMode={dm} align="right">Solde</DataTable.HeadCell>
+              </DataTable.Row>
+            </DataTable.Head>
+            <DataTable.Body>
               {tva.parTaux.filter(e => e.recettesHT > 0 || e.chargesHT > 0).map(e => (
-                <tr key={e.taux} className={dm ? 'bg-zinc-900/40' : 'bg-white'}>
-                  <td className={`p-2 font-bold ${dm ? 'text-zinc-100' : 'text-slate-800'}`}>
+                <DataTable.Row key={e.taux}>
+                  <DataTable.Cell darkMode={dm} bold>
                     {e.label || `${e.taux} %`}
                     {e.taux === 0 && <span className={`ml-2 text-[10px] ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>(exonérée)</span>}
-                  </td>
-                  <td className={`p-2 text-right font-mono ${dm ? 'text-zinc-300' : 'text-slate-700'}`}>{fmt(e.recettesHT)}</td>
-                  <td className={`p-2 text-right font-mono ${dm ? 'text-emerald-300' : 'text-emerald-700'}`}>{fmt(e.tvaCollectee)}</td>
-                  <td className={`p-2 text-right font-mono ${dm ? 'text-zinc-300' : 'text-slate-700'}`}>{fmt(e.chargesHT)}</td>
-                  <td className={`p-2 text-right font-mono ${dm ? 'text-blue-300' : 'text-blue-700'}`}>{fmt(e.tvaDeductible)}</td>
-                  <td className={`p-2 text-right font-mono font-bold ${e.solde >= 0 ? (dm ? 'text-rose-300' : 'text-rose-700') : (dm ? 'text-emerald-300' : 'text-emerald-700')}`}>
+                  </DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} align="right" mono>{fmt(e.recettesHT)}</DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} align="right" mono className={dm ? 'text-emerald-300' : 'text-emerald-700'}>{fmt(e.tvaCollectee)}</DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} align="right" mono>{fmt(e.chargesHT)}</DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} align="right" mono className={dm ? 'text-blue-300' : 'text-blue-700'}>{fmt(e.tvaDeductible)}</DataTable.Cell>
+                  <DataTable.Cell darkMode={dm} align="right" mono bold className={e.solde >= 0 ? (dm ? 'text-rose-300' : 'text-rose-700') : (dm ? 'text-emerald-300' : 'text-emerald-700')}>
                     {e.solde >= 0 ? '+' : ''}{fmt(e.solde)}
-                  </td>
-                </tr>
+                  </DataTable.Cell>
+                </DataTable.Row>
               ))}
-              <tr className={dm ? 'bg-zinc-700/60 text-white font-black border-t-2 border-zinc-500' : 'bg-slate-200 text-slate-800 font-black border-t-2 border-slate-400'}>
-                <td className="p-2">TOTAL</td>
-                <td className="p-2"></td>
-                <td className="p-2 text-right font-mono">{fmt(tva.totalTVACollectee)}</td>
-                <td className="p-2"></td>
-                <td className="p-2 text-right font-mono">{fmt(tva.totalTVADeductible)}</td>
-                <td className="p-2 text-right font-mono">{tva.soldeTVA >= 0 ? '+' : ''}{fmt(tva.soldeTVA)}</td>
-              </tr>
-            </tbody>
-          </table>
+            </DataTable.Body>
+            <DataTable.Foot darkMode={dm}>
+              <DataTable.Row highlight>
+                <DataTable.Cell darkMode={dm} bold>TOTAL</DataTable.Cell>
+                <DataTable.Cell darkMode={dm} />
+                <DataTable.Cell darkMode={dm} align="right" mono bold>{fmt(tva.totalTVACollectee)}</DataTable.Cell>
+                <DataTable.Cell darkMode={dm} />
+                <DataTable.Cell darkMode={dm} align="right" mono bold>{fmt(tva.totalTVADeductible)}</DataTable.Cell>
+                <DataTable.Cell darkMode={dm} align="right" mono bold>{tva.soldeTVA >= 0 ? '+' : ''}{fmt(tva.soldeTVA)}</DataTable.Cell>
+              </DataTable.Row>
+            </DataTable.Foot>
+          </DataTable>
           <p className={`mt-3 text-[10px] italic ${dm ? 'text-zinc-500' : 'text-slate-400'}`}>
             Saisissez le taux applicable par recette (champ <code>tauxTVA</code>) ou par charge
             (<code>tauxTVA</code> + <code>saisieType</code> HT/TTC + <code>tvaRecuperable</code>).
