@@ -13,6 +13,7 @@ import ProvisionIDRPanel from '../ProvisionIDRPanel';
 import TVAMultiTauxPanel from '../TVAMultiTauxPanel';
 import TableauFinancementPanel from '../TableauFinancementPanel';
 import ResteAEngagerPanel from '../ResteAEngagerPanel';
+import ValorisationBenevolatPanel from '../ValorisationBenevolatPanel';
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Line, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 
 export default function TabAnalyse({
@@ -46,6 +47,9 @@ export default function TabAnalyse({
   setShowBalanceImport = null,
   engagements = [],
   setEngagements = null,
+  benevoles = [],
+  setBenevoles = null,
+  appendAuditEntry = null,
 }) {
   const getProvisions = getProvisionsProp || (() => calculerProvisions(direction, services, globalParams, poleSupport));
   const getBFR = getBFRProp || (() => calculerBFR(direction, services, globalParams, poleSupport));
@@ -153,6 +157,14 @@ export default function TabAnalyse({
         poleSupport={poleSupport}
         engagements={engagements}
         globalParams={globalParams}
+      />
+
+      {/* ═══ VALORISATION DU BÉNÉVOLAT — CRC 2018-06 ═══ */}
+      <ValorisationBenevolatPanel
+        darkMode={darkMode}
+        benevoles={benevoles}
+        setBenevoles={setBenevoles}
+        appendAuditEntry={appendAuditEntry}
       />
 
       {/* ═══ SYNTHÈSE CONSOLIDÉE CROSS-MODULES ═══ */}

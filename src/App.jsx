@@ -366,6 +366,8 @@ const BudgetTool = () => {
           statsFormation={statsFormation} personnelEligibleSubvention={personnelEligibleSubvention}
           balanceComptable={balanceComptable} setShowBalanceImport={setShowBalanceImport}
           engagements={engagements} setEngagements={setEngagements}
+          benevoles={benevoles} setBenevoles={setBenevoles}
+          appendAuditEntry={appendAuditEntry}
         />
       )}
 

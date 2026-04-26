@@ -89,7 +89,7 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 *Objectif : Valoriser l'impact social et sécuriser les fonds publics.*
 
 - [ ] **Moteur de Fonds Dédiés (CRC 2018-06)** : Calcul automatique des reports de subventions non consommées et gestion des écritures d'engagement au passif du bilan.
-- [ ] **Valorisation du Bénévolat (Compta Classe 8)** : Module de saisie et de valorisation financière des contributions volontaires (heures bénévoles) pour le "Compte de Résultat Élargi".
+- [x] **Valorisation du Bénévolat (Compta Classe 8)** : `valorisationBenevolat.js` + `ValorisationBenevolatPanel.jsx` — CRC 2018-06. Comptes 871 (Bénévolat) / 872 (Prestations en nature) / 875 (Dons en nature). Coefficient ×1 standard / ×2 professionnel / ×3 expert sur SMIC chargé. Taux horaire personnalisable. Équilibre 86 = 87 visualisé. CRUD inline avec édition cellule par cellule. Export CSV pour annexe AG. 15 tests.
 - [ ] **Reporting Stratégique CPOM (5 ans)** : Dashboard pluriannuel comparant les objectifs négociés avec les financeurs (Région, ARS) et la trajectoire budgétaire réelle cumulée.
 - [ ] **Générateur de Rapport de Gestion pour l'AG** : Export automatisé d'une synthèse visuelle, pédagogique et commentée destinée aux administrateurs.
 
