@@ -75,13 +75,13 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 | S3.2 | `<TabBar>` Mode Essentiel (3 onglets + Plus) | ✅ | 9 |
 | S4.1 | `<NoviceDashboard>` Synthèse Simple | ✅ | 11 |
 | S4.2 | Recharts modernisés (`chartTheme.jsx`) | ✅ | 10 |
-| S5.1 | `<DataTable>` moderne (padding, hover, empty) | ⏳ | — |
+| S5.1 | `<DataTable>` composable (padding 12px, sortable, empty intégré) | ✅ | 19 |
 | S5.2 | Modals Soft (animations + focus trap) | ✅ via `<Modal>` | — |
 | S5.3 | Migration 6 panels analyse vers `<DataPanel>` | ⏳ | — |
 | S6.1 | `<Term>` glossaire inline auto | ✅ | 13 |
 | S6.2 | Tour guidé `react-joyride` 5 étapes | ⏳ | — |
 
-**Phase 8 : 10/14 sprints livrés** | **97 tests dédiés** | **392/392 verts | Build ✓**
+**Phase 8 : 11/14 sprints livrés** | **116 tests dédiés** | **411/411 verts | Build ✓**
 
 ---
 
