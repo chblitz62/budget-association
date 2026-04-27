@@ -67,7 +67,7 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 
 - [ ] [Claude Code] **Moteur de Ventilation Quadridimensionnel** : Restructuration du `BudgetContext` pour supporter les "Splits".
     *   **S6.1 : Normalisation du Schéma** : Migration vers `AnalyticValue { total, splits: [] }`.
-    *   **S6.2 : Référentiel de Structure (Dictionnaire)** : Module de paramétrage (CRUD) des Unités (Lieux, Services, Filières) pour supprimer les libellés en dur.
+    *   **S6.2 : Référentiel de Structure (Dictionnaire)** ✅ : `referentielStructure.js` + `ReferentielStructurePanel.jsx` — CRUD 3 catégories (Lieux, Services, Filières), 5 types de service + 7 niveaux RNCP, code unique stable (slugify auto), détection doublons, archivage soft (préserve historique), helpers `genererOptions` pour selects, intégré TabParametres après ConstantesHistoriquePanel. 17 tests.
     *   **S6.3 : Moteur de Clés de Répartition (Overheads)** : Algorithme de réallocation automatique des frais de siège et charges indirectes vers les unités opérationnelles.
     *   **S6.4 : Sélecteur de Contexte Analytique** : Toggle global UI pour basculer toute l'application en vue "Site" ou "Service".
 - [ ] [Claude Code] **Contrôle Budgétaire Analytique (Prévu vs Réel)** :

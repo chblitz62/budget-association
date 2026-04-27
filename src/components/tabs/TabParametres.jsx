@@ -7,6 +7,7 @@ import SnapshotManager from '../SnapshotManager';
 import ScenariosManager from '../ScenariosManager';
 import DafLockPanel from '../DafLockPanel';
 import ConstantesHistoriquePanel from '../ConstantesHistoriquePanel';
+import ReferentielStructurePanel from '../ReferentielStructurePanel';
 import InfoTooltip from '../ui/Tooltip';
 import { validerTaux } from '../../utils/calculations';
 import { repartirFraisSiege } from '../../utils/calculations';
@@ -49,6 +50,8 @@ export default function TabParametres({
   auditTrail = [],
   appendAuditEntry,
   dafMode,
+  referentielStructure,
+  setReferentielStructure,
 }) {
   const dafLocked = !!dafMode?.dafLocked;
   const lockedInputCls = dafLocked ? 'opacity-60 cursor-not-allowed' : '';
@@ -75,6 +78,13 @@ export default function TabParametres({
   <ConstantesHistoriquePanel
     darkMode={darkMode}
     dafLocked={dafLocked}
+    appendAuditEntry={appendAuditEntry}
+  />
+
+  <ReferentielStructurePanel
+    darkMode={darkMode}
+    referentielStructure={referentielStructure}
+    setReferentielStructure={setReferentielStructure}
     appendAuditEntry={appendAuditEntry}
   />
 

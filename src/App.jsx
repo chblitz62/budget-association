@@ -526,6 +526,7 @@ const BudgetTool = () => {
           setShowHardReset={setShowHardReset}
           auditTrail={auditTrail} appendAuditEntry={appendAuditEntry}
           dafMode={dafMode}
+          referentielStructure={referentielStructure} setReferentielStructure={setReferentielStructure}
         />
       )}
 
