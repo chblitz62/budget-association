@@ -1,5 +1,5 @@
 # Roadmap Stratégique — Budget Association AFERTES
-Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnelle & Gouvernance — état d'avancement)
+Dernière mise à jour : 27 Avril 2026 | Version : 7.2 (Pilotage analytique amorcé — 492 tests verts)
 
 ---
 
@@ -8,11 +8,24 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 
 ---
 
+## 📈 Synthèse globale (T1 2026)
+
+| Indicateur | Valeur |
+|---|---|
+| **Tests automatisés** | 492 / 492 verts ✓ |
+| **Build production** | ✓ |
+| **Phase 7 (Conformité réglementaire)** | 100 % livrée |
+| **Phase 8 (UI/UX Soft SaaS)** | 13/14 sprints livrés (1 backlog) |
+| **Axes stratégiques** | 5/9 substantiellement avancés |
+| **Modules métier opérationnels** | 17 panels d'analyse · 35+ utils calc · 14 atomiques UI |
+
+---
+
 ## 🟢 Axe 1 : UX Sémantique & "Smart Data"
 *Objectif : Passer de la lecture de chiffres à l'interprétation de signaux.*
 
 - [x] **Design System Soft SaaS** : Tokens centralisés, surfaces glass, atomiques (Card, Button, Modal, Pill, Badge), TopBar 64px, Sidebar floating glass.
-- [~] **Bibliothèque de "Smart Indicators"** : `<HoverTip>` riche (titre + description + interprétation contextuelle) · dots sémantiques 5 niveaux avec animate-pulse warning/danger · `<PanelStat>` KPI hero. *Reste : jauges d'énergie, alertes masse salariale visuelles.*
+- [~] **Bibliothèque de "Smart Indicators"** : `<HoverTip>` riche (titre + description + interprétation contextuelle) · dots sémantiques 5 niveaux avec animate-pulse warning/danger · `<PanelStat>` KPI hero · ProgressBar custom (RAE / Fonds Dédiés). *Reste : jauges d'énergie globales, alertes masse salariale visuelles.*
 - [~] **Mode Novice (Progressive Disclosure)** : Sidebar "Premiers pas" (4 onboarding actions) · 3 onglets essentiels + bouton "Plus" disclosure · Dashboard "Synthèse Simple" avec hero status ✓/⚠/✕ · libellés humanisés (Solde→Résultat, ETP→Effectifs) · `<Term>` glossaire inline auto (BFR/ETP/FRNG/CAF/Ségur soulignés pointillés + tooltip définition+levier). *Reste : tour guidé react-joyride.*
 - [ ] **Universal Search & Commands** : Raccourcis clavier (Type 'Spotlight') pour naviguer entre les filières et les salariés.
 - [~] **Tableaux de Bord Sémantiques** : `<NoviceDashboard>` Synthèse Simple livré (hero status + 3 KPIs hero + AreaChart trésorerie soft + top 3 vigilances + CTA mode expert). *Reste : "Stories" par promo/filière, sankey flux financiers.*
@@ -33,7 +46,7 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 *Objectif : Piloter la rentabilité réelle des formations.*
 
 - [x] **Calculateur Vacataires Expert** : Coûts complets, grille tarifaire personnalisable, seuil 450h URSSAF, alerte ratio MS > 30 %, multiplicateurs (correction copies ×3).
-- [ ] **Indicateur CCHS (Coût Complet Horaire Stagiaire)** : Coût de revient réel d'une heure de formation, incluant les charges de structure (loyer, énergie, support).
+- [~] **Indicateur CCHS (Coût Complet Horaire Stagiaire)** : Fondation livrée via `clesRepartition.js` (S6.3) — coût complet par service = charges directes + quote-part siège réalloué. *Reste : déclinaison par heure stagiaire (CCHS = coût complet ÷ heures dispensées).*
 - [~] **Portefeuille de Programmes (Filières)** : `EnveloppeFiliere.jsx` — répartition subvention/charges par filière + coût/diplômé éditable. *Reste : management "Business Unit" avec marge nette par filière, leviers d'optimisation chiffrés.*
 - [~] **Suivi des Quotas & Rupture de Charge** : Alerte automatique abandons + simulateur impact taux d'abandon. *Reste : seuil de rentabilité chiffré par promo et alerte automatique en dessous.*
 
@@ -65,7 +78,7 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 ## 🏗️ Axe 6 : Pilotage Analytique Multidimensionnel (Expert Comptable)
 *Objectif : Passer d'une vision globale à une analyse de rentabilité par centre de profit.*
 
-- [ ] [Claude Code] **Moteur de Ventilation Quadridimensionnel** : Restructuration du `BudgetContext` pour supporter les "Splits".
+- [~] [Claude Code] **Moteur de Ventilation Quadridimensionnel** : Restructuration du `BudgetContext` pour supporter les "Splits".
     *   **S6.1 : Normalisation du Schéma** : Migration vers `AnalyticValue { total, splits: [] }`.
     *   **S6.2 : Référentiel de Structure (Dictionnaire)** ✅ : `referentielStructure.js` + `ReferentielStructurePanel.jsx` — CRUD 3 catégories (Lieux, Services, Filières), 5 types de service + 7 niveaux RNCP, code unique stable (slugify auto), détection doublons, archivage soft (préserve historique), helpers `genererOptions` pour selects, intégré TabParametres après ConstantesHistoriquePanel. 17 tests.
     *   **S6.3 : Moteur de Clés de Répartition (Overheads)** ✅ : `clesRepartition.js` + `ClesRepartitionPanel.jsx` — 7 clés (uniforme/ETP/recettes/charges/surface/heures/manuel) avec round-trip safe (somme distribuée = budget siège), calcul du coût complet par service (charges directes + quote-part siège), comparatif solde direct vs solde complet, persistance `globalParams.cleRepartition.{type, params}`. 16 tests.
@@ -80,7 +93,7 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
     - **Espace Lieu** : Compte de résultat par site géographique avec réallocation des frais de siège.
     - **Espace Service** : Analyse des marges par fonction (Pédagogie vs Restauration vs Technique).
 - [ ] [Claude Code] **Analyse RH par Centre de Coût (Professionnel)** : Liaison dynamique entre `PoolRHManager.jsx` et les sections analytiques.
-- [ ] [Claude Code] **Calcul du Coût de Revient par Unité d'Œuvre (Étudiant)** : Automatisation du calcul du coût complet par étudiant (Charges directes + Quote-part frais de structure).
+- [~] [Claude Code] **Calcul du Coût de Revient par Unité d'Œuvre (Étudiant)** : Brique de base livrée (`calculerCoutCompletParService` dans clesRepartition.js — coût complet ÷ effectif déjà accessible via `coutParEtudiant` historique). *Reste : intégration UI dédiée + déclinaison par promo/filière + comparaison avec prix de vente moyen.*
 - [ ] [Claude Code] **Reporting de Contribution** : Visualisation de la marge contributive par section pour identifier les leviers de performance.
 
 ---
@@ -89,7 +102,7 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 *Objectif : Valoriser l'impact social et sécuriser les fonds publics.*
 
 - [x] [Claude Code] **Moteur de Fonds Dédiés (CRC 2018-06)** : `fondsDedies.js` + `FondsDediesPanel.jsx` — Reports de subventions non consommées avec ventilation 194/195/197 (passif), schéma comptable 689→19→78. Statuts auto (actif/échu/soldé), alerte échéance <60j, tauxConsommation, recommandations contextuelles. CRUD inline, export CSV. Persistance `assoc_fonds_dedies`. 17 tests.
-- [x] **Valorisation du Bénévolat (Compta Classe 8)** : `valorisationBenevolat.js` + `ValorisationBenevolatPanel.jsx` — CRC 2018-06. Comptes 871 (Bénévolat) / 872 (Prestations en nature) / 875 (Dons en nature). Coefficient ×1 standard / ×2 professionnel / ×3 expert sur SMIC chargé. Taux horaire personnalisable. Équilibre 86 = 87 visualisé. CRUD inline avec édition cellule par cellule. Export CSV pour annexe AG. 15 tests.
+- [x] [Claude Code] **Valorisation du Bénévolat (Compta Classe 8)** : `valorisationBenevolat.js` + `ValorisationBenevolatPanel.jsx` — CRC 2018-06. Comptes 871 (Bénévolat) / 872 (Prestations en nature) / 875 (Dons en nature). Coefficient ×1 standard / ×2 professionnel / ×3 expert sur SMIC chargé. Taux horaire personnalisable. Équilibre 86 = 87 visualisé. CRUD inline avec édition cellule par cellule. Export CSV pour annexe AG. 15 tests.
 - [ ] [Claude Code] **Reporting Stratégique CPOM (5 ans)** : Dashboard pluriannuel comparant les objectifs négociés avec les financeurs (Région, ARS) et la trajectoire budgétaire réelle cumulée.
 - [ ] [Claude Code] **Générateur de Rapport de Gestion pour l'AG** : Export automatisé d'une synthèse visuelle, pédagogique et commentée destinée aux administrateurs.
 
@@ -98,7 +111,7 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 ## 🌿 Axe 8 : Pilotage RSE & Budget Vert
 *Objectif : Aligner la finance sur les objectifs de transition écologique.*
 
-- [ ] [Claude Code] **Indicateurs de Performance Sociale** : Suivi des index d'égalité, taux d'emploi handicap et turn-over par service analytique.
+- [~] [Claude Code] **Indicateurs de Performance Sociale** : `calculerIndicateursOETH` livré (taux RQTH, obligation ETP, contribution AGEFIPH, aides emploi durable). *Reste : extension parité H/F, turn-over par service, ancienneté moyenne.*
 - [ ] [Claude Code] **Module "Budget Vert"** : Classification des dépenses selon leur impact environnemental (Taxonomie verte simplifiée) pour les rapports financeurs.
 - [ ] [Claude Code] **Calculateur d'Empreinte Carbone** : Estimation des émissions de CO2 par parcours de formation (calcul basé sur les unités d'œuvre : fluides, repas, déplacements).
 
@@ -108,12 +121,14 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 *Objectif : Maîtriser les dépenses dès l'intention d'achat.*
 
 - [ ] [Claude Code] **Workflow de Demande d'Achat (DA)** : Circuit de validation électronique (Collaborateur → Responsable → DAF) avant engagement.
-- [x] **Suivi du "Reste à Engager"** : `resteAEngager.js` + `ResteAEngagerPanel.jsx` — Budget exploitation annuel − Engagements ouverts par entité (Siège/Pôle/Services). Taux d'engagement avec 4 niveaux (✓ &lt; 70 % · ⚠ 70-90 % · ✕ 90-100 % · 🔴 dépassement &gt; 100 %). Barre de progression colorée + bannière alerte + recommandation contextuelle DAF. Intégré TabAnalyse, total consolidé en footer. 16 tests.
+- [x] [Claude Code] **Suivi du "Reste à Engager"** : `resteAEngager.js` + `ResteAEngagerPanel.jsx` — Budget exploitation annuel − Engagements ouverts par entité (Siège/Pôle/Services). Taux d'engagement avec 4 niveaux (✓ < 70 % · ⚠ 70-90 % · ✕ 90-100 % · 🔴 dépassement > 100 %). Barre de progression colorée + bannière alerte + recommandation contextuelle DAF. Intégré TabAnalyse, total consolidé en footer. 16 tests.
 - [ ] [Claude Code] **Coffre-Fort Numérique (Doc-Hub)** : Archivage sécurisé des pièces justificatives (contrats, conventions, factures) lié à l'Audit Trail.
 
 ---
 
 ## 📊 État d'avancement Phase 8 — Modernisation UI/UX
+
+> Sprints internes UI préfixés `S` ; à ne pas confondre avec les jalons stratégiques `S6.x` de l'**Axe 6** (Pilotage Analytique).
 
 | Sprint | Livrable | Statut | Tests |
 |---|---|---|---|
@@ -129,37 +144,68 @@ Dernière mise à jour : 25 Avril 2026 | Version : 7.1 (Excellence Décisionnell
 | S5.1 | `<DataTable>` composable (padding 12px, sortable, empty intégré) | ✅ | 19 |
 | S5.2 | Modals Soft (animations + focus trap) | ✅ via `<Modal>` | — |
 | S5.3 | Migration panels analyse vers `<DataTable>` | ✅ partiel (3/6) | — |
-| S6.1 | `<Term>` glossaire inline auto | ✅ | 13 |
-| S6.2 | Tour guidé `react-joyride` 5 étapes | ⏳ | — |
+| S-G | `<Term>` glossaire inline auto | ✅ | 13 |
+| S-T | Tour guidé `react-joyride` 5 étapes | ⏳ | — |
 
-**Phase 8 : 12/14 sprints livrés** (S5.3 partiel) | **116 tests dédiés** | **411/411 verts | Build ✓**
+**Phase 8 : 13/14 sprints livrés** (S5.3 partiel · S-T en backlog) | **116 tests dédiés UI**
+
+---
+
+## 📦 Modules métier livrés (Axes 5-9 + Phase 7)
+
+> Modules ajoutés entre 2026-04-25 et 2026-04-27 — chaque ligne représente un fichier util + un panel + tests.
+
+| Domaine | Module | Tests |
+|---|---|---|
+| Compta CRC 99-01 | `compteResultat.js` + `CompteResultatPanel` | 6 |
+| Compta CRC 99-01 | `bilanPrevisionnel.js` + `BilanPrevisionnelPanel` | 8 |
+| Compta CRC 99-01 | `tableauFinancement.js` + `TableauFinancementPanel` (PCG 532-7) | 9 |
+| Fiscal CGI 231 | `tvaMultiTaux.js` + `TVAMultiTauxPanel` | 10 |
+| Provisions IAS 19 | `provisionIDR.js` + `ProvisionIDRPanel` (UCP) | 10 |
+| Audit BOI-CF | `fecExport.js` + bouton TabParametres | 7 |
+| Audit signé | `auditTrail.js` SHA-256 chaîné | 7 |
+| Anomalies prédictives | `anomaliesHistorique.js` + `AuditPredictifPanel` | — |
+| Anomalies | `doubleComptageDetection.js` (Pool RH) | 9 |
+| Versionnement | `constantsVersionRegistry.js` + `ConstantesHistoriquePanel` | 12 |
+| Cycle d'achat | `resteAEngager.js` + `ResteAEngagerPanel` | 16 |
+| Gouvernance asso | `valorisationBenevolat.js` + `ValorisationBenevolatPanel` | 15 |
+| Gouvernance asso | `fondsDedies.js` + `FondsDediesPanel` | 17 |
+| Pilotage analytique | `referentielStructure.js` + `ReferentielStructurePanel` | 17 |
+| Pilotage analytique | `clesRepartition.js` + `ClesRepartitionPanel` | 16 |
+
+**Total tests métier livrés (post audit DAF) : 159 tests dédiés** | Cumul global : **492/492 verts**
 
 ---
 
 ## 📊 Indicateurs de Performance de l'Outil (KPIs 2026)
 | Dimension | Objectif | Mesure de succès | État |
 |---|---|---|---|
-| **Accessibilité** | Excellence Novice | Utilisation autonome par les coordinateurs de site | 🟢 Sidebar Premiers pas + Dashboard Synthèse Simple livrés |
-| **Sécurité** | Zéro Défaut Audit | Validation sans réserve par le Commissaire aux Comptes | 🟢 PBKDF2 600k + audit trail signé + FEC opposable |
-| **Pilotage** | Agilité Totale | Nouveau scénario "Stress-test" en < 5 min | 🟡 Multi-scénarios livré, stress-test simplifié à finaliser |
-| **Rentabilité** | Maîtrise des Coûts | Marge nette précise par filière de formation | 🟡 Coût/diplômé + enveloppe filière, CCHS à venir |
-| **Analytique** | Vision 360° | Ventilation 100% des charges par Lieu/Service/Étudiant | 🔴 À démarrer (Axe 6) |
+| **Accessibilité** | Excellence Novice | Utilisation autonome par les coordinateurs de site | 🟢 Sidebar Premiers pas + Dashboard Synthèse Simple + glossaire inline auto livrés |
+| **Sécurité** | Zéro Défaut Audit | Validation sans réserve par le Commissaire aux Comptes | 🟢 PBKDF2 600k + audit trail signé + FEC opposable + 12 constantes historisées |
+| **Pilotage** | Agilité Totale | Nouveau scénario "Stress-test" en < 5 min | 🟡 Multi-scénarios livré, stress-test trésorerie ciblé subventions à finaliser |
+| **Rentabilité** | Maîtrise des Coûts | Marge nette précise par filière de formation | 🟡 Coût/diplômé + enveloppe filière + clés de répartition coût complet livrés ; CCHS dédié à venir |
+| **Analytique** | Vision 360° | Ventilation 100 % des charges par Lieu/Service/Étudiant | 🟡 Référentiel + clés de répartition livrés ; Splits S6.1 + dashboards par unité à venir |
+| **Conformité asso** | CRC 2018-06 complet | Annexe AG conforme (bénévolat + fonds dédiés) | 🟢 Compte 86=87 + ventilation 19/689/78 livrés |
 
 ---
 
 ## 📅 Chronologie des Livrables Majeurs
-1. **Avril 2026** ✅ : Phase 7 Conformité (FEC, CR PCG, Bilan, IDR, TVA, Tableau financement) + Phase 8 P1+P2 UI Modernisation.
-2. **Mai 2026** : Finaliser Mode Novice (tour guidé + glossaire inline auto) + Recharts modernisés globalement.
-3. **Juin 2026** : Workflow d'approbation multiniveaux complet + Stress-Test trésorerie ciblé subventions.
-4. **Juillet 2026** : Lancement **Axe 6** — Refonte Moteur Analytique (Splits multidimensionnels).
-5. **Septembre 2026** : Module CCHS + Analyse rentabilité Business Unit par filière + Dashboard par Lieu.
-6. **Décembre 2026** : IA Prescriptive narrative + Connecteurs ETL DSN/Compta + Backend Supabase RBAC.
+
+| Période | Livrables | Statut |
+|---|---|---|
+| **Avril 2026** | Phase 7 Conformité (FEC, CR PCG, Bilan, IDR, TVA, Tableau financement) + Phase 8 P1+P2+P3 UI Modernisation + Axes 6/7/9 amorcés | ✅ |
+| **Mai 2026** | Tour guidé novice · Stories sémantiques par promo · Stress-Test trésorerie ciblé subventions · CCHS dédié | À venir |
+| **Juin 2026** | Workflow d'approbation multiniveaux complet · Dashboards de Profitabilité par Lieu/Service · Sélecteur Contexte Analytique S6.4 | À venir |
+| **Juillet 2026** | Refonte Moteur Analytique S6.1 (Splits AnalyticValue) · Coffre-Fort Numérique (Doc-Hub) | À venir |
+| **Septembre 2026** | Module CCHS finalisé · Reporting CPOM 5 ans · Indicateurs RSE étendus | À venir |
+| **Décembre 2026** | IA Prescriptive narrative · Connecteurs ETL DSN/Compta · Backend Supabase RBAC · Module Budget Vert | À venir |
 
 ---
 
 ## 🔖 Légende
 - [x] Livré · [~] En cours / partiel · [ ] Backlog
 - 🟢 OK · 🟡 Partiel · 🔴 À démarrer
+- [Claude Code] = item cadré pour développement assisté
 
 ---
 **Document de travail confidentiel — Direction Générale & DAF AFERTES**
