@@ -15,6 +15,7 @@ import TableauFinancementPanel from '../TableauFinancementPanel';
 import ResteAEngagerPanel from '../ResteAEngagerPanel';
 import ValorisationBenevolatPanel from '../ValorisationBenevolatPanel';
 import FondsDediesPanel from '../FondsDediesPanel';
+import ClesRepartitionPanel from '../ClesRepartitionPanel';
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Line, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 
 export default function TabAnalyse({
@@ -176,6 +177,16 @@ export default function TabAnalyse({
         fondsDedies={fondsDedies}
         setFondsDedies={setFondsDedies}
         appendAuditEntry={appendAuditEntry}
+      />
+
+      {/* ═══ CLÉS DE RÉPARTITION — Coût complet par service (Axe 6 S6.3) ═══ */}
+      <ClesRepartitionPanel
+        darkMode={darkMode}
+        services={services}
+        getBudgetDirection={getBudgetDirection}
+        getBudgetService={getBudgetService}
+        globalParams={globalParams}
+        setGlobalParams={setGlobalParams}
       />
 
       {/* ═══ SYNTHÈSE CONSOLIDÉE CROSS-MODULES ═══ */}
