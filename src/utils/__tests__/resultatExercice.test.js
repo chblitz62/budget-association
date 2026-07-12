@@ -17,7 +17,7 @@ const lcg = (seed) => {
 //     taxe sur salaires, emprunt, Pool RH, vacataires ────────────────────────
 const richDirection = {
   personnel: [
-    { id: 'p1', titre: 'Directeur', salaire: 4500, etp: 1, segur: true },
+    { id: 'p1', titre: 'Directeur', salaire: 4500, etp: 1, segur: true, anneeNaissance: 1970, dateEntree: 2005 },
     { id: 'p2', titre: 'Comptable', salaire: 2400, etp: 0.8, segur: false },
   ],
   recettes: [{ id: 'r1', nom: 'Subvention Région fonctionnement', montant: 8000 }],
@@ -85,7 +85,8 @@ describe('resultatExercice — source unique de vérité', () => {
     const rex = calculerResultatExercice(...ARGS);
     expect(rex.provisions).toBeGreaterThan(0);
     expect(rex.taxeSalaires).toBeGreaterThan(0);
-    expect(rex.chargesTotales).toBeCloseTo(rex.chargesBudgetaires + rex.provisions + rex.taxeSalaires, 6);
+    expect(rex.chargesTotales).toBeCloseTo(
+      rex.chargesBudgetaires + rex.provisions + rex.dotationIDR + rex.taxeSalaires + rex.fondsDedies.dotation689, 6);
     expect(rex.resultatNet).toBeCloseTo(rex.produits - rex.chargesTotales, 6);
   });
 
@@ -139,7 +140,7 @@ describe('réconciliation des 4 états financiers', () => {
     const rex = calculerResultatExercice(...ARGS);
     const tf = calculerTableauFinancement(...ARGS);
     expect(tf.detail.caf.resultat).toBeCloseTo(rex.resultatNet, 4);
-    expect(tf.detail.caf.dotProvisions).toBeCloseTo(rex.provisions, 4);
+    expect(tf.detail.caf.dotProvisions).toBeCloseTo(rex.provisions + rex.dotationIDR, 4);
   });
 
   it('le CR réagit au Ségur et au coefficient BP (plus de divergence de paramétrage)', () => {
@@ -209,5 +210,90 @@ describe('bilan prévisionnel — équilibre actif/passif garanti', () => {
     const bilan = calculerBilanPrevisionnel(...ARGS);
     expect(bilan.tresorerieNette).toBeCloseTo(bilan.frng - bilan.bfr, 4);
     expect(bilan.actif.disponibilites - bilan.passif.decouvert).toBeCloseTo(bilan.tresorerieNette, 4);
+  });
+});
+
+describe('intégration fonds dédiés / IDR / bénévolat (ANC 2018-06)', () => {
+  const EXTRAS = {
+    fondsDedies: [
+      // ressources 14 000, consommé 8 000 → solde 6 000 (689) ; report N-1 4 000 (789)
+      { id: 'fd1', nom: 'Subvention projet numérique', categorie: 'subvention_fonctionnement', montantInitial: 10000, reportAnneePrecedente: 4000, consommeAnneeCourante: 8000 },
+    ],
+    benevoles: [
+      { id: 'b1', nom: 'Bénévole CA', role: 'Trésorier', heures: 100, qualification: 'expert', categorie: 'benevolat' },
+      { id: 'b2', nom: 'Aide cuisine', role: 'Cantine', heures: 50, qualification: 'standard', categorie: 'prestations_nature' },
+    ],
+  };
+  const ARGS_EX = [richDirection, richServices, richPoleSupport, richGlobalParams, richPoolRH, null, EXTRAS];
+
+  it('fonds dédiés : dotation 689 et reprise 789 intégrées au résultat', () => {
+    const sans = calculerResultatExercice(...ARGS);
+    const avec = calculerResultatExercice(...ARGS_EX);
+    expect(avec.fondsDedies.dotation689).toBeCloseTo(6000, 2);
+    expect(avec.fondsDedies.reprise789).toBeCloseTo(4000, 2);
+    // Résultat impacté de −6000 (689) + 4000 (789)
+    expect(avec.resultatNet).toBeCloseTo(sans.resultatNet - 6000 + 4000, 2);
+  });
+
+  it('compte de résultat : lignes 689 (charges) et 789 (produits) présentes', () => {
+    const cr = calculerCompteResultat(...ARGS_EX);
+    const l689 = cr.charges.find(c => c.code === '689');
+    const l789 = cr.produits.find(p => p.code === '789');
+    expect(l689.montant).toBeCloseTo(6000, 2);
+    expect(l789.montant).toBeCloseTo(4000, 2);
+  });
+
+  it('dotation IDR actuarielle : variation N−1→N incluse dans les charges', () => {
+    const rex = calculerResultatExercice(...ARGS);
+    expect(rex.dotationIDR).toBeGreaterThan(0);
+    const sansIDR = calculerResultatExercice(richDirection, richServices, richPoleSupport,
+      { ...richGlobalParams, integrerIDR: false }, richPoolRH, null);
+    expect(sansIDR.dotationIDR).toBe(0);
+    expect(rex.chargesTotales).toBeCloseTo(sansIDR.chargesTotales + rex.dotationIDR, 2);
+  });
+
+  it('compte de résultat : ligne 68 « Dotation provision IDR » présente', () => {
+    const cr = calculerCompteResultat(...ARGS_EX);
+    const idr = cr.charges.find(c => /provision IDR/.test(c.libelle));
+    expect(idr).toBeDefined();
+    expect(idr.montant).toBeGreaterThan(0);
+  });
+
+  it('bénévolat : pied de CR classe 8 équilibré (86 = 87), sans impact sur le résultat', () => {
+    const cr = calculerCompteResultat(...ARGS_EX);
+    const crSansBenevoles = calculerCompteResultat(richDirection, richServices, richPoleSupport,
+      richGlobalParams, richPoolRH, null, { ...EXTRAS, benevoles: [] });
+    expect(cr.contributionsVolontaires.compte86).toBeCloseTo(cr.contributionsVolontaires.compte87, 4);
+    expect(cr.contributionsVolontaires.compte87).toBeGreaterThan(0);
+    expect(cr.totaux.resultatNet).toBeCloseTo(crSansBenevoles.totaux.resultatNet, 4);
+    expect(crSansBenevoles.contributionsVolontaires).toBe(null);
+  });
+
+  it('bilan : fonds dédiés au passif (19) et équilibre maintenu avec extras', () => {
+    const bilan = calculerBilanPrevisionnel(...ARGS_EX);
+    expect(bilan.passif.fondsDedies).toBeCloseTo(6000, 2);
+    expect(Math.abs(bilan.equilibre.ecart)).toBeLessThan(1);
+    expect(bilan.equilibre.valide).toBe(true);
+  });
+
+  it('réconciliation complète des 4 états AVEC fonds dédiés + IDR + bénévolat', () => {
+    const rex = calculerResultatExercice(...ARGS_EX);
+    const cr = calculerCompteResultat(...ARGS_EX);
+    const bilan = calculerBilanPrevisionnel(...ARGS_EX);
+    const tf = calculerTableauFinancement(...ARGS_EX);
+    expect(cr.totaux.resultatNet).toBeCloseTo(rex.resultatNet, 4);
+    expect(cr.totaux.totalCharges).toBeCloseTo(rex.chargesTotales, 4);
+    expect(cr.totaux.totalProduits).toBeCloseTo(rex.produits, 4);
+    expect(bilan.passif.resultatExercice).toBeCloseTo(rex.resultatNet, 4);
+    expect(tf.detail.caf.resultat).toBeCloseTo(rex.resultatNet, 4);
+  });
+
+  it('tableau de financement : la CAF neutralise les flux non décaissés 689/789', () => {
+    const tf = calculerTableauFinancement(...ARGS_EX);
+    expect(tf.detail.caf.dotationFondsDedies).toBeCloseTo(6000, 2);
+    expect(tf.detail.caf.repriseFondsDedies).toBeCloseTo(4000, 2);
+    expect(tf.ressources.caf).toBeCloseTo(
+      tf.detail.caf.resultat + tf.detail.caf.dotAmortissements + tf.detail.caf.dotProvisions + 6000 - 4000, 2
+    );
   });
 });

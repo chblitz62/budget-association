@@ -90,19 +90,23 @@ const sumRemboursementsCapital = (entites) => {
  *   detail: { caf: { resultat, dotAmortissements, dotProvisions } },
  * }}
  */
-export const calculerTableauFinancement = (direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null) => {
+export const calculerTableauFinancement = (direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null, extras = {}) => {
   // ── Résultat de l'exercice — source unique de vérité ───────────
   // (identique au dashboard, au compte de résultat et au bilan prévisionnel)
-  const rex = calculerResultatExercice(direction, services, poleSupport, globalParams, poolRH, planningAbsences);
+  const rex = calculerResultatExercice(direction, services, poleSupport, globalParams, poolRH, planningAbsences, extras);
   const annee = rex.annee;
   const resultat = rex.resultatNet;
 
   // ── Dotations (dans la CAF on les rajoute car non décaissées) ───
+  // Idem pour la dotation IDR et les mouvements de fonds dédiés (689/789),
+  // calculatoires et sans flux de trésorerie.
   const entites = [direction, poleSupport, ...(services || [])].filter(Boolean);
   const dotAmortissements = sumAmortissementsAnnuels(entites);
-  const dotProvisions = safe(rex.provisions);
+  const dotProvisions = safe(rex.provisions) + safe(rex.dotationIDR);
+  const dotationFondsDedies = safe(rex.fondsDedies?.dotation689);
+  const repriseFondsDedies = safe(rex.fondsDedies?.reprise789);
 
-  const caf = resultat + dotAmortissements + dotProvisions;
+  const caf = resultat + dotAmortissements + dotProvisions + dotationFondsDedies - repriseFondsDedies;
 
   // ── Ressources durables ────────────────────────────────────────
   const empruntsNouveaux = sumEmpruntsNouveaux(entites);
@@ -151,6 +155,8 @@ export const calculerTableauFinancement = (direction, services, poleSupport, glo
         resultat,
         dotAmortissements,
         dotProvisions,
+        dotationFondsDedies,
+        repriseFondsDedies,
       },
     },
   };

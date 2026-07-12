@@ -9,13 +9,15 @@
 // financement — tous consomment calculerResultatExercice (source unique).
 
 import { calculerResultatExercice } from './resultatExercice';
+import { ventilerChargesExploitation, LIBELLES_CLASSES_EXPLOITATION } from './ventilationCharges';
 
 /**
  * Construit le compte de résultat formel à partir du budget prévisionnel.
- * @returns {{ charges: Array, produits: Array, totaux: object }}
+ * @returns {{ charges: Array, produits: Array, totaux: object, ventilation: object,
+ *             contributionsVolontaires: object|null, coherence: object }}
  */
-export const calculerCompteResultat = (direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null) => {
-  const rex = calculerResultatExercice(direction, services, poleSupport, globalParams, poolRH, planningAbsences);
+export const calculerCompteResultat = (direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null, extras = {}) => {
+  const rex = calculerResultatExercice(direction, services, poleSupport, globalParams, poolRH, planningAbsences, extras);
   const { annee, budgets, detail } = rex;
   const bdSvcs = budgets.services;
 
@@ -26,25 +28,33 @@ export const calculerCompteResultat = (direction, services, poleSupport, globalP
   const chargesSociales = detail.chargesSociales;
   const coutCarenceMaladie = detail.coutCarenceMaladie;
 
-  const totalAchatsServices = detail.exploitation;
+  // Ventilation 60/61/62/65 par nature, ligne à ligne sur les libellés saisis
+  // (remplace l'ancien éclatement forfaitaire 35/30/20/15 %). L'écart d'arrondi
+  // flottant éventuel avec detail.exploitation est réabsorbé sur la classe 65.
+  const ventilation = ventilerChargesExploitation(direction, services, poleSupport, globalParams);
+  const residuVentilation = detail.exploitation - ventilation.totalVentile;
+  const classes = { ...ventilation.classes, '65': ventilation.classes['65'] + residuVentilation };
+
   const totalAmortissements = detail.amortissements;
   const totalInterets = detail.interets;
   const totalProvisions = rex.provisions;
   const taxeSalaires = rex.taxeSalaires;
 
   const charges = [
-    { code: '60', libelle: 'Achats (énergie, fournitures, matières)', montant: totalAchatsServices * 0.35, section: 'Exploitation' },
-    { code: '61', libelle: 'Services extérieurs (loyers, entretien, assurances)', montant: totalAchatsServices * 0.30, section: 'Exploitation' },
-    { code: '62', libelle: 'Autres services extérieurs (honoraires, communication)', montant: totalAchatsServices * 0.20, section: 'Exploitation' },
+    { code: '60', libelle: LIBELLES_CLASSES_EXPLOITATION['60'], montant: classes['60'], section: 'Exploitation' },
+    { code: '61', libelle: LIBELLES_CLASSES_EXPLOITATION['61'], montant: classes['61'], section: 'Exploitation' },
+    { code: '62', libelle: LIBELLES_CLASSES_EXPLOITATION['62'], montant: classes['62'], section: 'Exploitation' },
     { code: '63', libelle: 'Impôts, taxes et versements assimilés', montant: taxeSalaires, section: 'Exploitation' },
     { code: '64', libelle: 'Charges de personnel — Rémunérations brutes', montant: remunerationsBrutes, section: 'Exploitation' },
     { code: '64', libelle: 'Charges de personnel — Charges sociales et fiscales', montant: chargesSociales, section: 'Exploitation' },
     { code: '64', libelle: 'Charges de personnel — Coût de carence maladie', montant: coutCarenceMaladie, section: 'Exploitation' },
-    { code: '65', libelle: 'Autres charges de gestion courante', montant: totalAchatsServices * 0.15, section: 'Exploitation' },
+    { code: '65', libelle: LIBELLES_CLASSES_EXPLOITATION['65'], montant: classes['65'], section: 'Exploitation' },
     { code: '66', libelle: 'Charges financières (intérêts d\'emprunts)', montant: totalInterets, section: 'Financier' },
     { code: '67', libelle: 'Charges exceptionnelles', montant: 0, section: 'Exceptionnel' },
     { code: '68', libelle: 'Dotations aux amortissements', montant: totalAmortissements, section: 'Exploitation' },
     { code: '68', libelle: 'Dotations aux provisions', montant: totalProvisions, section: 'Exploitation' },
+    { code: '68', libelle: 'Dotation provision IDR (engagement actuariel UCP)', montant: rex.dotationIDR, section: 'Exploitation' },
+    { code: '689', libelle: 'Engagements à réaliser sur ressources affectées (fonds dédiés)', montant: rex.fondsDedies.dotation689, section: 'Exploitation' },
   ].filter(l => l.montant !== 0);
 
   const totalChargesExploitation = charges.filter(c => c.section === 'Exploitation').reduce((s, c) => s + c.montant, 0);
@@ -53,7 +63,9 @@ export const calculerCompteResultat = (direction, services, poleSupport, globalP
   const totalCharges = totalChargesExploitation + totalChargesFinancieres + totalChargesExceptionnelles;
 
   // ── PRODUITS (classes 70–78) ─────────────────────────────────────────
-  const totalRecettes = rex.produits;
+  // Ventilation 70/74/75 sur les produits budgétaires ; la reprise de fonds
+  // dédiés (789) s'ajoute en ligne distincte.
+  const totalRecettes = rex.produitsBudgetaires;
 
   // Ventilation : on tente de classer par nature à partir des libellés
   const allRecettes = [
@@ -83,6 +95,7 @@ export const calculerCompteResultat = (direction, services, poleSupport, globalP
     { code: '76', libelle: 'Produits financiers', montant: 0, section: 'Financier' },
     { code: '77', libelle: 'Produits exceptionnels', montant: 0, section: 'Exceptionnel' },
     { code: '78', libelle: 'Reprises sur amortissements et provisions', montant: 0, section: 'Exploitation' },
+    { code: '789', libelle: 'Report des ressources affectées non utilisées des exercices antérieurs', montant: rex.fondsDedies.reprise789, section: 'Exploitation' },
   ].filter(l => l.montant !== 0);
 
   const totalProduitsExploitation = produits.filter(p => p.section === 'Exploitation').reduce((s, p) => s + p.montant, 0);
@@ -105,6 +118,15 @@ export const calculerCompteResultat = (direction, services, poleSupport, globalP
       totalProduitsExploitation, totalProduitsFinanciers, totalProduitsExceptionnels, totalProduits,
       resultatExploitation, resultatFinancier, resultatCourant, resultatExceptionnel, resultatNet,
     },
+    // Détail de la ventilation 60/61/62/65 (transparence : lignes classées par
+    // mot-clé vs repliées en 65 par défaut)
+    ventilation: {
+      lignes: ventilation.lignes,
+      nbNonClasses: ventilation.nbNonClasses,
+    },
+    // Pied du compte de résultat — contributions volontaires en nature
+    // (classe 8, comptes 86 = 87, sans impact sur le résultat — ANC 2018-06)
+    contributionsVolontaires: rex.benevolat,
     // Réconciliation avec la source unique (doit être ~0)
     coherence: {
       resultatReference: rex.resultatNet,

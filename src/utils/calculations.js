@@ -1147,7 +1147,7 @@ export const calculerSynthese3Ans = (direction, services, globalParams, poleSupp
 //   tauxTVA = null → utilise tvaParams.tauxTVAMoyen
 //
 // Coût réel = HT si TVA récupérable, TTC si TVA non récupérable.
-const _montantReelExploitation = (item, tvaParams) => {
+export const _montantReelExploitation = (item, tvaParams) => {
   const montant = parseFloat(item.montant) || 0;
   if (!tvaParams?.gestionTVA) return montant;
 

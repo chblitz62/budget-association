@@ -67,17 +67,14 @@ describe('compteResultat — PCG associatif (CRC 99-01)', () => {
     expect(Math.abs(calcule - cr.totaux.resultatCourant)).toBeLessThan(0.01);
   });
 
-  it('utilise les codes PCG normés (60–68 pour charges, 70–78 pour produits)', () => {
+  it('utilise les codes PCG normés (classe 6 pour charges, classe 7 pour produits)', () => {
     const cr = calculerCompteResultat(minimalDirection, [], null, baseGlobalParams);
     cr.charges.forEach(c => {
-      const code = parseInt(c.code, 10);
-      expect(code).toBeGreaterThanOrEqual(60);
-      expect(code).toBeLessThanOrEqual(68);
+      // codes à 2 chiffres (60-68) ou sous-comptes (689)
+      expect(c.code).toMatch(/^6\d{1,2}$/);
     });
     cr.produits.forEach(p => {
-      const code = parseInt(p.code, 10);
-      expect(code).toBeGreaterThanOrEqual(70);
-      expect(code).toBeLessThanOrEqual(78);
+      expect(p.code).toMatch(/^7\d{1,2}$/);
     });
   });
 });

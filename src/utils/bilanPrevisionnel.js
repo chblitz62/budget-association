@@ -54,9 +54,9 @@ const sumFinancements = (entites) => {
  *   equilibre: { ecart, valide }
  * }}
  */
-export const calculerBilanPrevisionnel = (direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null) => {
+export const calculerBilanPrevisionnel = (direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null, extras = {}) => {
   // ── Résultat de l'exercice — source unique de vérité ──────────────
-  const rex = calculerResultatExercice(direction, services, poleSupport, globalParams, poolRH, planningAbsences);
+  const rex = calculerResultatExercice(direction, services, poleSupport, globalParams, poolRH, planningAbsences, extras);
   const annee = rex.annee;
   const resultatExercice = rex.resultatNet;
 
@@ -77,7 +77,11 @@ export const calculerBilanPrevisionnel = (direction, services, poleSupport, glob
   // Capitaux propres total = réserves + RAN (manuels) + résultat de l'exercice
   const totalCapitauxPropres = capitauxPropresManuels + resultatExercice;
 
-  const provisions = safe(rex.provisions);
+  // Provisions au passif = dotations génériques + dotation IDR de l'exercice
+  // (le stock IDR antérieur relève du bilan d'ouverture, non modélisé)
+  const provisions = safe(rex.provisions) + safe(rex.dotationIDR);
+  // Fonds dédiés (compte 19) — part non consommée des ressources affectées (ANC 2018-06)
+  const fondsDedies19 = safe(rex.fondsDedies?.passif19);
   const dettesFinancieres = safe(sumFinancements([direction, poleSupport, ...(services || [])].filter(Boolean)));
   const dettesFournisseurs = safe(bfrData.dettesFournisseurs);
   const dettesURSSAF = safe(bfrData.dettesURSSAF);
@@ -85,8 +89,10 @@ export const calculerBilanPrevisionnel = (direction, services, poleSupport, glob
   // ── TRÉSORERIE ────────────────────────────────────────────────────
   // FRNG = capitaux permanents − immobilisations nettes.
   // calculerFondRoulement ne retient que capitaux propres + résultat : on y ajoute
-  // les provisions et les dettes financières (capitaux permanents au sens PCG).
-  const frng = safe(fr.fondRoulement) + provisions + dettesFinancieres;
+  // les provisions, les fonds dédiés et les dettes financières (capitaux
+  // permanents au sens PCG / ANC 2018-06 — les fonds dédiés sont des
+  // quasi-fonds propres inscrits en haut de bilan).
+  const frng = safe(fr.fondRoulement) + provisions + fondsDedies19 + dettesFinancieres;
   // BFR exploitation = stocks + créances − (dettes fournisseurs + dettes URSSAF)
   const bfrExploitation = safe(bfrData.bfr);
   // Trésorerie nette = FRNG − BFR
@@ -95,7 +101,7 @@ export const calculerBilanPrevisionnel = (direction, services, poleSupport, glob
   const decouvert = Math.max(0, -tresorerieNette);
 
   const totalActif = immobilisationsNettes + stocks + creancesClients + disponibilites;
-  const totalPassif = totalCapitauxPropres + provisions + dettesFinancieres + dettesFournisseurs + dettesURSSAF + decouvert;
+  const totalPassif = totalCapitauxPropres + fondsDedies19 + provisions + dettesFinancieres + dettesFournisseurs + dettesURSSAF + decouvert;
 
   // ── Vérification d'équilibre ──────────────────────────────────────
   const ecart = totalActif - totalPassif;
@@ -115,6 +121,7 @@ export const calculerBilanPrevisionnel = (direction, services, poleSupport, glob
       capitauxPropresManuels,
       resultatExercice,
       totalCapitauxPropres,
+      fondsDedies: fondsDedies19,
       provisions,
       dettesFinancieres,
       dettesFournisseurs,

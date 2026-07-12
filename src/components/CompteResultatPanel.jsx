@@ -5,11 +5,11 @@ import DataTable from './ui/DataTable';
 
 const fmt = (n) => Math.round(n || 0).toLocaleString('fr-FR') + ' €';
 
-export default function CompteResultatPanel({ darkMode, direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null }) {
+export default function CompteResultatPanel({ darkMode, direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null, fondsDedies = [], benevoles = [] }) {
   const [expanded, setExpanded] = useState(false);
   const cr = useMemo(
-    () => calculerCompteResultat(direction, services, poleSupport, globalParams, poolRH, planningAbsences),
-    [direction, services, poleSupport, globalParams, poolRH, planningAbsences]
+    () => calculerCompteResultat(direction, services, poleSupport, globalParams, poolRH, planningAbsences, { fondsDedies, benevoles }),
+    [direction, services, poleSupport, globalParams, poolRH, planningAbsences, fondsDedies, benevoles]
   );
 
   const cellHeader = darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-100 text-slate-700';
@@ -210,8 +210,35 @@ export default function CompteResultatPanel({ darkMode, direction, services, pol
               </DataTable.Row>
             </DataTable.Body>
           </DataTable>
+
+          {/* Pied de compte de résultat — contributions volontaires en nature (classe 8) */}
+          {cr.contributionsVolontaires && cr.contributionsVolontaires.compte87 > 0 && (
+            <div className={`mt-4 rounded-xl p-3 border ${darkMode ? 'bg-violet-900/20 border-violet-800 text-violet-200' : 'bg-violet-50 border-violet-200 text-violet-800'}`}>
+              <p className="text-xs font-bold mb-1.5">Contributions volontaires en nature (classe 8 — ANC 2018-06, sans impact sur le résultat)</p>
+              <div className="text-[11px] space-y-0.5">
+                {Object.values(cr.contributionsVolontaires.parCategorie || {}).filter(c => c.total > 0).map(c => (
+                  <div key={c.compte} className="flex justify-between">
+                    <span>{c.compte} — {c.libelle}</span>
+                    <span className="font-mono">{fmt(c.total)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between font-bold pt-1 border-t border-current/20">
+                  <span>86 Emplois = 87 Ressources</span>
+                  <span className="font-mono">{fmt(cr.contributionsVolontaires.compte87)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {cr.ventilation?.nbNonClasses > 0 && (
+            <p className={`mt-3 text-[10px] ${darkMode ? 'text-amber-400' : 'text-amber-600'}`}>
+              ⚠ {cr.ventilation.nbNonClasses} ligne(s) de charge sans mot-clé reconnu, classée(s) par défaut en compte 65.
+              Précisez les libellés (ex. « Loyer », « Fournitures », « Honoraires ») pour affiner la ventilation.
+            </p>
+          )}
           <p className={`mt-3 text-[10px] italic ${darkMode ? 'text-zinc-500' : 'text-slate-400'}`}>
-            Présentation conforme PCG associatif (CRC 99-01, Règl. ANC 2018-06). Les libellés et codes sont indicatifs ;
+            Présentation conforme PCG associatif (CRC 99-01, Règl. ANC 2018-06). Ventilation 60/61/62/65 établie
+            ligne à ligne sur les libellés saisis. Les libellés et codes sont indicatifs ;
             l'imputation définitive relève du logiciel comptable certifié.
           </p>
         </div>

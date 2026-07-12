@@ -104,8 +104,9 @@ export const BudgetProvider = ({ children }) => {
   // Résultat de l'exercice — source unique de vérité (identique au compte de
   // résultat, au bilan prévisionnel et au tableau de financement)
   const resultatExercice = useMemo(
-    () => calculerResultatExercice(direction, services, poleSupport, globalParams, poolRH, planningAbsences),
-    [direction, services, poleSupport, globalParams, poolRH, planningAbsences]
+    () => calculerResultatExercice(direction, services, poleSupport, globalParams, poolRH, planningAbsences,
+      { fondsDedies: budgetData.fondsDedies, benevoles: budgetData.benevoles }),
+    [direction, services, poleSupport, globalParams, poolRH, planningAbsences, budgetData.fondsDedies, budgetData.benevoles]
   );
 
   const kpiGlobaux = useMemo(() => {

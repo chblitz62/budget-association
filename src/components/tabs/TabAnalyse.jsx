@@ -130,6 +130,8 @@ export default function TabAnalyse({
         globalParams={globalParams}
         poolRH={poolRH}
         planningAbsences={planningAbsences}
+        fondsDedies={fondsDedies}
+        benevoles={benevoles}
       />
 
       {/* ═══ BILAN PRÉVISIONNEL ACTIF/PASSIF ═══ */}
@@ -141,6 +143,8 @@ export default function TabAnalyse({
         globalParams={globalParams}
         poolRH={poolRH}
         planningAbsences={planningAbsences}
+        fondsDedies={fondsDedies}
+        benevoles={benevoles}
       />
 
       {/* ═══ PROVISION IDR ACTUARIELLE (UCP / IAS 19) ═══ */}
@@ -171,6 +175,8 @@ export default function TabAnalyse({
         globalParams={globalParams}
         poolRH={poolRH}
         planningAbsences={planningAbsences}
+        fondsDedies={fondsDedies}
+        benevoles={benevoles}
       />
 
       {/* ═══ BPF — Bilan Pédagogique et Financier (CERFA 10443 — Axe 10) ═══ */}

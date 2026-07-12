@@ -23,11 +23,11 @@ const Row = ({ label, value, indent = 0, bold = false, dark, isSubtotal = false,
   );
 };
 
-export default function BilanPrevisionnelPanel({ darkMode, direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null }) {
+export default function BilanPrevisionnelPanel({ darkMode, direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null, fondsDedies = [], benevoles = [] }) {
   const [expanded, setExpanded] = useState(false);
   const bilan = useMemo(
-    () => calculerBilanPrevisionnel(direction, services, poleSupport, globalParams, poolRH, planningAbsences),
-    [direction, services, poleSupport, globalParams, poolRH, planningAbsences]
+    () => calculerBilanPrevisionnel(direction, services, poleSupport, globalParams, poolRH, planningAbsences, { fondsDedies, benevoles }),
+    [direction, services, poleSupport, globalParams, poolRH, planningAbsences, fondsDedies, benevoles]
   );
 
   const exporterCSV = () => {
@@ -44,7 +44,8 @@ export default function BilanPrevisionnelPanel({ darkMode, direction, services, 
       ['PASSIF', 'Réserves + RAN', bilan.passif.capitauxPropresManuels.toFixed(2)],
       ['PASSIF', 'Résultat de l\'exercice', bilan.passif.resultatExercice.toFixed(2)],
       ['PASSIF', '= Total capitaux propres', bilan.passif.totalCapitauxPropres.toFixed(2)],
-      ['PASSIF', 'Provisions pour risques et charges', bilan.passif.provisions.toFixed(2)],
+      ['PASSIF', 'Fonds dédiés (compte 19)', bilan.passif.fondsDedies.toFixed(2)],
+      ['PASSIF', 'Provisions pour risques et charges (dont IDR)', bilan.passif.provisions.toFixed(2)],
       ['PASSIF', 'Dettes financières (emprunts)', bilan.passif.dettesFinancieres.toFixed(2)],
       ['PASSIF', 'Dettes fournisseurs', bilan.passif.dettesFournisseurs.toFixed(2)],
       ['PASSIF', 'Dettes sociales URSSAF', bilan.passif.dettesURSSAF.toFixed(2)],
@@ -162,7 +163,10 @@ export default function BilanPrevisionnelPanel({ darkMode, direction, services, 
                 <Row dark={dm} label="Réserves + report à nouveau" value={bilan.passif.capitauxPropresManuels} indent={1} />
                 <Row dark={dm} label="Résultat de l'exercice" value={bilan.passif.resultatExercice} indent={1} />
                 <Row dark={dm} label="Capitaux propres" value={bilan.passif.totalCapitauxPropres} bold isSubtotal />
-                <Row dark={dm} label="Provisions risques et charges" value={bilan.passif.provisions} indent={1} />
+                {bilan.passif.fondsDedies > 0 && (
+                  <Row dark={dm} label="Fonds dédiés (19)" value={bilan.passif.fondsDedies} indent={1} />
+                )}
+                <Row dark={dm} label="Provisions risques et charges (dont IDR)" value={bilan.passif.provisions} indent={1} />
                 <Row dark={dm} label="Dettes financières (emprunts)" value={bilan.passif.dettesFinancieres} indent={1} />
                 <Row dark={dm} label="Dettes fournisseurs" value={bilan.passif.dettesFournisseurs} indent={1} />
                 <Row dark={dm} label="Dettes sociales URSSAF" value={bilan.passif.dettesURSSAF} indent={1} />

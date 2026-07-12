@@ -18,6 +18,9 @@ import {
   calculerBudgetDirection, calculerBudgetService, calculerBudgetPoleSupport,
   calculerProvisions, calculerTaxeSalairesProgressif,
 } from './calculations';
+import { calculerSyntheseFondsDedies } from './fondsDedies';
+import { calculerSyntheseBenevolat } from './valorisationBenevolat';
+import { calculerProvisionIDR } from './provisionIDR';
 import { PRIME_SEGUR, CHARGES_PATRONALES } from './constants';
 
 const safe = (n) => (Number.isFinite(n) ? n : 0);
@@ -64,7 +67,8 @@ const _sumTaxeProgressif = (details) =>
  *   budgets: { direction: Object, poleSupport: Object|null, services: Array }
  * }}
  */
-export const calculerResultatExercice = (direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null) => {
+export const calculerResultatExercice = (direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null, extras = {}) => {
+  const { fondsDedies = [], benevoles = [] } = extras || {};
   const annee = globalParams?.anneeExercice || 2026;
   const msETP = globalParams?.montantSegurETP ?? PRIME_SEGUR;
   const coeffBP = globalParams?.coefficientBP ?? 100;
@@ -103,17 +107,52 @@ export const calculerResultatExercice = (direction, services, poleSupport, globa
 
   const provisions = safe(calculerProvisions(direction, services, globalParams, poleSupport, poolRH)?.total);
 
-  const chargesTotales = chargesBudgetaires + provisions + taxeSalaires;
-  const resultatNet = produits - chargesTotales;
+  // ── Dotation IDR actuarielle (UCP / IAS 19) ─────────────────────────
+  // Dotation de l'exercice = variation de l'engagement actuariel entre N−1 et N
+  // (coût des services rendus + désactualisation). Le STOCK d'engagement au
+  // 31/12/N−1 relève du bilan d'ouverture, non modélisé ici. Une dotation
+  // négative vaut reprise (ligne signée). Désactivable : globalParams.integrerIDR = false.
+  let dotationIDR = 0;
+  if (globalParams?.integrerIDR !== false) {
+    const idrN = calculerProvisionIDR(direction, services, poleSupport, { ...globalParams, anneeExercice: annee });
+    const idrN1 = calculerProvisionIDR(direction, services, poleSupport, { ...globalParams, anneeExercice: annee - 1 });
+    dotationIDR = safe(idrN.totalProvisionAvecCharges) - safe(idrN1.totalProvisionAvecCharges);
+  }
+
+  // ── Fonds dédiés (ANC 2018-06) — comptes 689 / 789 / 19 ─────────────
+  // 689 : engagements à réaliser (part non consommée des ressources affectées de N)
+  // 789 : report des ressources non utilisées des exercices antérieurs
+  const synthFD = calculerSyntheseFondsDedies(fondsDedies);
+  const dotationFondsDedies = safe(synthFD.compte689);
+  const repriseFondsDedies = safe(synthFD.compte78);
+
+  // ── Contributions volontaires en nature (classe 8, comptes 86/87) ───
+  // Sans impact sur le résultat — exposées pour le pied du compte de résultat.
+  const synthBenevolat = (benevoles || []).length > 0 ? calculerSyntheseBenevolat(benevoles) : null;
+
+  const produitsTotaux = produits + repriseFondsDedies;
+  const chargesTotales = chargesBudgetaires + provisions + dotationIDR + taxeSalaires + dotationFondsDedies;
+  const resultatNet = produitsTotaux - chargesTotales;
 
   return {
     annee,
-    produits,
+    produits: produitsTotaux,
+    produitsBudgetaires: produits,
     chargesBudgetaires,
     provisions,
+    dotationIDR,
     taxeSalaires,
     chargesTotales,
     resultatNet,
+    fondsDedies: {
+      dotation689: dotationFondsDedies,
+      reprise789: repriseFondsDedies,
+      passif19: safe(synthFD.reportN1),
+      parCategorie: synthFD.parCategorie,
+    },
+    benevolat: synthBenevolat
+      ? { compte86: synthBenevolat.compte86, compte87: synthBenevolat.compte87, parCategorie: synthBenevolat.parCategorie }
+      : null,
     detail: {
       totalSalaires,
       remunerationsBrutes,
