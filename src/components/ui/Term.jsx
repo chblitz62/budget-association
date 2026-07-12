@@ -48,6 +48,7 @@ const SHORTCUT_MAP = {
   'amortissements': 'amortissement',
   'urssaf': 'urssaf',
   'point mort': 'point_mort',
+  'cchs': 'cchs',
 };
 
 // Auto-add ETP if not in glossary (it's referenced as label)

@@ -86,6 +86,7 @@ const BudgetTool = () => {
     balanceComptable, setBalanceComptable,
     benevoles, setBenevoles,
     fondsDedies, setFondsDedies,
+    referentielStructure, setReferentielStructure,
     repartitionTemps, setRepartitionTemps,
     engagements, setEngagements,
     msETP, coefficientBP,
@@ -370,6 +371,7 @@ const BudgetTool = () => {
           benevoles={benevoles} setBenevoles={setBenevoles}
           fondsDedies={fondsDedies} setFondsDedies={setFondsDedies}
           appendAuditEntry={appendAuditEntry}
+          tresorerie={tresorerie}
         />
       )}
 

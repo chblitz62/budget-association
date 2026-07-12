@@ -28,6 +28,10 @@ function newAgent() {
     tauxSubvRegion: 100,
     multiAffectation: true,
     affectations: [],
+    genre: '',          // 'H' | 'F' | '' (non renseigné) — pour parité H/F
+    anneeNaissance: 0,  // année — pour pyramide des âges + IDR/IFC
+    dateEntree: 0,      // année — pour ancienneté + IDR/IFC + turn-over entrées
+    dateSortie: 0,      // 0 = en activité ; année > 0 = année de sortie (turn-over)
   };
 }
 
@@ -289,6 +293,32 @@ export default function PoolRHManager({ poolRH, setPoolRH, services, direction, 
                           value={data.tauxChargesManuel ?? ''}
                           placeholder="Auto"
                           onChange={e => setField('tauxChargesManuel', e.target.value === '' ? null : parseFloat(e.target.value))} />
+                      </div>
+                      <div>
+                        <label className={`block text-xs mb-1 ${label}`}>Genre (parité H/F)</label>
+                        <select className={input} value={data.genre || ''} onChange={e => setField('genre', e.target.value)}>
+                          <option value="">— non renseigné —</option>
+                          <option value="H">Homme</option>
+                          <option value="F">Femme</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={`block text-xs mb-1 ${label}`}>Année naissance</label>
+                        <input className={input} type="number" min="1940" max="2010" placeholder="ex. 1985"
+                          value={data.anneeNaissance || ''}
+                          onChange={e => setField('anneeNaissance', parseInt(e.target.value) || 0)} />
+                      </div>
+                      <div>
+                        <label className={`block text-xs mb-1 ${label}`}>Année d'entrée</label>
+                        <input className={input} type="number" min="1980" max="2050" placeholder="ex. 2018"
+                          value={data.dateEntree || ''}
+                          onChange={e => setField('dateEntree', parseInt(e.target.value) || 0)} />
+                      </div>
+                      <div>
+                        <label className={`block text-xs mb-1 ${label}`}>Année de sortie</label>
+                        <input className={input} type="number" min="1980" max="2050" placeholder="0 = en activité"
+                          value={data.dateSortie || ''}
+                          onChange={e => setField('dateSortie', parseInt(e.target.value) || 0)} />
                       </div>
                       <div className="flex flex-col gap-1">
                         <label className="flex items-center gap-2 cursor-pointer">

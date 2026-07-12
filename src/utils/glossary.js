@@ -135,6 +135,105 @@ export const GLOSSARY = [
     levier:
       "Calendrier strict de déclaration (DSN) ; éviter les pénalités de retard (10 %) ; optimiser le calendrier des virements.",
   },
+  {
+    id: 'marge_securite',
+    term: 'Marge de sécurité',
+    categorie: 'pilotage',
+    definition:
+      "Écart entre l'effectif actuel et le point mort, exprimé en % de l'effectif. Mesure la capacité de la promo à absorber un recrutement décevant ou des abandons sans basculer en perte.",
+    impact:
+      "≥ 25 % = activité confortable ; entre 0 et 25 % = équilibre fragile, un aléa ferait basculer la promo ; < 0 % = perte structurelle (sous le point mort).",
+    levier:
+      "Sécuriser le recrutement ; valoriser un effectif minimum garanti dans les conventions OPCO ; réduire les charges fixes (mutualisation locaux/RH) pour abaisser le point mort.",
+  },
+  {
+    id: 'cchs',
+    term: 'CCHS — Coût Complet Horaire Stagiaire',
+    categorie: 'pilotage',
+    definition:
+      "Coût complet d'un service (charges directes + quote-part siège réallouée) divisé par le total des heures stagiaires dispensées (effectif × heures/an).",
+    impact:
+      "Indicateur de référence pour la facturation OPCO et la négociation des tarifs CPOM Région. Permet de comparer la rentabilité de filières aux durées différentes.",
+    levier:
+      "Optimiser la clé de répartition (ETP, surface, heures) ; ajuster le volume horaire pédagogique ; négocier le tarif horaire OPCO.",
+  },
+  {
+    id: 'marge_contribution',
+    term: 'Marge de contribution',
+    categorie: 'pilotage',
+    definition:
+      "Recettes du service moins ses seules charges variables (consommables, vacataires, fluides). Mesure ce que chaque service apporte pour absorber les charges fixes communes (siège, RH permanents, locaux).",
+    impact:
+      "Taux ≥ 30 % = service \"levier\" qui finance la structure et les autres filières ; taux entre 0 et 30 % = contribution marginale ; taux ≤ 0 = poids mort destructeur de valeur. Permet de classer les filières par rentabilité réelle.",
+    levier:
+      "Renforcer les leviers (effectifs, tarifs OPCO) ; renégocier ou restructurer les marginaux ; trancher stratégiquement les poids morts (arrêt ou refonte du modèle économique).",
+  },
+  {
+    id: 'pnl_analytique',
+    term: 'P&L analytique',
+    categorie: 'pilotage',
+    definition:
+      "Compte de résultat (Profit & Loss) décliné par service, traité comme un centre de profit autonome. Produits ventilés en classes PCG 70/74/75 ; charges directes en 60-65/68 ; quote-part de structure réallouée selon une clé (ETP, surface…) pour aboutir au résultat net analytique.",
+    impact:
+      "Permet de juger la santé financière de chaque filière APRÈS absorption de sa part de siège — pas seulement avant. Marge nette ≥ 5 % = service durable ; négative = déficitaire après réallocation. Indicateur clé pour les arbitrages stratégiques DG/CA et la négociation CPOM par lieu.",
+    levier:
+      "Optimiser le mix produits (renforcer les recettes 70/74), maîtriser le poste 64 (personnel, plus gros bloc), choisir une clé de répartition siège équitable (ETP standard, surface si locaux différenciés).",
+  },
+  {
+    id: 'bpf',
+    term: 'BPF — Bilan Pédagogique et Financier',
+    categorie: 'comptable',
+    definition:
+      "Formulaire CERFA 10443 obligatoire annuellement pour tout Organisme de Formation déclaré (art. L.6352-11 du Code du travail). Contient l'identification de l'OF (NDA, SIRET), la ventilation des produits par origine de financement (entreprises, OPCO, pouvoirs publics, particuliers, CPF/apprentissage), les charges (sous-traitance, salaires formateurs, autres dépenses) et les heures-stagiaires.",
+    impact:
+      "**Non-transmission avant le 30 avril N+1 = retrait du Numéro de Déclaration d'Activité**, soit la perte du statut d'OF et donc de l'accès aux financements publics (CPF, OPCO, Région). Sanction immédiate et irréversible sans recours administratif.",
+    levier:
+      "Préparer le BPF tout au long de l'année en classifiant rigoureusement les recettes par origine (regex sur libellés OPCO/Région/État) et en distinguant les formateurs internes des intervenants externes (rôle 'formateur' vs sous-traitance). Soumission via bilanpedagogique.travail-emploi.gouv.fr.",
+  },
+  {
+    id: 'bilan_social',
+    term: 'Bilan Social annuel',
+    categorie: 'masse_salariale',
+    definition:
+      "Synthèse normalisée des indicateurs RH (effectifs, rémunérations, pyramide des âges, parité H/F, turn-over, OETH, formation, conditions d'hygiène/sécurité, accidents du travail) consolidée sur l'année écoulée. Référence : Code travail art. L.2312-28. Obligatoire dans les entreprises de 300 ETP et plus, fortement recommandé en deçà.",
+    impact:
+      "Présenté au CSE (en présence) et à l'AG annuelle des associations. Permet d'objectiver les politiques RH, de tracer les écarts H/F et de documenter les actions de prévention. **L'absence des indicateurs de sécurité (TF/TG INRS) ou la sous-déclaration des AT/MP expose à un redressement URSSAF + faute inexcusable.**",
+    levier:
+      "Centraliser la collecte tout au long de l'année (registre AT/MP, registre formation, fichiers RH unifiés). Présenter le bilan en CSE avec un plan d'amélioration documenté et chiffré pour les indicateurs en alerte. Archiver le PDF avec le PV de l'AG.",
+  },
+  {
+    id: 'duer',
+    term: "DUER — Document Unique d'Évaluation des Risques",
+    categorie: 'masse_salariale',
+    definition:
+      "Inventaire formalisé des risques professionnels (physiques, psychosociaux, ergonomiques, biologiques, chimiques, organisationnels, routiers, incendie) par unité de travail, avec cotation Probabilité × Gravité (matrice 5×5 méthode INRS) et plan d'action de prévention. Obligation Code travail art. R.4121-1 dès le 1er salarié.",
+    impact:
+      "**Mise à jour annuelle obligatoire (R.4121-2)** ou à chaque modification importante des conditions de travail / accident du travail. Sanction pénale : amende 5e classe (1 500 € par UT manquante, 3 000 € en récidive). Engage la responsabilité civile et pénale du dirigeant en cas d'AT/MP grave (faute inexcusable de l'employeur — art. L.452-1 CSS, indemnisations triplées).",
+    levier:
+      "Programmer une revue annuelle pluridisciplinaire (RH + référent prévention + CSE le cas échéant), associer des plans d'action chiffrés à chaque risque élevé/critique, suivre les échéances. Le DUER est consultable par l'inspection du travail, les agents URSSAF, le médecin du travail et les salariés (R.4121-4).",
+  },
+  {
+    id: 'qualiopi',
+    term: 'Qualiopi (Référentiel National Qualité — RNQ)',
+    categorie: 'comptable',
+    definition:
+      "Certification obligatoire (Code travail art. L.6316-1, arrêté du 6 juin 2019) attestant la qualité du processus mis en œuvre par les organismes de formation. 32 indicateurs RNQ audités tous les 3 ans, dont I-9 (taux d'abandon), I-23 (insertion 6 mois), I-24 (taux de certification), I-30 (satisfaction stagiaires) et I-31 (satisfaction financeurs).",
+    impact:
+      "**Perte de la certification = perte d'accès aux financements publics CPF, OPCO, Région, France Travail.** L'auditeur exige une preuve documentée pour CHAQUE indicateur (questionnaire signé, attestation employeur, PV de jury, registre nominatif) — l'absence de preuve vaut non-conformité, indépendamment de la valeur réelle du taux.",
+    levier:
+      "Mettre en place un dispositif de collecte continu (enquêtes fin de promo, suivi cohorte 6 mois, registre des plaintes), pas seulement en J-30 de l'audit. Documenter les écarts et les plans d'action correctifs. Conserver les preuves au minimum sur le cycle triennal complet.",
+  },
+  {
+    id: 'pyramide_ages',
+    term: 'Pyramide des âges',
+    categorie: 'masse_salariale',
+    definition:
+      "Représentation de la répartition des effectifs par tranches d'âge (généralement 5 ans). Permet de visualiser l'équilibre démographique d'une organisation et la concentration éventuelle des départs en retraite.",
+    impact:
+      "Une pyramide déséquilibrée vers le haut (>30 % de seniors > 55 ans) signale un risque cumulé : vague d'IFC à provisionner, perte de savoir-faire critique, sous-effectif structurel à 5-7 ans. À l'inverse, une pyramide trop jeune fragilise la transmission d'expérience.",
+    levier:
+      "Plan GPEC (Gestion Prévisionnelle des Emplois et Compétences), tutorat junior/senior, recrutement structurel anticipant les départs, optimisation des départs en retraite progressive (CCN 66).",
+  },
 ];
 
 export const CATEGORIES = {

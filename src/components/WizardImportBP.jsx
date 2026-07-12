@@ -467,6 +467,9 @@ export default function WizardImportBP({ onClose, services, poleSupport, directi
         role: detectRole(agent.emploi),
         rqth: false,
         anneeNaissance: 0,
+        genre: '',
+        dateEntree: 0,
+        dateSortie: 0,
       };
       targetPersonnel.push(newEntry);
       addedPersonnel++;

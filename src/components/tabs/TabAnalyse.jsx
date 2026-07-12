@@ -16,6 +16,19 @@ import ResteAEngagerPanel from '../ResteAEngagerPanel';
 import ValorisationBenevolatPanel from '../ValorisationBenevolatPanel';
 import FondsDediesPanel from '../FondsDediesPanel';
 import ClesRepartitionPanel from '../ClesRepartitionPanel';
+import CoutUniteOeuvrePanel from '../CoutUniteOeuvrePanel';
+import SeuilRentabilitePanel from '../SeuilRentabilitePanel';
+import SuiviPromosPanel from '../SuiviPromosPanel';
+import MargeContributionPanel from '../MargeContributionPanel';
+import AnalyseRHCentreCoutPanel from '../AnalyseRHCentreCoutPanel';
+import PnlAnalytiquePanel from '../PnlAnalytiquePanel';
+import PyramideAgesPanel from '../PyramideAgesPanel';
+import PariteTurnOverPanel from '../PariteTurnOverPanel';
+import BPFPanel from '../BPFPanel';
+import QualiopiPanel from '../QualiopiPanel';
+import DUERPanel from '../DUERPanel';
+import BilanSocialPanel from '../BilanSocialPanel';
+import SimulateurSubventionsPanel from '../SimulateurSubventionsPanel';
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Line, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 
 export default function TabAnalyse({
@@ -54,6 +67,7 @@ export default function TabAnalyse({
   fondsDedies = [],
   setFondsDedies = null,
   appendAuditEntry = null,
+  tresorerie = null,
 }) {
   const getProvisions = getProvisionsProp || (() => calculerProvisions(direction, services, globalParams, poleSupport));
   const getBFR = getBFRProp || (() => calculerBFR(direction, services, globalParams, poleSupport));
@@ -153,6 +167,47 @@ export default function TabAnalyse({
         globalParams={globalParams}
       />
 
+      {/* ═══ BPF — Bilan Pédagogique et Financier (CERFA 10443 — Axe 10) ═══ */}
+      <BPFPanel
+        darkMode={darkMode}
+        direction={direction}
+        services={services}
+        poleSupport={poleSupport}
+        poolRH={poolRH}
+        globalParams={globalParams}
+        setGlobalParams={setGlobalParams}
+      />
+
+      {/* ═══ QUALIOPI — Indicateurs RNQ opposables (Axe 10) ═══ */}
+      <QualiopiPanel
+        darkMode={darkMode}
+        services={services}
+        globalParams={globalParams}
+        setGlobalParams={setGlobalParams}
+      />
+
+      {/* ═══ DUER — Évaluation des Risques Professionnels (Axe 8) ═══ */}
+      <DUERPanel
+        darkMode={darkMode}
+        services={services}
+        poleSupport={poleSupport}
+        direction={direction}
+        globalParams={globalParams}
+        setGlobalParams={setGlobalParams}
+      />
+
+      {/* ═══ BILAN SOCIAL annuel (Axe 8 — synthèse multi-modules CSE/AG) ═══ */}
+      <BilanSocialPanel
+        darkMode={darkMode}
+        direction={direction}
+        services={services}
+        poleSupport={poleSupport}
+        poolRH={poolRH}
+        globalParams={globalParams}
+        setGlobalParams={setGlobalParams}
+        statsFormation={statsFormation}
+      />
+
       {/* ═══ RESTE À ENGAGER (RAE) — Cycle d'achat ═══ */}
       <ResteAEngagerPanel
         darkMode={darkMode}
@@ -187,6 +242,89 @@ export default function TabAnalyse({
         getBudgetService={getBudgetService}
         globalParams={globalParams}
         setGlobalParams={setGlobalParams}
+      />
+
+      {/* ═══ COÛT PAR UNITÉ D’ŒUVRE — Coût/Étudiant + CCHS (Axe 6 + Axe 3) ═══ */}
+      <CoutUniteOeuvrePanel
+        darkMode={darkMode}
+        services={services}
+        getBudgetDirection={getBudgetDirection}
+        getBudgetService={getBudgetService}
+        globalParams={globalParams}
+        setGlobalParams={setGlobalParams}
+      />
+
+      {/* ═══ SEUIL DE RENTABILITÉ — Point Mort par filière (Axe 3) ═══ */}
+      <SeuilRentabilitePanel
+        darkMode={darkMode}
+        services={services}
+        getBudgetDirection={getBudgetDirection}
+        getBudgetService={getBudgetService}
+        globalParams={globalParams}
+        setGlobalParams={setGlobalParams}
+      />
+
+      {/* ═══ SUIVI DES QUOTAS PAR PROMO — Rupture de charge (Axe 3) ═══ */}
+      <SuiviPromosPanel
+        darkMode={darkMode}
+        services={services}
+        globalParams={globalParams}
+        setGlobalParams={setGlobalParams}
+      />
+
+      {/* ═══ REPORTING DE CONTRIBUTION — Leviers / Poids morts (Axe 6) ═══ */}
+      <MargeContributionPanel
+        darkMode={darkMode}
+        services={services}
+        getBudgetDirection={getBudgetDirection}
+        getBudgetService={getBudgetService}
+        globalParams={globalParams}
+      />
+
+      {/* ═══ ANALYSE RH PAR CENTRE DE COÛT (Axe 6) ═══ */}
+      <AnalyseRHCentreCoutPanel
+        darkMode={darkMode}
+        services={services}
+        poolRH={poolRH}
+        getBudgetService={getBudgetService}
+        globalParams={globalParams}
+      />
+
+      {/* ═══ PYRAMIDE DES ÂGES & ANCIENNETÉ (Axe 8) ═══ */}
+      <PyramideAgesPanel
+        darkMode={darkMode}
+        direction={direction}
+        services={services}
+        poleSupport={poleSupport}
+        globalParams={globalParams}
+      />
+
+      {/* ═══ PARITÉ H/F & TURN-OVER (Axe 8) ═══ */}
+      <PariteTurnOverPanel
+        darkMode={darkMode}
+        direction={direction}
+        services={services}
+        poleSupport={poleSupport}
+        poolRH={poolRH}
+        globalParams={globalParams}
+      />
+
+      {/* ═══ P&L ANALYTIQUE PAR SERVICE (Axe 6) ═══ */}
+      <PnlAnalytiquePanel
+        darkMode={darkMode}
+        services={services}
+        getBudgetDirection={getBudgetDirection}
+        getBudgetService={getBudgetService}
+        globalParams={globalParams}
+      />
+
+      {/* ═══ STRESS-TEST TRÉSORERIE ciblé Subventions (Axe 2) ═══ */}
+      <SimulateurSubventionsPanel
+        darkMode={darkMode}
+        direction={direction}
+        services={services}
+        poleSupport={poleSupport}
+        tresorerie={tresorerie}
       />
 
       {/* ═══ SYNTHÈSE CONSOLIDÉE CROSS-MODULES ═══ */}

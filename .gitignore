@@ -27,3 +27,9 @@ Thumbs.db
 # Claude Code
 .claude/
 .vercel
+
+# Artefacts electron-builder
+release/
+
+# Fichiers de verrou LibreOffice
+.~lock.*#

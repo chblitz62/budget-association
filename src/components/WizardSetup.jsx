@@ -45,6 +45,7 @@ const newAgent = (overrides = {}) => ({
   typeContrat: 'CDI', dateFinContrat: '', role: 'formateur',
   nbJoursRTT: 0, joursConges: 25,
   multiAffectation: false, affectations: [],
+  genre: '', dateEntree: 0, dateSortie: 0,
   ...overrides,
 });
 
