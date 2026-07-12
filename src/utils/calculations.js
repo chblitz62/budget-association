@@ -1689,7 +1689,11 @@ export const calculerPartPoolRH = (poolRH = [], entityType, entityId, montantSeg
     const sal = calculerSalaireAnnuel(agent.salaire, etpEffectif, montantSegur, agent.typeContrat, agent.tauxChargesManuel);
 
     totalSalaires += sal.total;
-    details.push({ ...agent, etpEffectif, pctAffecte: pctNorm, coutQuotePart: sal.total });
+    details.push({
+      ...agent, etpEffectif, pctAffecte: pctNorm, coutQuotePart: sal.total,
+      // Composantes brutes de la quote-part (base taxe sur salaires + décomposition 641/645)
+      brut: sal.brut, brutSegur: sal.brutSegur, primeBrute: sal.primeBrute,
+    });
   });
 
   return { totalSalaires, details };

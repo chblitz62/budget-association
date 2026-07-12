@@ -20,11 +20,11 @@ const Row = ({ label, value, indent = 0, dark, isSubtotal, isTotal, sign = false
   );
 };
 
-export default function TableauFinancementPanel({ darkMode, direction, services, poleSupport, globalParams }) {
+export default function TableauFinancementPanel({ darkMode, direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null }) {
   const [expanded, setExpanded] = useState(false);
   const tf = useMemo(
-    () => calculerTableauFinancement(direction, services, poleSupport, globalParams),
-    [direction, services, poleSupport, globalParams]
+    () => calculerTableauFinancement(direction, services, poleSupport, globalParams, poolRH, planningAbsences),
+    [direction, services, poleSupport, globalParams, poolRH, planningAbsences]
   );
 
   const exportCSV = () => {

@@ -18,6 +18,7 @@ import {
   verifierCoherencePoolRH,
   calculerRollingForecast,
 } from '../utils/calculations';
+import { calculerResultatExercice } from '../utils/resultatExercice';
 
 export const BudgetContext = createContext(null);
 
@@ -100,17 +101,22 @@ export const BudgetProvider = ({ children }) => {
     parService: services.map(srv => ({ id: srv.id, nom: srv.nom, stats: srv.promos ? calculerStatsFormation(srv) : null })),
   }), [services]);
 
+  // Résultat de l'exercice — source unique de vérité (identique au compte de
+  // résultat, au bilan prévisionnel et au tableau de financement)
+  const resultatExercice = useMemo(
+    () => calculerResultatExercice(direction, services, poleSupport, globalParams, poolRH, planningAbsences),
+    [direction, services, poleSupport, globalParams, poolRH, planningAbsences]
+  );
+
   const kpiGlobaux = useMemo(() => {
-    const budgetDir = getBudgetDirection();
-    const budgetPS  = getBudgetPoleSupport();
-    const recettes = services.reduce((sum, s) => {
-      if (stressTest !== 0) return sum + appliquerStressTest(s.recettes || [], stressTest);
-      return sum + getBudgetService(s).recettes;
-    }, 0)
-    + (stressTest !== 0 ? appliquerStressTest(direction.recettes || [], stressTest) : budgetDir.recettes)
-    + (stressTest !== 0 ? appliquerStressTest(poleSupport.recettes || [], stressTest) : budgetPS.recettes);
-    const recettesBase = services.reduce((sum, s) => sum + getBudgetService(s).recettes, 0) + budgetDir.recettes + budgetPS.recettes;
-    const charges = services.reduce((sum, s) => sum + getBudgetService(s).total, 0) + budgetDir.total + budgetPS.total;
+    const recettes = stressTest !== 0
+      ? services.reduce((sum, s) => sum + appliquerStressTest(s.recettes || [], stressTest), 0)
+        + appliquerStressTest(direction.recettes || [], stressTest)
+        + appliquerStressTest(poleSupport.recettes || [], stressTest)
+      : resultatExercice.produits;
+    const recettesBase = resultatExercice.produits;
+    // Charges totales = charges budgétaires + provisions + taxe sur salaires
+    const charges = resultatExercice.chargesTotales;
     const solde = recettes - charges;
     const etp = (direction.personnel || []).reduce((s, p) => s + (parseFloat(p.etp) || 0), 0)
       + (poleSupport.personnel || []).reduce((s, p) => s + (parseFloat(p.etp) || 0), 0)
@@ -132,10 +138,11 @@ export const BudgetProvider = ({ children }) => {
       totalETP: etp, totalEtudiants: etudiants,
       tauxCouverture: charges > 0 ? (recettes / charges) * 100 : 0,
       coutParEtudiant: etudiants > 0 ? Math.round(charges / etudiants) : 0,
-      totalProvisions: getProvisions().total,
+      totalProvisions: resultatExercice.provisions,
+      totalTaxeSalaires: resultatExercice.taxeSalaires,
       totalEngagementsOuverts,
     };
-  }, [services, direction, poleSupport, stressTest, getBudgetService, getBudgetDirection, getBudgetPoleSupport, getProvisions, budgetData.engagements]);
+  }, [services, direction, poleSupport, poolRH, stressTest, resultatExercice, budgetData.engagements]);
 
   const alertes = useMemo(() => {
     const { hasDeficit, soldeGlobal, totalRecettes, totalCharges, tauxCouverture } = kpiGlobaux;
@@ -174,6 +181,7 @@ export const BudgetProvider = ({ children }) => {
     getProvisions, getBFR, getFondRoulement,
     cbBudgetSvc, cbBudgetDir, cbBudgetPS,
     // Aggregates
+    resultatExercice,
     summary3Ans, budgetAnnuel, tresorerie, projection36, rollingForecastData,
     masseSalarialeTotal, personnelEligibleSubvention, statsFormation,
     // KPIs + alertes

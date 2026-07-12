@@ -5,18 +5,21 @@
 // Construction à partir des modules existants :
 //   - Immobilisations brutes / amortissements / nettes : calculerFondRoulement
 //   - Capitaux propres : globalParams.fondRoulement[] (réserves, RAN…) + résultat de l'exercice
-//   - Provisions : calculerProvisions
+//   - Résultat de l'exercice : calculerResultatExercice (source unique — identique au
+//     dashboard, au compte de résultat et au tableau de financement)
+//   - Provisions : calculerProvisions (via la source unique)
 //   - BFR (créances clients, dettes fournisseurs, dettes URSSAF) : calculerBFR
-//   - Trésorerie = Fonds de Roulement − BFR (positive → Disponibilités, négative → Découvert)
+//   - FRNG = Capitaux permanents (capitaux propres + provisions + dettes financières)
+//            − Immobilisations nettes  (PCG : les provisions et dettes financières à
+//            plus d'un an font partie des capitaux permanents — c'est ce qui garantit
+//            l'équilibre actif/passif par construction)
+//   - Trésorerie = FRNG − BFR (positive → Disponibilités, négative → Découvert)
 //   - Dettes financières : capital restant dû des emprunts
 //
 // Référence : Règl. ANC 2018-06, Plan Comptable Associatif.
 
-import {
-  calculerFondRoulement, calculerBFR, calculerProvisions,
-  calculerBudgetDirection, calculerBudgetService, calculerBudgetPoleSupport,
-} from './calculations';
-import { PRIME_SEGUR } from './constants';
+import { calculerFondRoulement, calculerBFR } from './calculations';
+import { calculerResultatExercice } from './resultatExercice';
 
 const safe = (n) => (Number.isFinite(n) ? n : 0);
 
@@ -51,27 +54,15 @@ const sumFinancements = (entites) => {
  *   equilibre: { ecart, valide }
  * }}
  */
-export const calculerBilanPrevisionnel = (direction, services, poleSupport, globalParams) => {
-  const annee = globalParams?.anneeExercice || new Date().getFullYear();
-  const msETP = globalParams?.montantSegurETP ?? PRIME_SEGUR;
-  const bpCoeff = globalParams?.coefficientBP ?? 100;
-
-  // ── Calcul du résultat de l'exercice (= solde global) ─────────────
-  const bdDir = calculerBudgetDirection(direction, null, annee, msETP, [], null, bpCoeff);
-  const bdPS  = poleSupport ? calculerBudgetPoleSupport(poleSupport, null, annee, msETP, [], null, bpCoeff) : { total: 0, recettes: 0 };
-  let recettesTotal = safe(bdDir.recettes) + safe(bdPS.recettes);
-  let chargesTotal = safe(bdDir.total) + safe(bdPS.total);
-  (services || []).forEach(s => {
-    const b = calculerBudgetService(s, null, annee, msETP, [], null, bpCoeff);
-    recettesTotal += safe(b.recettes);
-    chargesTotal += safe(b.total);
-  });
-  const resultatExercice = recettesTotal - chargesTotal;
+export const calculerBilanPrevisionnel = (direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null) => {
+  // ── Résultat de l'exercice — source unique de vérité ──────────────
+  const rex = calculerResultatExercice(direction, services, poleSupport, globalParams, poolRH, planningAbsences);
+  const annee = rex.annee;
+  const resultatExercice = rex.resultatNet;
 
   // ── Modules existants ──────────────────────────────────────────────
   const fr = calculerFondRoulement(direction, services, globalParams, poleSupport, resultatExercice);
-  const bfrData = calculerBFR(direction, services, globalParams, poleSupport, []);
-  const prov = calculerProvisions(direction, services, globalParams, poleSupport);
+  const bfrData = calculerBFR(direction, services, globalParams, poleSupport, poolRH);
 
   // ── ACTIF ─────────────────────────────────────────────────────────
   const immobilisationsBrutes = safe(fr.totalImmobilisations);
@@ -81,25 +72,29 @@ export const calculerBilanPrevisionnel = (direction, services, poleSupport, glob
   const stocks = safe(bfrData.stocks);
   const creancesClients = safe(bfrData.creancesClients);
 
-  // BFR exploitation = stocks + créances − (dettes fournisseurs + dettes URSSAF)
-  const bfrExploitation = safe(bfrData.bfr);
-  // Trésorerie nette = FR − BFR
-  const tresorerieNette = safe(fr.fondRoulement) - bfrExploitation;
-  const disponibilites = Math.max(0, tresorerieNette);
-  const decouvert = Math.max(0, -tresorerieNette);
-
-  const totalActif = immobilisationsNettes + stocks + creancesClients + disponibilites;
-
-  // ── PASSIF ────────────────────────────────────────────────────────
+  // ── PASSIF (composantes) ──────────────────────────────────────────
   const capitauxPropresManuels = safe(fr.totalCapitauxManuels);
   // Capitaux propres total = réserves + RAN (manuels) + résultat de l'exercice
   const totalCapitauxPropres = capitauxPropresManuels + resultatExercice;
 
-  const provisions = safe(prov?.total);
+  const provisions = safe(rex.provisions);
   const dettesFinancieres = safe(sumFinancements([direction, poleSupport, ...(services || [])].filter(Boolean)));
   const dettesFournisseurs = safe(bfrData.dettesFournisseurs);
   const dettesURSSAF = safe(bfrData.dettesURSSAF);
 
+  // ── TRÉSORERIE ────────────────────────────────────────────────────
+  // FRNG = capitaux permanents − immobilisations nettes.
+  // calculerFondRoulement ne retient que capitaux propres + résultat : on y ajoute
+  // les provisions et les dettes financières (capitaux permanents au sens PCG).
+  const frng = safe(fr.fondRoulement) + provisions + dettesFinancieres;
+  // BFR exploitation = stocks + créances − (dettes fournisseurs + dettes URSSAF)
+  const bfrExploitation = safe(bfrData.bfr);
+  // Trésorerie nette = FRNG − BFR
+  const tresorerieNette = frng - bfrExploitation;
+  const disponibilites = Math.max(0, tresorerieNette);
+  const decouvert = Math.max(0, -tresorerieNette);
+
+  const totalActif = immobilisationsNettes + stocks + creancesClients + disponibilites;
   const totalPassif = totalCapitauxPropres + provisions + dettesFinancieres + dettesFournisseurs + dettesURSSAF + decouvert;
 
   // ── Vérification d'équilibre ──────────────────────────────────────
@@ -131,5 +126,8 @@ export const calculerBilanPrevisionnel = (direction, services, poleSupport, glob
       ecart,
       valide: Math.abs(ecart) < 1, // tolérance arrondi
     },
+    frng,
+    bfr: bfrExploitation,
+    tresorerieNette,
   };
 };

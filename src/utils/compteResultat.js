@@ -3,51 +3,34 @@
 //
 // Référence : ANC 2018-06 (associations & fondations), classes PCG 60–69 / 70–79.
 // Format : structure normative attendue par les financeurs (CAC, bailleurs, conseil départemental).
+//
+// RÉCONCILIATION : le résultat net de ce compte de résultat est par construction
+// identique à celui du dashboard, du bilan prévisionnel et du tableau de
+// financement — tous consomment calculerResultatExercice (source unique).
 
-import { calculerBudgetDirection, calculerBudgetService, calculerBudgetPoleSupport, calculerProvisions } from './calculations';
-import { CHARGES_PATRONALES } from './constants';
+import { calculerResultatExercice } from './resultatExercice';
 
 /**
  * Construit le compte de résultat formel à partir du budget prévisionnel.
  * @returns {{ charges: Array, produits: Array, totaux: object }}
  */
-export const calculerCompteResultat = (direction, services, poleSupport, globalParams) => {
-  const annee = globalParams?.anneeExercice || new Date().getFullYear();
-
-  const bdDir = calculerBudgetDirection(direction, null, annee);
-  const bdPS  = poleSupport ? calculerBudgetPoleSupport(poleSupport, null, annee) : null;
-  const bdSvcs = (services || []).map(s => calculerBudgetService(s, null, annee));
-
-  const sumBy = (key) => {
-    const dir = bdDir[key] || 0;
-    const ps = bdPS?.[key] || 0;
-    const svc = bdSvcs.reduce((s, b) => s + (b[key] || 0), 0);
-    return dir + ps + svc;
-  };
+export const calculerCompteResultat = (direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null) => {
+  const rex = calculerResultatExercice(direction, services, poleSupport, globalParams, poolRH, planningAbsences);
+  const { annee, budgets, detail } = rex;
+  const bdSvcs = budgets.services;
 
   // ── CHARGES (classes 60–68) ──────────────────────────────────────────
-  const totalSalaires = sumBy('salaires');
-  // Décomposition brut / charges patronales (les calculs renvoient déjà le total chargé)
-  const tauxCP = CHARGES_PATRONALES;
-  const remunerationsBrutes = totalSalaires / (1 + tauxCP);
-  const chargesSociales = totalSalaires - remunerationsBrutes;
+  // Décomposition brut / charges sociales sur les bruts réels agent par agent
+  // (Fillon inclus) — plus de taux plat forfaitaire.
+  const remunerationsBrutes = detail.remunerationsBrutes;
+  const chargesSociales = detail.chargesSociales;
+  const coutCarenceMaladie = detail.coutCarenceMaladie;
 
-  const chargesExploitationDir = bdDir.chargesSiege || 0;
-  const chargesExploitationPS = bdPS?.exploitation || 0;
-  const chargesExploitationSvc = bdSvcs.reduce((s, b) => s + (b.exploitation || 0), 0);
-  const totalAchatsServices = chargesExploitationDir + chargesExploitationPS + chargesExploitationSvc;
-
-  const totalAmortissements = sumBy('amortissements');
-  const totalInterets = bdDir.interets || 0;
-
-  // Provisions
-  const prov = calculerProvisions(direction, services, globalParams, poleSupport);
-  const totalProvisions = prov?.total || 0;
-
-  // Taxe sur salaires (si activée)
-  const taxeSalaires = globalParams?.taxeSalaires
-    ? (sumBy('taxeSalairesAnnuelle') || 0)
-    : 0;
+  const totalAchatsServices = detail.exploitation;
+  const totalAmortissements = detail.amortissements;
+  const totalInterets = detail.interets;
+  const totalProvisions = rex.provisions;
+  const taxeSalaires = rex.taxeSalaires;
 
   const charges = [
     { code: '60', libelle: 'Achats (énergie, fournitures, matières)', montant: totalAchatsServices * 0.35, section: 'Exploitation' },
@@ -56,6 +39,7 @@ export const calculerCompteResultat = (direction, services, poleSupport, globalP
     { code: '63', libelle: 'Impôts, taxes et versements assimilés', montant: taxeSalaires, section: 'Exploitation' },
     { code: '64', libelle: 'Charges de personnel — Rémunérations brutes', montant: remunerationsBrutes, section: 'Exploitation' },
     { code: '64', libelle: 'Charges de personnel — Charges sociales et fiscales', montant: chargesSociales, section: 'Exploitation' },
+    { code: '64', libelle: 'Charges de personnel — Coût de carence maladie', montant: coutCarenceMaladie, section: 'Exploitation' },
     { code: '65', libelle: 'Autres charges de gestion courante', montant: totalAchatsServices * 0.15, section: 'Exploitation' },
     { code: '66', libelle: 'Charges financières (intérêts d\'emprunts)', montant: totalInterets, section: 'Financier' },
     { code: '67', libelle: 'Charges exceptionnelles', montant: 0, section: 'Exceptionnel' },
@@ -69,13 +53,13 @@ export const calculerCompteResultat = (direction, services, poleSupport, globalP
   const totalCharges = totalChargesExploitation + totalChargesFinancieres + totalChargesExceptionnelles;
 
   // ── PRODUITS (classes 70–78) ─────────────────────────────────────────
-  const totalRecettes = sumBy('recettes');
+  const totalRecettes = rex.produits;
 
   // Ventilation : on tente de classer par nature à partir des libellés
   const allRecettes = [
     ...(direction?.recettes || []),
     ...(poleSupport?.recettes || []),
-    ...services.flatMap(s => s.recettes || []),
+    ...(services || []).flatMap(s => s.recettes || []),
   ];
   const bpFrac = (globalParams?.coefficientBP ?? 100) / 100;
   const sumByType = (predicate) =>
@@ -85,8 +69,10 @@ export const calculerCompteResultat = (direction, services, poleSupport, globalP
   const isDonation = (r) => /don|mécén|mécénat|legs/i.test(r.nom || '');
   const isFC = (r) => /fc|formation continue|cifa|prestation/i.test(r.nom || '');
 
-  const totalSubventions = sumByType(isSubvention);
-  const totalDons = sumByType(isDonation);
+  // Subvention Région calculée sur les agents éligibles : classée en 74 (absente des lignes de recettes explicites)
+  const subventionRegionAgents = bdSvcs.reduce((s, b) => s + (b.subventionRegionAgents || 0), 0) * bpFrac;
+  const totalSubventions = sumByType(isSubvention) + subventionRegionAgents;
+  const totalDons = sumByType((r) => isDonation(r) && !isSubvention(r));
   const totalFC = sumByType((r) => isFC(r) && !isSubvention(r) && !isDonation(r));
   const totalAutresProduits = totalRecettes - totalSubventions - totalDons - totalFC;
 
@@ -118,6 +104,11 @@ export const calculerCompteResultat = (direction, services, poleSupport, globalP
       totalChargesExploitation, totalChargesFinancieres, totalChargesExceptionnelles, totalCharges,
       totalProduitsExploitation, totalProduitsFinanciers, totalProduitsExceptionnels, totalProduits,
       resultatExploitation, resultatFinancier, resultatCourant, resultatExceptionnel, resultatNet,
+    },
+    // Réconciliation avec la source unique (doit être ~0)
+    coherence: {
+      resultatReference: rex.resultatNet,
+      ecart: resultatNet - rex.resultatNet,
     },
   };
 };

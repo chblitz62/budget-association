@@ -23,11 +23,11 @@ const Row = ({ label, value, indent = 0, bold = false, dark, isSubtotal = false,
   );
 };
 
-export default function BilanPrevisionnelPanel({ darkMode, direction, services, poleSupport, globalParams }) {
+export default function BilanPrevisionnelPanel({ darkMode, direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null }) {
   const [expanded, setExpanded] = useState(false);
   const bilan = useMemo(
-    () => calculerBilanPrevisionnel(direction, services, poleSupport, globalParams),
-    [direction, services, poleSupport, globalParams]
+    () => calculerBilanPrevisionnel(direction, services, poleSupport, globalParams, poolRH, planningAbsences),
+    [direction, services, poleSupport, globalParams, poolRH, planningAbsences]
   );
 
   const exporterCSV = () => {

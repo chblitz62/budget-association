@@ -14,11 +14,8 @@
 //   - Variation BFR = BFR(N) − BFR(N-1)  (estimé, ou 0 si N-1 absent)
 //   - Variation trésorerie = ΔFRNG − ΔBFR
 
-import {
-  calculerFondRoulement, calculerBFR, calculerProvisions,
-  calculerBudgetDirection, calculerBudgetService, calculerBudgetPoleSupport,
-} from './calculations';
-import { PRIME_SEGUR } from './constants';
+import { calculerBFR } from './calculations';
+import { calculerResultatExercice } from './resultatExercice';
 
 const safe = (n) => (Number.isFinite(parseFloat(n)) ? parseFloat(n) : 0);
 
@@ -93,28 +90,17 @@ const sumRemboursementsCapital = (entites) => {
  *   detail: { caf: { resultat, dotAmortissements, dotProvisions } },
  * }}
  */
-export const calculerTableauFinancement = (direction, services, poleSupport, globalParams) => {
-  const annee = globalParams?.anneeExercice || new Date().getFullYear();
-  const msETP = globalParams?.montantSegurETP ?? PRIME_SEGUR;
-  const bpCoeff = globalParams?.coefficientBP ?? 100;
-
-  // ── Résultat de l'exercice ─────────────────────────────────────
-  const bdDir = calculerBudgetDirection(direction, null, annee, msETP, [], null, bpCoeff);
-  const bdPS  = poleSupport ? calculerBudgetPoleSupport(poleSupport, null, annee, msETP, [], null, bpCoeff) : { total: 0, recettes: 0 };
-  let recettes = safe(bdDir.recettes) + safe(bdPS.recettes);
-  let charges = safe(bdDir.total) + safe(bdPS.total);
-  (services || []).forEach(s => {
-    const b = calculerBudgetService(s, null, annee, msETP, [], null, bpCoeff);
-    recettes += safe(b.recettes);
-    charges += safe(b.total);
-  });
-  const resultat = recettes - charges;
+export const calculerTableauFinancement = (direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null) => {
+  // ── Résultat de l'exercice — source unique de vérité ───────────
+  // (identique au dashboard, au compte de résultat et au bilan prévisionnel)
+  const rex = calculerResultatExercice(direction, services, poleSupport, globalParams, poolRH, planningAbsences);
+  const annee = rex.annee;
+  const resultat = rex.resultatNet;
 
   // ── Dotations (dans la CAF on les rajoute car non décaissées) ───
   const entites = [direction, poleSupport, ...(services || [])].filter(Boolean);
   const dotAmortissements = sumAmortissementsAnnuels(entites);
-  const provData = calculerProvisions(direction, services, globalParams, poleSupport);
-  const dotProvisions = safe(provData?.total);
+  const dotProvisions = safe(rex.provisions);
 
   const caf = resultat + dotAmortissements + dotProvisions;
 
@@ -134,7 +120,7 @@ export const calculerTableauFinancement = (direction, services, poleSupport, glo
   const variationFRNG = totalRessources - totalEmplois;
 
   // ── Variation BFR (estimation simple : BFR N — pas d'historique) ─
-  const bfrN = calculerBFR(direction, services, globalParams, poleSupport, []);
+  const bfrN = calculerBFR(direction, services, globalParams, poleSupport, poolRH);
   const variationBFR = safe(globalParams?.variationBFRReelle) || 0; // si renseigné ; sinon 0
   const _bfrCourant = safe(bfrN.bfr);
 

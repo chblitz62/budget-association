@@ -5,11 +5,11 @@ import DataTable from './ui/DataTable';
 
 const fmt = (n) => Math.round(n || 0).toLocaleString('fr-FR') + ' €';
 
-export default function CompteResultatPanel({ darkMode, direction, services, poleSupport, globalParams }) {
+export default function CompteResultatPanel({ darkMode, direction, services, poleSupport, globalParams, poolRH = [], planningAbsences = null }) {
   const [expanded, setExpanded] = useState(false);
   const cr = useMemo(
-    () => calculerCompteResultat(direction, services, poleSupport, globalParams),
-    [direction, services, poleSupport, globalParams]
+    () => calculerCompteResultat(direction, services, poleSupport, globalParams, poolRH, planningAbsences),
+    [direction, services, poleSupport, globalParams, poolRH, planningAbsences]
   );
 
   const cellHeader = darkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-100 text-slate-700';
